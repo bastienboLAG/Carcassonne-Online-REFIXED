@@ -154,6 +154,14 @@ eventBus.on('turn-ended', (data) => {
     }
 });
 
+eventBus.on('tile-rotated', (data) => {
+    // ✅ Mettre à jour tuileEnMain.rotation pour que SlotsUI recalcule
+    // avec la bonne rotation (important côté joueur inactif qui reçoit la rotation via réseau)
+    if (tuileEnMain) {
+        tuileEnMain.rotation = data.rotation;
+    }
+});
+
 eventBus.on('meeple-placed', (data) => {
     if (meepleDisplayUI) {
         meepleDisplayUI.showMeeple(data.x, data.y, data.position, data.meepleType, data.playerColor);
