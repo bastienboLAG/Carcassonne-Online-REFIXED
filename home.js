@@ -685,11 +685,16 @@ function poserTuile(x, y, tile, isFirst = false) {
 function poserTuileSync(x, y, tile) {
     console.log('🔄 poserTuileSync appelé:', { x, y, tile });
     const isFirst = !firstTilePlaced;
+
+    // ✅ Mettre à null AVANT placeTile() car celui-ci émet 'tile-placed' de façon
+    // synchrone, ce qui déclenche refreshAllSlots() immédiatement.
+    // Si tuileEnMain est encore non-null à ce moment, des slots fantômes apparaissent.
+    tuileEnMain = null;
+
     tilePlacement.placeTile(x, y, tile, { isFirst, skipSync: true });
 
     if (!firstTilePlaced) firstTilePlaced = true;
     tuilePosee     = true;
-    tuileEnMain    = null;
     lastPlacedTile = { x, y };
 
     if (undoManager) undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
