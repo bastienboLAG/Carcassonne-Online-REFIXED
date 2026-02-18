@@ -1,0 +1,174 @@
+import { Tile } from '../Tile.js';
+
+/**
+ * GameSyncCallbacks - Factorise les callbacks réseau communs à l'hôte et aux invités
+ * Évite la duplication entre startGame() et startGameForInvite()
+ */
+export class GameSyncCallbacks {
+    constructor({
+        gameSync,
+        gameState,
+        deck,
+        turnManager,
+        tilePreviewUI,
+        meepleDisplayUI,
+        undoManager,
+        scoring,
+        zoneMerger,
+        slotsUI,
+        eventBus,
+        getPlacedMeeples,
+        onRemoteUndo,
+        onFinalScores,
+        onTileDestroyed,
+        onDeckReshuffled,
+        updateTurnDisplay,
+        poserTuileSync,
+    }) {
+        this.gameSync        = gameSync;
+        this.gameState       = gameState;
+        this.deck            = deck;
+        this.turnManager     = turnManager;
+        this.tilePreviewUI   = tilePreviewUI;
+        this.meepleDisplayUI = meepleDisplayUI;
+        this.undoManager     = undoManager;
+        this.scoring         = scoring;
+        this.zoneMerger      = zoneMerger;
+        this.slotsUI         = slotsUI;
+        this.eventBus        = eventBus;
+
+        // Accesseurs / callbacks vers home.js
+        this.getPlacedMeeples  = getPlacedMeeples;   // () => placedMeeples
+        this.onRemoteUndo      = onRemoteUndo;        // (action) => void
+        this.onFinalScores     = onFinalScores;       // (scores) => void
+        this.onTileDestroyed   = onTileDestroyed;     // (id, name, action) => void
+        this.onDeckReshuffled  = onDeckReshuffled;    // (tiles, idx) => void
+        this.updateTurnDisplay = updateTurnDisplay;   // () => void
+        this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
+    }
+
+    /**
+     * Attacher tous les callbacks sur gameSync
+     * @param {boolean} isHost
+     */
+    attach(isHost) {
+        const gs = this.gameSync;
+
+        // ── Réception du deck (invité seulement) ──────────────────────────────
+        gs.onGameStarted = (deckData, gameStateData) => {
+            console.log('🎮 [INVITÉ] Pioche reçue !');
+            this.deck.tiles        = deckData.tiles;
+            this.deck.currentIndex = deckData.currentIndex;
+            this.deck.totalTiles   = deckData.totalTiles;
+            this.gameState.deserialize(gameStateData);
+            this.eventBus.emit('deck-updated', {
+                remaining: this.deck.remaining(),
+                total:     this.deck.total()
+            });
+            this.updateTurnDisplay();
+            this.slotsUI.createCentralSlot();
+        };
+
+        // ── Rotation d'une tuile ──────────────────────────────────────────────
+        gs.onTileRotated = (rotation) => {
+            const currentImg = document.getElementById('current-tile-img');
+            if (currentImg) {
+                const currentDeg = parseInt(
+                    currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0'
+                );
+                currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
+            }
+            this.eventBus.emit('tile-rotated', { rotation });
+        };
+
+        // ── Placement d'une tuile ─────────────────────────────────────────────
+        gs.onTilePlaced = (x, y, tileId, rotation) => {
+            console.log('📍 [SYNC] Placement reçu:', x, y, tileId, rotation);
+            const tileData = this.deck.tiles.find(t => t.id === tileId);
+            if (tileData) {
+                const tile = new Tile(tileData);
+                tile.rotation = rotation;
+                this.poserTuileSync(x, y, tile);
+            }
+        };
+
+        // ── Fin de tour ───────────────────────────────────────────────────────
+        gs.onTurnEnded = (nextPlayerIndex, gameStateData) => {
+            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData);
+        };
+
+        // ── Pioche d'une tuile ────────────────────────────────────────────────
+        gs.onTileDrawn = (tileId, rotation) => {
+            this.turnManager.receiveTileDrawn(tileId, rotation);
+        };
+
+        // ── Placement d'un meeple ─────────────────────────────────────────────
+        gs.onMeeplePlaced = (x, y, position, meepleType, color, playerId) => {
+            console.log('🎭 [SYNC] Meeple placé par un autre joueur');
+            const placedMeeples = this.getPlacedMeeples();
+            const key = `${x},${y},${position}`;
+            placedMeeples[key] = { type: meepleType, color, playerId };
+            this.meepleDisplayUI.showMeeple(x, y, position, meepleType, color);
+        };
+
+        // ── Mise à jour du compteur de meeples ───────────────────────────────
+        gs.onMeepleCountUpdate = (playerId, meeples) => {
+            console.log('🎭 [SYNC] Mise à jour compteur reçue:', playerId, meeples);
+            const player = this.gameState.players.find(p => p.id === playerId);
+            if (player) {
+                player.meeples = meeples;
+                this.eventBus.emit('meeple-count-updated', { playerId, meeples });
+            }
+        };
+
+        // ── Mise à jour des scores ────────────────────────────────────────────
+        gs.onScoreUpdate = (scoringResults, meeplesToReturn) => {
+            console.log('💰 [SYNC] Mise à jour des scores reçue');
+            const placedMeeples = this.getPlacedMeeples();
+
+            scoringResults.forEach(({ playerId, points, zoneType }) => {
+                const player = this.gameState.players.find(p => p.id === playerId);
+                if (player) {
+                    player.score += points;
+                    if (zoneType === 'city')       player.scoreDetail.cities      += points;
+                    else if (zoneType === 'road')  player.scoreDetail.roads       += points;
+                    else if (zoneType === 'abbey') player.scoreDetail.monasteries += points;
+                }
+            });
+
+            meeplesToReturn.forEach(key => {
+                document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+                delete placedMeeples[key];
+            });
+
+            this.updateTurnDisplay();
+        };
+
+        // ── Annulation distante ───────────────────────────────────────────────
+        gs.onTurnUndo = (undoneAction) => {
+            console.log('⏪ [SYNC] Annulation distante reçue');
+            this.onRemoteUndo(undoneAction);
+        };
+
+        // ── Fin de partie ─────────────────────────────────────────────────────
+        gs.onGameEnded = (detailedScores) => {
+            console.log('🏁 [SYNC] Fin de partie reçue');
+            this.onFinalScores(detailedScores);
+        };
+
+        // ── Tuile détruite ────────────────────────────────────────────────────
+        gs.onTileDestroyed = (tileId, playerName, action) => {
+            console.log('🗑️ [SYNC] Tuile détruite:', tileId, 'par', playerName);
+            if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
+            this.onTileDestroyed(tileId, playerName, action);
+        };
+
+        // ── Deck remélangé ────────────────────────────────────────────────────
+        gs.onDeckReshuffled = (tiles, currentIndex) => {
+            console.log('🔀 [SYNC] Réception deck remélangé, currentIndex:', currentIndex);
+            this.deck.tiles        = tiles;
+            this.deck.currentIndex = currentIndex;
+            this.onDeckReshuffled(tiles, currentIndex);
+        };
+    }
+}

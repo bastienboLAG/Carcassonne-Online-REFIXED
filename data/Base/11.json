@@ -1,0 +1,41 @@
+{
+  "id": "11",
+  "quantity": 3,
+  "extension": "base",
+  "image": "./assets/Base/C2/11.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north"],
+      "features": [],
+      "meeplePosition": "3"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["east", "west-top", "south-right"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "20"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["west", "south"],
+      "features": [],
+      "meeplePosition": "12"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "17"
+    }
+  ]
+
+}
+
+

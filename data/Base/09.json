@@ -1,0 +1,33 @@
+{
+  "id": "09",
+  "quantity": 2,
+  "extension": "base",
+  "image": "./assets/Base/C2/09.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north"],
+      "features": [],
+      "meeplePosition": "3"
+    },
+    {
+      "id": 2,
+      "type": "city",
+      "edges": ["east"],
+      "features": [],
+      "meeplePosition": "15"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["west", "south"],
+      "features": {
+   	 "adjacentCities": [1,2]
+		  },
+      "meeplePosition": "13"
+    }
+  ]
+}
+
+

@@ -1,0 +1,30 @@
+{
+  "id": "22",
+  "quantity": 9,
+  "extension": "base",
+  "image": "./assets/Base/C2/22.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north", "west-top", "east", "south-right"],
+      "features": [],
+      "meeplePosition": "9"
+    },
+    {
+      "id": 2,
+      "type": "road",
+      "edges": ["west", "south"],
+      "features": [],
+      "meeplePosition": "18"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "16"
+    }
+  ]
+}
+

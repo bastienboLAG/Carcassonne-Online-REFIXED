@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Carcassonne Online</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="home-page">
+    <!-- ========== PAGE LOBBY ========== -->
+    <div id="lobby-page" class="home-container">
+        <div class="home-left">
+            <h1>CARCASSONNE</h1>
+            
+            <!-- Choix du pseudo -->
+            <div class="pseudo-section">
+                <label for="pseudo-input">Votre pseudo :</label>
+                <input type="text" id="pseudo-input" placeholder="Entrez votre pseudo" maxlength="20">
+            </div>
+            
+            <!-- Boutons multijoueur -->
+            <div class="multiplayer-buttons">
+                <button id="create-game-btn" class="mp-button">Créer une partie</button>
+                <button id="join-game-btn" class="mp-button">Rejoindre une partie</button>
+                
+                <!-- Affichage du code avec bouton copier -->
+                <div id="game-code-container" style="display: none;">
+                    <div class="code-display">
+                        <span id="game-code-text"></span>
+                        <button id="copy-code-btn" class="copy-btn">📋 Copier</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="lobby-section">
+                <h3>Lobby de partie</h3>
+                
+                <!-- Liste vide au départ, remplie dynamiquement -->
+                <div class="players-list" id="players-list">
+                    <div class="player-slot empty">
+                        <span class="player-name">En attente de joueurs...</span>
+                    </div>
+                </div>
+
+                <div class="color-picker">
+                    <h4>Choisissez votre couleur :</h4>
+                    <div class="color-grid" id="color-grid">
+                        <label class="color-option" data-color="black">
+                            <input type="radio" name="color" value="black">
+                            <img src="./assets/Meeples/Black/Normal.png" class="meeple-img" alt="Black">
+                        </label>
+                        <label class="color-option" data-color="red">
+                            <input type="radio" name="color" value="red">
+                            <img src="./assets/Meeples/Red/Normal.png" class="meeple-img" alt="Red">
+                        </label>
+                        <label class="color-option" data-color="pink">
+                            <input type="radio" name="color" value="pink">
+                            <img src="./assets/Meeples/Pink/Normal.png" class="meeple-img" alt="Pink">
+                        </label>
+                        <label class="color-option" data-color="green">
+                            <input type="radio" name="color" value="green">
+                            <img src="./assets/Meeples/Green/Normal.png" class="meeple-img" alt="Green">
+                        </label>
+                        <label class="color-option selected" data-color="blue">
+                            <input type="radio" name="color" value="blue" checked>
+                            <img src="./assets/Meeples/Blue/Normal.png" class="meeple-img" alt="Blue">
+                        </label>
+                        <label class="color-option" data-color="yellow">
+                            <input type="radio" name="color" value="yellow">
+                            <img src="./assets/Meeples/Yellow/Normal.png" class="meeple-img" alt="Yellow">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="home-right">
+            <h2>Choix des règles</h2>
+            
+            <div class="config-section">
+                <h3>Départ</h3>
+                <div class="radio-group">
+                    <label><input type="radio" name="start" value="unique" checked> Tuile unique</label>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h3>Visuel</h3>
+                <div class="radio-group">
+                    <label><input type="radio" name="visual" value="c2" checked> Visuel C2</label>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h3>Options</h3>
+                <div class="options-columns">
+                    <div class="options-col">
+                        <label class="toggle-option">
+                            <input type="checkbox" id="list-remaining" checked>
+                            <span>Lister les tuiles restantes</span>
+                        </label>
+                        <label class="toggle-option">
+                            <input type="checkbox" id="use-test-deck">
+                            <span>Deck de test (15 tuiles)</span>
+                        </label>
+                        <label class="toggle-option">
+                            <input type="checkbox" id="enable-debug">
+                            <span>Mode debug (boutons test)</span>
+                        </label>
+                    </div>
+                    <div class="options-col">
+                        <h4>Tuile implaçable</h4>
+                        <label class="radio-inline"><input type="radio" name="unplaceable" value="destroy" checked> Détruire la tuile</label>
+                        <label class="radio-inline"><input type="radio" name="unplaceable" value="reshuffle"> Remettre dans la pioche</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section extensions-section">
+                <h3>Extensions</h3>
+                <details open>
+                    <summary><strong>Base</strong></summary>
+                    <label class="toggle-option">
+                        <input type="checkbox" id="base-fields" checked>
+                        <span>Les champs</span>
+                    </label>
+                </details>
+            </div>
+
+            <button id="start-game-btn" class="start-button">Démarrer la partie</button>
+        </div>
+    </div>
+
+    <!-- ========== PAGE DE JEU ========== -->
+    <div id="game-page" class="game-page" style="display: none;">
+        <div id="game-ui">
+            <h2>Carcassonne</h2>
+            
+            <div id="current-tile-container">
+                <h3>Tuile en main</h3>
+                <div id="tile-preview"></div>
+            </div>
+
+            <div id="tile-counter">Tuiles : 0 / 72</div>
+            
+            <button id="undo-btn" class="undo-btn">Annuler le coup !</button>
+            <button id="end-turn-btn">Terminer mon tour</button>
+            <div style="display: flex; gap: 10px;">
+                <button id="recenter-btn" class="secondary-btn" style="flex: 1;">🎯</button>
+                <button id="highlight-tile-btn" class="secondary-btn" style="flex: 1;">📌</button>
+            </div>
+            <button id="remaining-tiles-btn" class="info-btn">Tuiles restantes dans la pioche ?</button>
+            <button id="rules-btn" class="info-btn">Règles de cette partie ?</button>
+            
+            <button id="back-to-lobby-btn" style="display: none; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">← Retour lobby</button>
+        </div>
+
+        <div id="board-container">
+            <div id="board"></div>
+        </div>
+
+        <div id="score-panel">
+            <h2>Tableau de score</h2>
+            <div id="players-scores"></div>
+        </div>
+    </div>
+
+    <!-- Modale pour rejoindre une partie -->
+    <div id="join-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Rejoindre une partie</h2>
+            <p>Entrez le code de la partie :</p>
+            <input type="text" id="join-code-input" placeholder="Code de la partie" maxlength="50">
+            <div class="modal-buttons">
+                <button id="join-confirm-btn" class="modal-btn confirm">Rejoindre</button>
+                <button id="join-cancel-btn" class="modal-btn cancel">Annuler</button>
+            </div>
+            <p id="join-error" class="error-message" style="display: none;"></p>
+        </div>
+    </div>
+
+    <!-- Modale des scores finaux -->
+    <div id="final-scores-modal" class="modal" style="display: none;">
+        <div class="modal-content final-scores-content">
+            <h2>🏆 Scores finaux</h2>
+            <table id="final-scores-table">
+                <thead>
+                    <tr>
+                        <th>Joueur</th>
+                        <th>Villes</th>
+                        <th>Routes</th>
+                        <th>Abbayes</th>
+                        <th>Champs</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="final-scores-body">
+                    <!-- Rempli dynamiquement -->
+                </tbody>
+            </table>
+            <button id="close-final-scores-btn" class="modal-btn confirm">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Bouton de test debug (caché par défaut) -->
+    <button id="test-modal-btn" style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 10px 20px; background: red; color: white; border: none; cursor: pointer; border-radius: 5px; font-weight: bold;">🐛 TEST MODALE</button>
+
+    <!-- Badge tuile implaçable (position fixed, caché par défaut) -->
+    <div id="unplaceable-badge" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; background: #e74c3c; color: white; padding: 10px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); animation: badgePulse 1.5s ease-in-out infinite;">
+        ⚠️ Tuile implaçable — Cliquez pour confirmer
+    </div>
+
+    <!-- Modale tuile implaçable -->
+    <div id="unplaceable-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>⚠️ Tuile implaçable</h2>
+            <p id="unplaceable-modal-text">Cette tuile ne peut être placée sur le plateau.</p>
+            <p>Vous repiocherez une tuile pour continuer votre tour.</p>
+            <div class="modal-buttons">
+                <button id="unplaceable-confirm-btn" class="modal-btn confirm">Confirmer</button>
+                <button id="unplaceable-examine-btn" class="modal-btn cancel">Examiner le plateau</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale info destruction (visible par tous) -->
+    <div id="tile-destroyed-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>🗑️ Tuile détruite</h2>
+            <p id="tile-destroyed-text"></p>
+            <div class="modal-buttons">
+                <button id="tile-destroyed-ok-btn" class="modal-btn confirm">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="home.js"></script>
+</body>
+</html>

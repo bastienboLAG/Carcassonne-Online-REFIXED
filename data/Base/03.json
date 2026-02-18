@@ -1,0 +1,16 @@
+{
+  "id": "03",
+  "quantity": 1,
+  "extension": "base",
+  "image": "./assets/Base/C2/03.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north", "east", "south", "west"],
+      "features": ["shield"],
+      "meeplePosition": "13"
+    }
+  ]
+
+}

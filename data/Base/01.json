@@ -1,0 +1,30 @@
+{
+  "id": "01",
+  "quantity": 2,
+  "extension": "base",
+  "image": "./assets/Base/C2/01.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north", "east", "south-left", "south-right", "west"],
+      "features": [],
+      "meeplePosition": "5"
+    },
+    {
+      "id": 2,
+      "type": "road",
+      "edges": ["south"],
+      "features": [],
+      "meeplePosition": "19"
+    },
+    {
+      "id": 3,
+      "type": "abbey",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "13"
+    }
+  ]
+
+}

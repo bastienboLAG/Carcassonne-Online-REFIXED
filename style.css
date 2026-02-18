@@ -1,0 +1,868 @@
+/* style.css */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background-color: #000;
+    color: white;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+/* ========================================
+   STYLES POUR LA PAGE DE JEU
+   ======================================== */
+
+#game-page {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100vh;
+}
+
+.game-page {
+    display: flex;
+    flex-direction: row;
+}
+
+#game-ui {
+    width: 250px;
+    height: 100vh;
+    background-color: #2c3e50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 20px;
+    border-right: 3px solid #444;
+    z-index: 10;
+    box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+}
+
+#current-tile-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    text-align: center;
+}
+
+#tile-counter {
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    width: 100%;
+    text-align: center;
+}
+
+#board-container {
+    flex: 1; 
+    overflow: auto;
+    background-color: #000;
+    cursor: grab;
+}
+
+#board-container:active {
+    cursor: grabbing;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(100, 208px);
+    grid-template-rows: repeat(100, 208px);
+    width: 20800px;
+    height: 20800px;
+}
+
+.tile {
+    width: 208px;
+    height: 208px;
+    pointer-events: none;
+}
+
+.slot {
+    width: 198px;
+    height: 198px;
+    border: 1px dashed #444;
+    margin: 5px;
+    background-color: rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.slot:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: gold;
+}
+
+/* Les slots readonly ont la même apparence mais pas de hover gold */
+.slot-readonly:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: #444;
+}
+
+#tile-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 108px;
+    height: 108px;
+}
+
+#tile-preview img {
+    width: 104px;
+    height: 104px;
+    border: 2px solid gold;
+    object-fit: contain;
+}
+
+button {
+    padding: 10px 20px;
+    cursor: pointer;
+    background: gold;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    color: #000;
+}
+
+button:hover {
+    background: #ffcc00;
+}
+
+button:disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+
+.final-score-btn {
+    background: #e74c3c !important;
+    color: white !important;
+}
+
+.final-score-btn:hover {
+    background: #c0392b !important;
+}
+
+/* ========================================
+   STYLES POUR LA PAGE D'ACCUEIL
+   ======================================== */
+
+#lobby-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    width: 100%;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.home-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #1a1a1a;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.home-container {
+    display: flex;
+    gap: 40px;
+    max-width: 1400px;
+    width: 100%;
+}
+
+.home-left, .home-right {
+    background-color: #2c3e50;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.home-left {
+    flex: 1;
+    max-width: 450px;
+}
+
+.home-right {
+    flex: 1.5;
+    overflow-y: auto;
+    max-height: 85vh;
+}
+
+.home-left h1 {
+    font-size: 36px;
+    margin-bottom: 30px;
+    text-align: center;
+    color: gold;
+}
+
+.home-left h3, .home-right h2 {
+    color: gold;
+    margin-bottom: 20px;
+}
+
+.pseudo-section {
+    margin-bottom: 20px;
+}
+
+.pseudo-section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #ecf0f1;
+}
+
+.pseudo-section input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #34495e;
+    border-radius: 5px;
+    background-color: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 16px;
+}
+
+.pseudo-section input:focus {
+    outline: none;
+    border-color: gold;
+}
+
+.multiplayer-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.mp-button {
+    padding: 12px;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.mp-button:hover {
+    background: linear-gradient(135deg, #2980b9, #1f5d8b);
+    transform: translateY(-2px);
+}
+
+.code-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background-color: rgba(0,0,0,0.3);
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+#game-code-text {
+    flex: 1;
+    color: gold;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.copy-btn {
+    padding: 8px 12px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.3s;
+}
+
+.copy-btn:hover {
+    background: #229954;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: #2c3e50;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    max-width: 400px;
+    width: 90%;
+}
+
+.modal-content h2 {
+    color: gold;
+    margin-bottom: 15px;
+}
+
+.modal-content p {
+    margin-bottom: 15px;
+    color: #ecf0f1;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #34495e;
+    border-radius: 5px;
+    background-color: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+.modal-content input:focus {
+    outline: none;
+    border-color: gold;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.modal-btn.confirm {
+    background: linear-gradient(135deg, #27ae60, #229954);
+    color: white;
+}
+
+.modal-btn.confirm:hover {
+    background: linear-gradient(135deg, #229954, #1e8449);
+}
+
+.modal-btn.cancel {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.modal-btn.cancel:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+}
+
+.error-message {
+    color: #e74c3c;
+    font-size: 14px;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.player-slot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 5px;
+    border: 2px solid transparent;
+}
+
+.player-slot:not(.empty) {
+    border-color: gold;
+}
+
+.player-slot.empty {
+    opacity: 0.5;
+}
+
+.player-name {
+    font-size: 16px;
+}
+
+.player-meeple {
+    font-size: 24px;
+}
+
+.meeple-img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.player-meeple-img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.color-picker {
+    background-color: rgba(0,0,0,0.3);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.color-picker h4 {
+    margin-bottom: 15px;
+    color: white;
+}
+
+.color-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+}
+
+.color-option {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+    background-color: rgba(255,255,255,0.05);
+    border: 3px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.color-option:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.color-option.selected {
+    border-color: gold;
+    background-color: rgba(255,215,0,0.2);
+}
+
+.color-option.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.color-option.disabled:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.color-option input[type="radio"] {
+    display: none;
+}
+
+.meeple-icon {
+    font-size: 32px;
+}
+
+.config-section {
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.config-section:last-child {
+    border-bottom: none;
+}
+
+.config-section h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #ecf0f1;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.radio-group label {
+    padding: 8px 12px;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.radio-group label:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.radio-group input[type="radio"] {
+    margin-right: 10px;
+}
+
+.toggle-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.toggle-option input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+/* Options en 2 colonnes */
+.options-columns {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+}
+
+.options-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.options-col h4 {
+    font-size: 14px;
+    color: #bdc3c7;
+    margin-bottom: 6px;
+    margin-top: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.radio-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.radio-inline:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.radio-inline input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.config-note {
+    font-size: 12px;
+    color: #bdc3c7;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+.extensions-section details {
+    margin-bottom: 10px;
+    background-color: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.extensions-section summary {
+    cursor: pointer;
+    padding: 5px;
+    user-select: none;
+}
+
+.extensions-section summary:hover {
+    color: gold;
+}
+
+.start-button {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    margin-top: 30px;
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.start-button:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+}
+
+.secondary-btn {
+    background: white;
+    color: #333;
+    border: 2px solid #ddd;
+}
+
+.secondary-btn:hover {
+    background: #f0f0f0;
+    border-color: #ccc;
+}
+
+#tile-preview img {
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+#tile-preview img:hover {
+    transform: scale(1.05);
+}
+
+
+
+
+
+/* ========================================
+   NOUVEAUX STYLES - REFONTE INTERFACE
+   ======================================== */
+
+/* Bouton "Annuler le coup !" - Jaune/Gold */
+.undo-btn {
+    background: #f1c40f;
+    color: #000;
+    font-weight: bold;
+    width: 80%;
+}
+
+.undo-btn:hover {
+    background: #d4ac0d;
+}
+
+/* Boutons d'info - Gris foncé */
+.info-btn {
+    background: #546e7a;
+    color: white;
+    padding: 10px 15px;
+    font-size: 13px;
+    width: 100%;
+}
+
+.info-btn:hover {
+    background: #607d8b;
+}
+
+/* Panneau de score à droite */
+#score-panel {
+    width: 320px;
+    height: 100vh;
+    background-color: #2c3e50;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    border-left: 3px solid #444;
+    z-index: 10;
+    box-shadow: -4px 0 10px rgba(0,0,0,0.5);
+    overflow-y: auto;
+}
+
+#score-panel h2 {
+    color: gold;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+#players-scores {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.player-score-card {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s;
+}
+
+.player-score-card.active {
+    border-color: #2ecc71;
+    background-color: rgba(46, 204, 113, 0.1);
+}
+
+.player-score-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.player-score-header .turn-indicator {
+    color: #2ecc71;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.player-score-name {
+    flex: 1;
+    font-weight: bold;
+    font-size: 16px;
+    color: white;
+}
+
+.player-score-points {
+    font-weight: bold;
+    font-size: 16px;
+    color: gold;
+}
+
+.player-meeples-display {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.player-meeples-display img {
+    width: 25px;
+    height: 25px;
+    object-fit: contain;
+    opacity: 0.9;
+}
+
+.player-meeples-display img.unavailable {
+    opacity: 0.2;
+    filter: grayscale(100%);
+}
+
+/* Les 3 boutons principaux ont la même largeur */
+#end-turn-btn, #undo-btn, #recenter-btn {
+    width: 80%;
+}
+
+/* Animations pour highlight de tuile */
+@keyframes badgePulse {
+    0%, 100% { box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4); }
+    50%       { box-shadow: 0 4px 25px rgba(231, 76, 60, 0.9); }
+}
+
+@keyframes borderPulse {
+    0%, 100% { 
+        border-color: gold;
+        border-width: 3px;
+    }
+    50% { 
+        border-color: rgba(255, 215, 0, 0.3);
+        border-width: 5px;
+    }
+}
+
+@keyframes glowPulse {
+    0%, 100% { 
+        box-shadow: 0 0 20px 5px rgba(255, 215, 0, 0.8);
+    }
+    50% { 
+        box-shadow: 0 0 30px 10px rgba(255, 215, 0, 1);
+    }
+}
+
+@keyframes colorFlash {
+    0%, 100% { 
+        background-color: transparent;
+    }
+    50% { 
+        background-color: rgba(255, 215, 0, 0.3);
+    }
+}
+
+.tile-highlight {
+    border: 3px solid gold !important;
+    animation: borderPulse 1s ease-in-out, glowPulse 1s ease-in-out, colorFlash 0.5s ease-in-out;
+    animation-iteration-count: infinite, infinite, 6;
+    position: relative;
+    z-index: 10;
+}
+
+/* Modale des scores finaux */
+#final-scores-modal.modal {
+    background-color: rgba(0, 0, 0, 0.05) !important; /* Fond quasi transparent */
+}
+
+.final-scores-content {
+    max-width: 700px;
+    background-color: rgba(44, 62, 80, 0.92); /* Contenu semi-transparent */
+    backdrop-filter: blur(8px); /* Flou pour effet de verre */
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.final-scores-content h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #ecf0f1;
+    font-size: 28px;
+}
+
+#final-scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    background-color: rgba(52, 73, 94, 0.7);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#final-scores-table th {
+    background-color: rgba(41, 128, 185, 0.85);
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+#final-scores-table td {
+    padding: 12px;
+    text-align: center;
+    color: #ecf0f1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#final-scores-table tbody tr:first-child {
+    background-color: rgba(241, 196, 15, 0.25); /* Gagnant en surbrillance dorée */
+    font-weight: bold;
+}
+
+.player-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+}
+
+.player-name-cell img {
+    width: 30px;
+    height: 30px;
+}
+
+#close-final-scores-btn {
+    width: 100%;
+    margin-top: 10px;
+}
