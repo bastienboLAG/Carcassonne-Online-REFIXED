@@ -108,15 +108,16 @@ export class GameSync {
      */
     syncTurnEnd() {
         console.log('⏭️ Sync fin de tour');
-        
-        // Passer au joueur suivant
-        this.gameState.nextPlayer();
-        
-        // Diffuser aux autres joueurs
+
+        // ✅ Ne pas appeler gameState.nextPlayer() ici :
+        // turnManager.nextPlayer() est appelé dans home.js juste après,
+        // il gère lui-même le passage de joueur + la pioche.
+        // On broadcaste l'état AVANT le passage pour que les invités
+        // sachent qui joue ensuite via receiveTurnEnded().
         this.multiplayer.broadcast({
             type: 'turn-ended',
             playerId: this.multiplayer.playerId,
-            nextPlayerIndex: this.gameState.currentPlayerIndex,
+            nextPlayerIndex: (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length,
             gameState: this.gameState.serialize()
         });
         

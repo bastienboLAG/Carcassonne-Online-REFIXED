@@ -294,6 +294,17 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                     lobbyUI.setPlayers(players);
                 }
                 multiplayer.broadcast({ type: 'players-update', players });
+
+                // ✅ Envoyer l'état courant des options directement au nouvel invité
+                // (les broadcasts précédents ne l'avaient pas encore, il les a manqués)
+                const currentOptions = {
+                    'base-fields':     document.getElementById('base-fields')?.checked     ?? true,
+                    'list-remaining':  document.getElementById('list-remaining')?.checked  ?? true,
+                    'use-test-deck':   document.getElementById('use-test-deck')?.checked   ?? false,
+                    'enable-debug':    document.getElementById('enable-debug')?.checked    ?? false,
+                    'unplaceable':     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'destroy',
+                };
+                multiplayer.sendTo(from, { type: 'options-sync', options: currentOptions });
             }
 
             if (data.type === 'color-change') {
@@ -373,6 +384,19 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
             if (data.type === 'option-change') {
                 const checkbox = document.getElementById(data.option);
                 if (checkbox) checkbox.checked = data.value;
+            }
+            if (data.type === 'options-sync') {
+                // ✅ Réception de l'état complet des options au moment où on rejoint
+                const opts = data.options;
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && opts[id] !== undefined) el.checked = opts[id];
+                });
+                // Option radio tuile implaçable
+                if (opts['unplaceable']) {
+                    const radio = document.querySelector(`input[name="unplaceable"][value="${opts['unplaceable']}"]`);
+                    if (radio) radio.checked = true;
+                }
             }
             if (data.type === 'game-starting') {
                 console.log("🎮 [INVITÉ] L'hôte démarre la partie !");
@@ -817,9 +841,13 @@ function setupEventListeners() {
 
         if (gameSync) {
             gameSync.syncTurnEnd();
-            const currentPlayer = gameState.getCurrentPlayer();
-            isMyTurn = currentPlayer.id === multiplayer.playerId;
-            eventBus.emit('turn-changed', { isMyTurn, currentPlayer });
+        }
+
+        // ✅ turnManager.nextPlayer() gère : passage au joueur suivant,
+        // émission turn-changed, et drawTile() si c'est notre tour.
+        // C'est le seul endroit qui doit déclencher la pioche, y compris en solo.
+        if (turnManager) {
+            turnManager.nextPlayer();
         }
 
         // Fin de partie si deck vide

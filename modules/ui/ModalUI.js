@@ -205,6 +205,13 @@ export class ModalUI {
             optionsList.push('⚠️ Deck de test (15 tuiles)');
         }
         
+        // Option tuile implaçable
+        if (config.unplaceableAction === 'reshuffle') {
+            optionsList.push('✓ Tuile implaçable : remise dans la pioche');
+        } else {
+            optionsList.push('✓ Tuile implaçable : détruite');
+        }
+
         // Si aucune option, afficher message
         if (optionsList.length === 0) {
             optionsList.push('Aucune option activée');
