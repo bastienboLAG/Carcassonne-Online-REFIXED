@@ -118,8 +118,10 @@ eventBus.on('tile-drawn', (data) => {
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
 
     // Snapshot début de tour (sauf lors d'une annulation)
+    console.log('🔍 [DEBUG tile-drawn] undoManager:', !!undoManager, 'fromNetwork:', data.fromNetwork, 'fromUndo:', data.fromUndo);
     if (undoManager && !data.fromNetwork && !data.fromUndo) {
         undoManager.saveTurnStart(placedMeeples);
+        console.log('🔍 [DEBUG tile-drawn] saveTurnStart appelé, turnStartSnapshot:', !!undoManager.turnStartSnapshot);
     }
 
     // Synchroniser si c'est notre tour
