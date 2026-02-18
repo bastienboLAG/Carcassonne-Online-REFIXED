@@ -839,15 +839,14 @@ function setupEventListeners() {
         // Nettoyer les curseurs
         document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
 
-        if (gameSync) {
-            gameSync.syncTurnEnd();
-        }
-
-        // ✅ turnManager.nextPlayer() gère : passage au joueur suivant,
-        // émission turn-changed, et drawTile() si c'est notre tour.
-        // C'est le seul endroit qui doit déclencher la pioche, y compris en solo.
+        // ✅ nextPlayer() d'abord : met à jour currentPlayerIndex + drawTile() si solo
+        // Ensuite syncTurnEnd() broadcaste un gameState déjà à jour pour les invités
         if (turnManager) {
             turnManager.nextPlayer();
+        }
+
+        if (gameSync) {
+            gameSync.syncTurnEnd();
         }
 
         // Fin de partie si deck vide
@@ -944,6 +943,9 @@ function setupEventListeners() {
             }
 
             if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
+
+            // ✅ Remettre tileAvailable à true dans SlotsUI sinon les slots ne s'affichent pas
+            if (slotsUI) slotsUI.tileAvailable = true;
 
             // Re-émettre tile-drawn sans créer de snapshot
             eventBus.emit('tile-drawn', {

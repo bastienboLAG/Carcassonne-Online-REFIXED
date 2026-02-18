@@ -109,15 +109,14 @@ export class GameSync {
     syncTurnEnd() {
         console.log('⏭️ Sync fin de tour');
 
-        // ✅ Ne pas appeler gameState.nextPlayer() ici :
-        // turnManager.nextPlayer() est appelé dans home.js juste après,
-        // il gère lui-même le passage de joueur + la pioche.
-        // On broadcaste l'état AVANT le passage pour que les invités
-        // sachent qui joue ensuite via receiveTurnEnded().
+        // ✅ turnManager.nextPlayer() est appelé dans home.js AVANT syncTurnEnd(),
+        // donc currentPlayerIndex est déjà à jour ici.
+        // On broadcaste le gameState déjà mis à jour pour que les invités
+        // aient le bon état via receiveTurnEnded().
         this.multiplayer.broadcast({
             type: 'turn-ended',
             playerId: this.multiplayer.playerId,
-            nextPlayerIndex: (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length,
+            nextPlayerIndex: this.gameState.currentPlayerIndex,
             gameState: this.gameState.serialize()
         });
         
