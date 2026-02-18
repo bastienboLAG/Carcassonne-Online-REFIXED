@@ -28,6 +28,11 @@ import { LobbyUI }         from './modules/ui/LobbyUI.js';
 import { ModalUI }         from './modules/ui/ModalUI.js';
 
 // ═══════════════════════════════════════════════════════
+// DÉTECTION MOBILE
+// ═══════════════════════════════════════════════════════
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+
+// ═══════════════════════════════════════════════════════
 // VARIABLES LOBBY
 // ═══════════════════════════════════════════════════════
 const multiplayer = new Multiplayer();
@@ -116,6 +121,7 @@ eventBus.on('tile-drawn', (data) => {
     tuilePosee           = false;
 
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
+    updateMobileTilePreview();
 
     // Snapshot début de tour (sauf lors d'une annulation)
     if (undoManager && !data.fromNetwork && !data.fromUndo) {
@@ -139,6 +145,11 @@ eventBus.on('tile-drawn', (data) => {
     }
 });
 
+eventBus.on('deck-updated', (data) => {
+    const counter = document.getElementById('mobile-tile-counter');
+    if (counter) counter.textContent = `${data.remaining} / ${data.total}`;
+});
+
 eventBus.on('turn-changed', (data) => {
     isMyTurn = data.isMyTurn;
     console.log('🔄 Sync isMyTurn global:', isMyTurn);
@@ -160,6 +171,7 @@ eventBus.on('tile-rotated', (data) => {
     if (tuileEnMain) {
         tuileEnMain.rotation = data.rotation;
     }
+    updateMobileTilePreview();
 });
 
 eventBus.on('meeple-placed', (data) => {
@@ -603,6 +615,101 @@ function _postStartSetup() {
 }
 
 // ═══════════════════════════════════════════════════════
+// MOBILE — Mise à jour de l'UI
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Met à jour la barre joueurs mobile
+ */
+function updateMobilePlayers() {
+    if (!isMobile() || !gameState) return;
+    const container = document.getElementById('mobile-players-scores');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const currentPlayer = gameState.getCurrentPlayer();
+
+    gameState.players.forEach(player => {
+        const isActive = currentPlayer && player.id === currentPlayer.id;
+        const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+
+        const card = document.createElement('div');
+        card.className = 'mobile-player-card' + (isActive ? ' active' : '');
+
+        const name = document.createElement('div');
+        name.className = 'mobile-player-name';
+        name.textContent = player.name;
+        card.appendChild(name);
+
+        const score = document.createElement('div');
+        score.className = 'mobile-player-score';
+        score.textContent = player.score + ' pts';
+        card.appendChild(score);
+
+        const meeplesDiv = document.createElement('div');
+        meeplesDiv.className = 'mobile-player-meeples';
+        for (let i = 0; i < 7; i++) {
+            const img = document.createElement('img');
+            img.src = `./assets/Meeples/${colorCap}/Normal.png`;
+            if (i >= player.meeples) img.classList.add('unavailable');
+            meeplesDiv.appendChild(img);
+        }
+        card.appendChild(meeplesDiv);
+        container.appendChild(card);
+    });
+}
+
+/**
+ * Met à jour la preview de tuile mobile
+ */
+function updateMobileTilePreview() {
+    if (!isMobile()) return;
+    const preview = document.getElementById('mobile-tile-preview');
+    const counter = document.getElementById('mobile-tile-counter');
+    if (!preview) return;
+
+    if (tuileEnMain) {
+        preview.innerHTML = `<img id="mobile-tile-img" src="${tuileEnMain.imagePath}" style="transform: rotate(${tuileEnMain.rotation}deg);">`;
+    } else {
+        preview.innerHTML = '<img src="./assets/verso.png">';
+    }
+
+    if (counter && deck) {
+        counter.textContent = `${deck.remaining()} / ${deck.total()}`;
+    }
+}
+
+/**
+ * Met à jour l'état des boutons mobile (actif/inactif)
+ */
+function updateMobileButtons() {
+    if (!isMobile()) return;
+
+    const endBtn  = document.getElementById('mobile-end-turn-btn');
+    const undoBtn = document.getElementById('mobile-undo-btn');
+
+    if (endBtn) {
+        if (finalScoresManager?.gameEnded) {
+            endBtn.textContent = '📊 Scores';
+            endBtn.disabled = false;
+        } else if (waitingToRedraw && isMyTurn) {
+            endBtn.textContent = '🎲 Repiocher';
+            endBtn.disabled = false;
+        } else {
+            endBtn.textContent = 'Terminer mon tour';
+            endBtn.disabled = !isMyTurn || !tuilePosee;
+        }
+        endBtn.style.opacity = endBtn.disabled ? '0.4' : '1';
+    }
+
+    if (undoBtn) {
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded;
+        undoBtn.disabled = !canUndo;
+        undoBtn.style.opacity = canUndo ? '1' : '0.4';
+    }
+}
+
+// ═══════════════════════════════════════════════════════
 // FONCTIONS JEU
 // ═══════════════════════════════════════════════════════
 function updateTurnDisplay() {
@@ -642,7 +749,9 @@ function updateTurnDisplay() {
         undoBtn.style.cursor  = enabled ? 'pointer' : 'not-allowed';
     }
 
-    eventBus.emit('score-updated');
+    updateMobilePlayers();
+    updateMobileButtons();
+        eventBus.emit('score-updated');
 }
 
 function afficherMessage(msg) {
@@ -983,6 +1092,52 @@ function setupEventListeners() {
         if (!gameConfig) { alert('Aucune partie en cours'); return; }
         modalUI.showGameRules(gameConfig);
     });
+
+    // ── Boutons MOBILE ─────────────────────────────────────────────────────
+    if (isMobile()) {
+        // Rotation tuile mobile (tap sur la preview)
+        document.getElementById('mobile-tile-preview').addEventListener('click', () => {
+            if (!tuileEnMain || tuilePosee) return;
+            tuileEnMain.rotation = (tuileEnMain.rotation + 90) % 360;
+            updateMobileTilePreview();
+            if (gameSync) gameSync.syncTileRotation(tuileEnMain.rotation);
+            eventBus.emit('tile-rotated', { rotation: tuileEnMain.rotation });
+        });
+
+        // Terminer mon tour / Repiocher / Scores
+        document.getElementById('mobile-end-turn-btn').onclick =
+            document.getElementById('end-turn-btn').onclick;
+
+        // Annuler le coup
+        document.getElementById('mobile-undo-btn').addEventListener('click', () => {
+            document.getElementById('undo-btn').click();
+        });
+
+        // Recentrer
+        document.getElementById('mobile-recenter-btn').onclick =
+            document.getElementById('recenter-btn').onclick;
+
+        // Highlight dernière tuile
+        document.getElementById('mobile-highlight-btn').onclick =
+            document.getElementById('highlight-tile-btn').onclick;
+
+        // Tuiles restantes
+        document.getElementById('mobile-remaining-btn').addEventListener('click', () => {
+            document.getElementById('remaining-tiles-btn').click();
+        });
+
+        // Règles
+        document.getElementById('mobile-rules-btn').addEventListener('click', () => {
+            document.getElementById('rules-btn').click();
+        });
+
+        // Retour lobby (hôte uniquement)
+        const mobileLobbyBtn = document.getElementById('mobile-lobby-btn');
+        if (mobileLobbyBtn) {
+            mobileLobbyBtn.style.display = isHost ? 'flex' : 'none';
+            mobileLobbyBtn.onclick = document.getElementById('back-to-lobby-btn').onclick;
+        }
+    }
 
     eventListenersInstalled = true;
     console.log('✅ Event listeners installés');
