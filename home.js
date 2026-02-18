@@ -843,6 +843,15 @@ function setupEventListeners() {
         // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()
         if (undoManager) undoManager.reset();
 
+        // ✅ Vérifier fin de partie AVANT nextPlayer() :
+        // nextPlayer() appelle drawTile() qui consomme une tuile.
+        // Si la pioche est vide maintenant, plus rien à piocher → fin de partie.
+        if (deck.remaining() <= 0) {
+            if (gameSync) gameSync.syncTurnEnd();
+            finalScoresManager.computeAndApply(placedMeeples);
+            return;
+        }
+
         // ✅ nextPlayer() : passage au joueur suivant + drawTile() si solo
         // Ensuite syncTurnEnd() broadcaste un gameState déjà à jour pour les invités
         if (turnManager) {
@@ -851,12 +860,6 @@ function setupEventListeners() {
 
         if (gameSync) {
             gameSync.syncTurnEnd();
-        }
-
-        // Fin de partie si deck vide
-        if (deck.currentIndex >= deck.totalTiles) {
-            finalScoresManager.computeAndApply(placedMeeples);
-            return;
         }
 
         updateTurnDisplay();
@@ -1034,6 +1037,13 @@ function returnToLobby() {
 
     document.getElementById('final-scores-modal').style.display = 'none';
     document.getElementById('board').innerHTML = '';
+
+    // ✅ Remettre le zoom et le scroll à zéro pour la prochaine partie
+    const boardEl = document.getElementById('board');
+    const containerEl = document.getElementById('board-container');
+    if (boardEl) boardEl.style.transform = '';
+    if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
+    zoomLevel = 1;
 
     lobbyUI.show();
     lobbyUI.reset();
