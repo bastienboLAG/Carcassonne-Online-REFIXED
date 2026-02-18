@@ -839,7 +839,11 @@ function setupEventListeners() {
         // Nettoyer les curseurs
         document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
 
-        // ✅ nextPlayer() d'abord : met à jour currentPlayerIndex + drawTile() si solo
+        // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
+        // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()
+        if (undoManager) undoManager.reset();
+
+        // ✅ nextPlayer() : passage au joueur suivant + drawTile() si solo
         // Ensuite syncTurnEnd() broadcaste un gameState déjà à jour pour les invités
         if (turnManager) {
             turnManager.nextPlayer();
@@ -855,7 +859,6 @@ function setupEventListeners() {
             return;
         }
 
-        if (undoManager) undoManager.reset();
         updateTurnDisplay();
     };
 
