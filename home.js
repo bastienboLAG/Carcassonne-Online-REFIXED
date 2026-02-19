@@ -1104,9 +1104,10 @@ function setupEventListeners() {
             eventBus.emit('tile-rotated', { rotation: tuileEnMain.rotation });
         });
 
-        // Terminer mon tour / Repiocher / Scores
-        document.getElementById('mobile-end-turn-btn').onclick =
-            document.getElementById('end-turn-btn').onclick;
+        // Terminer mon tour / Repiocher / Scores — délégation vers le bouton PC
+        document.getElementById('mobile-end-turn-btn').addEventListener('click', () => {
+            document.getElementById('end-turn-btn').click();
+        });
 
         // Annuler le coup
         document.getElementById('mobile-undo-btn').addEventListener('click', () => {
@@ -1114,12 +1115,14 @@ function setupEventListeners() {
         });
 
         // Recentrer
-        document.getElementById('mobile-recenter-btn').onclick =
-            document.getElementById('recenter-btn').onclick;
+        document.getElementById('mobile-recenter-btn').addEventListener('click', () => {
+            document.getElementById('recenter-btn').click();
+        });
 
         // Highlight dernière tuile
-        document.getElementById('mobile-highlight-btn').onclick =
-            document.getElementById('highlight-tile-btn').onclick;
+        document.getElementById('mobile-highlight-btn').addEventListener('click', () => {
+            document.getElementById('highlight-tile-btn').click();
+        });
 
         // Tuiles restantes
         document.getElementById('mobile-remaining-btn').addEventListener('click', () => {

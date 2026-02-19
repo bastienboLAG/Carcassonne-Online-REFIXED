@@ -1,12 +1,15 @@
 /* style.css */
-html, body {
+html, html, body {
     margin: 0;
     padding: 0;
+    overflow: hidden;
+}
+
+body {
     height: 100%;
     background-color: #000;
     color: white;
     font-family: sans-serif;
-    overflow: hidden;
 }
 
 /* ========================================
