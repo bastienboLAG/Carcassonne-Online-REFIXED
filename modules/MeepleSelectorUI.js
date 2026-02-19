@@ -22,7 +22,8 @@ export class MeepleSelectorUI {
      * Afficher le sélecteur de meeple - COPIE EXACTE de afficherSelecteurMeeple()
      */
     show(x, y, position, zoneType, mouseX, mouseY, onMeepleSelected) {
-        console.log('📋 Sélecteur de meeple à la position', position, 'type:', zoneType);
+        const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
+        console.log('📋 Sélecteur meeple — zone:', zoneType, '— hasAbbot:', player?.hasAbbot, '— meeples:', player?.meeples, '— config.extensions.abbot:', this.config?.extensions?.abbot);
         
         // Nettoyer l'ancien sélecteur
         const oldSelector = document.getElementById('meeple-selector');

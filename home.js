@@ -590,6 +590,9 @@ async function startGame() {
     // Initialiser le flag Abbé pour chaque joueur
     if (gameConfig.extensions?.abbot) {
         gameState.players.forEach(p => { p.hasAbbot = true; });
+        console.log('✅ [HOST] hasAbbot initialisé pour', gameState.players.map(p => p.id));
+    } else {
+        console.log('ℹ️ [HOST] extension abbot désactivée — hasAbbot non initialisé');
     }
 
     gameSync = new GameSync(multiplayer, gameState, null);
@@ -627,6 +630,9 @@ async function startGameForInvite() {
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
     if (gameConfig.extensions?.abbot) {
         gameState.players.forEach(p => { p.hasAbbot = true; });
+        console.log('✅ [INVITÉ] hasAbbot initialisé pour', gameState.players.map(p => p.id));
+    } else {
+        console.log('ℹ️ [INVITÉ] extension abbot désactivée — gameConfig:', JSON.stringify(gameConfig.extensions));
     }
 
     gameSync = new GameSync(multiplayer, gameState, originalLobbyHandler);
@@ -971,6 +977,7 @@ function placerMeeple(x, y, position, meepleType) {
     const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
     if (!success) return;
 
+    console.log('🎭 placerMeeple — type:', meepleType, '— zone:', x, y, position);
     // Si l'Abbé est posé, il n'est plus disponible
     if (meepleType === 'Abbot') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);

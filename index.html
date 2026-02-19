@@ -85,13 +85,6 @@
             </div>
 
             <div class="config-section">
-                <h3>Visuel</h3>
-                <div class="radio-group">
-                    <label><input type="radio" name="visual" value="c2" checked> Visuel C2</label>
-                </div>
-            </div>
-
-            <div class="config-section">
                 <h3>Options</h3>
                 <div class="options-columns">
                     <div class="options-col">
@@ -110,8 +103,8 @@
                     </div>
                     <div class="options-col">
                         <h4>Tuile implaçable</h4>
-                        <label class="radio-inline"><input type="radio" name="unplaceable" value="destroy" checked> Détruire la tuile</label>
                         <label class="radio-inline"><input type="radio" name="unplaceable" value="reshuffle"> Remettre dans la pioche</label>
+                        <label class="radio-inline"><input type="radio" name="unplaceable" value="destroy" checked> Détruire la tuile</label>
                     </div>
                 </div>
             </div>
@@ -137,7 +130,7 @@
             <div class="config-section">
                 <h3>Tuiles</h3>
                 <label class="toggle-option">
-                    <input type="checkbox" id="tiles-base" checked disabled>
+                    <input type="checkbox" id="tiles-base" checked disabled style="pointer-events:none;opacity:0.5;">
                     <span>Base <em style="color:rgba(255,255,255,0.4)">(obligatoires)</em></span>
                 </label>
                 <label class="toggle-option">
