@@ -189,10 +189,12 @@ eventBus.on('meeple-placed', (data) => {
 
 eventBus.on('meeple-count-updated', (data) => {
     if (gameSync && data.playerId === multiplayer.playerId) {
+        // Toujours lire depuis gameState pour éviter de broadcaster null
+        const player = gameState?.players.find(p => p.id === data.playerId);
         gameSync.multiplayer.broadcast({
             type: 'meeple-count-update',
             playerId: data.playerId,
-            meeples:  data.meeples
+            meeples:  player ? player.meeples : data.meeples
         });
     }
 });
@@ -862,10 +864,15 @@ function handleRemoteUndo(undoneAction) {
 
     } else if (undoneAction.type === 'tile') {
         const { x, y } = undoneAction.tile;
+
+        // ✅ Retirer la tuile du plateau AVANT restoreSnapshot
+        delete plateau.placedTiles[`${x},${y}`];
+
         if (undoManager.turnStartSnapshot) {
             undoManager.restoreSnapshot(undoManager.turnStartSnapshot, placedMeeples);
         }
 
+        // Retirer du DOM
         let tileEl = document.querySelector(`.tile[data-pos="${x},${y}"]`);
         if (!tileEl) {
             tileEl = Array.from(document.querySelectorAll('.tile'))
