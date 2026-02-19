@@ -801,6 +801,7 @@ function handleRemoteUndo(undoneAction) {
 function poserTuile(x, y, tile, isFirst = false) {
     console.log('🎯 poserTuile appelé:', { x, y, tile, isFirst });
     const success = tilePlacement.placeTile(x, y, tile, { isFirst });
+    console.log('🎯 placeTile résultat:', success, '— tuilePosee avant:', tuilePosee);
     if (!success) return;
 
     tuilePosee      = true;
