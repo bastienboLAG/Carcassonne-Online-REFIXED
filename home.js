@@ -1096,6 +1096,7 @@ function setupEventListeners() {
     });
 
     // ── Boutons MOBILE ─────────────────────────────────────────────────────
+    console.log('📱 isMobile():', isMobile(), '— innerWidth:', window.innerWidth);
     if (isMobile()) {
         // Rotation tuile mobile (tap sur la preview)
         document.getElementById('mobile-tile-preview').addEventListener('click', () => {
