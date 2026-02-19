@@ -1212,12 +1212,14 @@ function returnToLobby() {
 // NAVIGATION (zoom + drag)
 // ═══════════════════════════════════════════════════════
 function setupNavigation(container, board) {
+    // ── PC : zoom molette ─────────────────────────────────────────────────
     container.addEventListener('wheel', (e) => {
         e.preventDefault();
         zoomLevel = Math.max(0.2, Math.min(3, zoomLevel + (e.deltaY > 0 ? -0.1 : 0.1)));
         board.style.transform = `scale(${zoomLevel})`;
     }, { passive: false });
 
+    // ── PC : drag souris ──────────────────────────────────────────────────
     container.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('tile') || e.target.classList.contains('slot')) return;
         isDragging = true;
@@ -1239,6 +1241,57 @@ function setupNavigation(container, board) {
         container.scrollLeft = scrollLeft - (x - startX) * 2;
         container.scrollTop  = scrollTop  - (y - startY) * 2;
     });
+
+    // ── Mobile : pinch-to-zoom + drag tactile ─────────────────────────────
+    if (isMobile()) {
+        let lastTouchDist   = null;
+        let lastTouchX      = null;
+        let lastTouchY      = null;
+        let touchScrollLeft = 0;
+        let touchScrollTop  = 0;
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                // Pinch : noter la distance initiale
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDist = Math.hypot(dx, dy);
+            } else if (e.touches.length === 1) {
+                // Drag 1 doigt
+                lastTouchX      = e.touches[0].clientX;
+                lastTouchY      = e.touches[0].clientY;
+                touchScrollLeft = container.scrollLeft;
+                touchScrollTop  = container.scrollTop;
+                lastTouchDist   = null;
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && lastTouchDist !== null) {
+                // Pinch-to-zoom
+                e.preventDefault();
+                const dx   = e.touches[0].clientX - e.touches[1].clientX;
+                const dy   = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.hypot(dx, dy);
+                const delta = (dist - lastTouchDist) * 0.01;
+                zoomLevel = Math.max(0.2, Math.min(3, zoomLevel + delta));
+                board.style.transform = `scale(${zoomLevel})`;
+                lastTouchDist = dist;
+
+            } else if (e.touches.length === 1 && lastTouchX !== null) {
+                // Drag 1 doigt
+                const dx = e.touches[0].clientX - lastTouchX;
+                const dy = e.touches[0].clientY - lastTouchY;
+                container.scrollLeft = touchScrollLeft - dx * 1.5;
+                container.scrollTop  = touchScrollTop  - dy * 1.5;
+            }
+        }, { passive: false });
+
+        container.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) lastTouchDist = null;
+            if (e.touches.length === 0) { lastTouchX = null; lastTouchY = null; }
+        }, { passive: true });
+    }
 
     container.scrollLeft = 10400 - container.clientWidth  / 2;
     container.scrollTop  = 10400 - container.clientHeight / 2;

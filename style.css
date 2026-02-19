@@ -37,6 +37,13 @@ html, body {
     border-right: 3px solid #444;
     z-index: 10;
     box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#game-ui::-webkit-scrollbar {
+    display: none;
 }
 
 #current-tile-container {
@@ -69,6 +76,14 @@ html, body {
 
 #board-container::-webkit-scrollbar {
     display: none; /* Chrome/Safari */
+}
+
+#board-container::-webkit-scrollbar-track {
+    background: #000;
+}
+
+#board-container::-webkit-scrollbar-thumb {
+    background: #000;
 }
 
 #board-container:active {
@@ -754,8 +769,8 @@ button:disabled {
 }
 
 .player-meeples-display img.unavailable {
-    opacity: 0.2;
-    filter: grayscale(100%);
+    opacity: 0.15;
+    filter: grayscale(100%) brightness(3);
 }
 
 /* Les 3 boutons principaux ont la même largeur */
@@ -902,17 +917,21 @@ button:disabled {
         position: relative;
     }
 
-    /* ── Barre joueurs en haut ─────────────────────────── */
+    /* ── Barre joueurs en overlay sur le plateau ────────── */
     #mobile-players-bar {
         display: flex;
         align-items: center;
-        background: #2c3e50;
-        border-bottom: 2px solid #444;
-        padding: 6px 8px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: rgba(44, 62, 80, 0.85);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding: 4px 6px;
         z-index: 50;
-        flex-shrink: 0;
-        min-height: 64px;
-        order: 1;
+        min-height: 0;
     }
 
     #mobile-players-scores {
@@ -974,15 +993,16 @@ button:disabled {
     }
 
     .mobile-player-meeples img.unavailable {
-        opacity: 0.25;
+        opacity: 0.2;
+        filter: grayscale(100%) brightness(3);
     }
 
     /* ── Plateau prend tout l'espace restant ───────────── */
     #board-container {
         flex: 1;
         overflow: auto;
-        min-height: 0; /* important pour flex */
-        order: 2;
+        min-height: 0;
+        order: 1; /* le seul enfant flex maintenant */
     }
 
     /* ── Barre du bas ──────────────────────────────────── */
@@ -992,13 +1012,13 @@ button:disabled {
         background: #2c3e50;
         border-top: 2px solid #444;
         padding: 6px 8px;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px) + 55px);
         gap: 8px;
         flex-shrink: 0;
         z-index: 50;
-        min-height: 110px;
         width: 100%;
         box-sizing: border-box;
-        order: 3; /* après mobile-players-bar (1) et board-container (2) */
+        order: 3;
     }
 
     /* Section tuile en main */
@@ -1131,6 +1151,7 @@ button:disabled {
         width: 100%;
         max-height: none;
         padding: 20px;
+        padding-bottom: 40px;
     }
 
     .home-left h1 {
