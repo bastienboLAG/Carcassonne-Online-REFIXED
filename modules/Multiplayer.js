@@ -17,8 +17,9 @@ export class Multiplayer {
      */
     async createGame() {
         return new Promise((resolve, reject) => {
-            // Créer un peer avec un ID aléatoire
-            this.peer = new Peer();
+            // Générer un code à 6 chiffres et créer le peer avec cet ID
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            this.peer = new Peer(code);
             this.isHost = true;
 
             this.peer.on('open', (id) => {

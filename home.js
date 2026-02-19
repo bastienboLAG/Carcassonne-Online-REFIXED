@@ -735,9 +735,12 @@ function updateTurnDisplay() {
         } else {
             endTurnBtn.textContent = 'Terminer mon tour';
             endTurnBtn.classList.remove('final-score-btn');
-            endTurnBtn.disabled = !isMyTurn;
-            endTurnBtn.style.opacity = isMyTurn ? '1' : '0.5';
-            endTurnBtn.style.cursor  = isMyTurn ? 'pointer' : 'not-allowed';
+            const canEnd = isMyTurn && tuilePosee;
+            endTurnBtn.disabled = !canEnd;
+            endTurnBtn.style.opacity = canEnd ? '1' : '0.5';
+            endTurnBtn.style.cursor  = canEnd ? 'pointer' : 'not-allowed';
+            endTurnBtn.style.background = canEnd ? '#2ecc71' : '';
+            endTurnBtn.style.color      = canEnd ? '#000' : '';
         }
     }
 
@@ -810,6 +813,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     document.querySelectorAll('.slot').forEach(s => s.remove());
     if (tilePreviewUI) tilePreviewUI.showBackside();
     updateMobileButtons();
+    updateTurnDisplay();
 
     if (gameSync) gameSync.syncTilePlacement(x, y, tile);
 
