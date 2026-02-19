@@ -26,7 +26,7 @@ export class MeeplePlacement {
     /**
      * Vérifier si un meeple peut être placé à une position
      */
-    canPlace(x, y, position, playerId) {
+    canPlace(x, y, position, playerId, meepleType = 'Normal') {
         const key = `${x},${y},${position}`;
         
         // 1. Vérifier si position déjà occupée
@@ -73,7 +73,7 @@ export class MeeplePlacement {
         console.log('🎭 MeeplePlacement: placement meeple', { x, y, position, meepleType, playerId });
         
         // Valider le placement
-        if (!this.canPlace(x, y, position, playerId)) {
+        if (!this.canPlace(x, y, position, playerId, meepleType)) {
             console.warn('⚠️ Impossible de placer le meeple ici');
             return false;
         }
