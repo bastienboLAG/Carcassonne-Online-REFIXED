@@ -801,7 +801,6 @@ function handleRemoteUndo(undoneAction) {
 function poserTuile(x, y, tile, isFirst = false) {
     console.log('🎯 poserTuile appelé:', { x, y, tile, isFirst });
     const success = tilePlacement.placeTile(x, y, tile, { isFirst });
-    console.log('🎯 placeTile résultat:', success, '— tuilePosee avant:', tuilePosee);
     if (!success) return;
 
     tuilePosee      = true;
@@ -1096,60 +1095,55 @@ function setupEventListeners() {
     });
 
     // ── Boutons MOBILE ─────────────────────────────────────────────────────
-    console.log('📱 isMobile():', isMobile(), '— innerWidth:', window.innerWidth);
-    // Debug : logger tous les taps pour voir quel élément reçoit le touch
-    document.addEventListener('touchend', (e) => {
-        console.log('👆 touchend sur:', e.target.id || e.target.className || e.target.tagName);
-    }, { once: false });
+
     if (isMobile()) {
         // Rotation tuile mobile (tap sur la preview)
-        document.getElementById('mobile-tile-preview').addEventListener('click', () => {
+        document.getElementById('mobile-tile-preview').addEventListener('touchend', (e) => {
+            e.preventDefault();
             if (!tuileEnMain || tuilePosee) return;
             tuileEnMain.rotation = (tuileEnMain.rotation + 90) % 360;
             updateMobileTilePreview();
             if (gameSync) gameSync.syncTileRotation(tuileEnMain.rotation);
             eventBus.emit('tile-rotated', { rotation: tuileEnMain.rotation });
-        });
+        }, { passive: false });
 
-        // Terminer mon tour / Repiocher / Scores — appel direct du handler (ignore disabled)
-        document.getElementById('mobile-end-turn-btn').addEventListener('click', () => {
-            console.log('📱 mobile-end-turn-btn cliqué');
+        // ✅ Sur mobile, utiliser touchend au lieu de click
+        // car touchend est parfois consommé par le board-container et ne génère pas de click
+        const mobileBtn = (id, fn) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+        };
+
+        mobileBtn('mobile-end-turn-btn', () => {
             const btn = document.getElementById('end-turn-btn');
-            console.log('📱 end-turn-btn trouvé:', !!btn, '— onclick:', !!btn?.onclick, '— disabled:', btn?.disabled);
             if (btn?.onclick) btn.onclick();
-            else console.log('📱 ❌ pas de onclick sur end-turn-btn !');
         });
-
-        // Annuler le coup — appel direct du handler
-        document.getElementById('mobile-undo-btn').addEventListener('click', () => {
+        mobileBtn('mobile-undo-btn', () => {
             document.getElementById('undo-btn').dispatchEvent(new MouseEvent('click'));
         });
-
-        // Recentrer
-        document.getElementById('mobile-recenter-btn').addEventListener('click', () => {
+        mobileBtn('mobile-recenter-btn', () => {
             document.getElementById('recenter-btn').click();
         });
-
-        // Highlight dernière tuile
-        document.getElementById('mobile-highlight-btn').addEventListener('click', () => {
+        mobileBtn('mobile-highlight-btn', () => {
             document.getElementById('highlight-tile-btn').click();
         });
-
-        // Tuiles restantes
-        document.getElementById('mobile-remaining-btn').addEventListener('click', () => {
+        mobileBtn('mobile-remaining-btn', () => {
             document.getElementById('remaining-tiles-btn').click();
         });
-
-        // Règles
-        document.getElementById('mobile-rules-btn').addEventListener('click', () => {
+        mobileBtn('mobile-rules-btn', () => {
             document.getElementById('rules-btn').click();
         });
 
+        // Rotation tuile : déjà sur touchend via click — garder tel quel
         // Retour lobby (hôte uniquement)
         const mobileLobbyBtn = document.getElementById('mobile-lobby-btn');
         if (mobileLobbyBtn) {
             mobileLobbyBtn.style.display = isHost ? 'flex' : 'none';
-            mobileLobbyBtn.onclick = document.getElementById('back-to-lobby-btn').onclick;
+            mobileLobbyBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                document.getElementById('back-to-lobby-btn').onclick?.();
+            }, { passive: false });
         }
     }
 
