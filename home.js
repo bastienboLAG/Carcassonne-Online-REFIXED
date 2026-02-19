@@ -703,7 +703,7 @@ function updateMobileButtons() {
     }
 
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded;
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && !!undoManager?.canUndo();
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity = canUndo ? '1' : '0.4';
     }
@@ -746,10 +746,12 @@ function updateTurnDisplay() {
 
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
-        const enabled = isMyTurn && !finalScoresManager?.gameEnded;
-        undoBtn.disabled = !enabled;
-        undoBtn.style.opacity = enabled ? '1' : '0.5';
-        undoBtn.style.cursor  = enabled ? 'pointer' : 'not-allowed';
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && !!undoManager?.canUndo();
+        undoBtn.disabled = !canUndo;
+        undoBtn.style.opacity    = canUndo ? '1' : '0.5';
+        undoBtn.style.cursor     = canUndo ? 'pointer' : 'not-allowed';
+        undoBtn.style.background = canUndo ? '#f1c40f' : '';
+        undoBtn.style.color      = canUndo ? '#000' : '';
     }
 
     updateMobilePlayers();
@@ -826,6 +828,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     }
 
     tuileEnMain = null;
+    updateTurnDisplay(); // Mettre à jour undo (canUndo vient de changer)
 }
 
 function poserTuileSync(x, y, tile) {
