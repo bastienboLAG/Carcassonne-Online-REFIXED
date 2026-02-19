@@ -24,6 +24,7 @@ export class MeepleSelectorUI {
     show(x, y, position, zoneType, mouseX, mouseY, onMeepleSelected) {
         const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
         console.log('📋 Sélecteur meeple — zone:', zoneType, '— hasAbbot:', player?.hasAbbot, '— meeples:', player?.meeples, '— config.extensions.abbot:', this.config?.extensions?.abbot);
+        console.log('📋 playerId recherché:', this.multiplayer.playerId, '— joueurs dispo:', this.gameState.players.map(p => p.id + ':hasAbbot=' + p.hasAbbot));
         
         // Nettoyer l'ancien sélecteur
         const oldSelector = document.getElementById('meeple-selector');

@@ -288,10 +288,17 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
         lobbyUI.setIsHost(true);
 
-        // Sync des options de config pour les invités
-        ['base-fields', 'list-remaining'].forEach(id => {
-            document.getElementById(id).addEventListener('change', (e) => {
+        // Sync temps réel de toutes les options vers les invités
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
+            });
+        });
+        // Sync des radios (unplaceable)
+        document.querySelectorAll('input[name="unplaceable"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) multiplayer.broadcast({ type: 'option-change', option: 'unplaceable', value: e.target.value });
             });
         });
 
@@ -400,8 +407,13 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
             }
             if (data.type === 'return-to-lobby') returnToLobby();
             if (data.type === 'option-change') {
-                const checkbox = document.getElementById(data.option);
-                if (checkbox) checkbox.checked = data.value;
+                if (data.option === 'unplaceable') {
+                    const radio = document.querySelector(`input[name="unplaceable"][value="${data.value}"]`);
+                    if (radio) radio.checked = true;
+                } else {
+                    const checkbox = document.getElementById(data.option);
+                    if (checkbox) checkbox.checked = data.value;
+                }
             }
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options au moment où on rejoint
