@@ -1097,6 +1097,10 @@ function setupEventListeners() {
 
     // ── Boutons MOBILE ─────────────────────────────────────────────────────
     console.log('📱 isMobile():', isMobile(), '— innerWidth:', window.innerWidth);
+    // Debug : logger tous les taps pour voir quel élément reçoit le touch
+    document.addEventListener('touchend', (e) => {
+        console.log('👆 touchend sur:', e.target.id || e.target.className || e.target.tagName);
+    }, { once: false });
     if (isMobile()) {
         // Rotation tuile mobile (tap sur la preview)
         document.getElementById('mobile-tile-preview').addEventListener('click', () => {
