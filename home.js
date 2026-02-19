@@ -1088,6 +1088,7 @@ function setupEventListeners() {
 
         if (gameSync) gameSync.syncUndo(undoneAction);
         eventBus.emit('score-updated');
+        updateTurnDisplay(); // Mettre à jour undo (canUndo peut avoir changé)
     });
 
     // Tuiles restantes
