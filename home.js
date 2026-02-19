@@ -194,7 +194,8 @@ eventBus.on('meeple-count-updated', (data) => {
         gameSync.multiplayer.broadcast({
             type: 'meeple-count-update',
             playerId: data.playerId,
-            meeples:  player ? player.meeples : data.meeples
+            meeples:  player ? player.meeples : data.meeples,
+            hasAbbot: player ? player.hasAbbot : undefined
         });
     }
 });
@@ -887,6 +888,11 @@ function handleRemoteUndo(undoneAction) {
             document.querySelectorAll('.slot-central').forEach(s => s.remove());
             if (slotsUI) slotsUI.createCentralSlot();
         }
+
+        // Remettre la tuile en main côté invité (slot + preview)
+        if (undoneAction.tile?.tile) {
+            eventBus.emit('tile-drawn', { tile: undoneAction.tile.tile, isSync: true });
+        }
     }
 
     eventBus.emit('score-updated');
@@ -1022,7 +1028,7 @@ function placerMeeple(x, y, position, meepleType) {
     if (undoManager && isMyTurn) {
         undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);
     }
-    document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
+    if (meepleCursorsUI) meepleCursorsUI.hideCursors(); // retire curseurs ET overlays abbé
 }
 
 function incrementPlayerMeeples(playerId) {
