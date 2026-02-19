@@ -19,6 +19,10 @@ export class UndoManager {
         this.meeplePlacedThisTurn = false;
         this.lastTilePlaced = null; // {x, y, tile}
         this.lastMeeplePlaced = null; // {x, y, position, key}
+
+        // État abbé
+        this.abbeRecalledThisTurn = false;
+        this.lastAbbeRecalled = null; // {x, y, key, playerId, points}
     }
 
     /**
@@ -77,6 +81,14 @@ export class UndoManager {
     }
 
     /**
+     * Marquer qu'un Abbé a été rappelé
+     */
+    markAbbeRecalled(x, y, key, playerId, points) {
+        this.abbeRecalledThisTurn = true;
+        this.lastAbbeRecalled = { x, y, key, playerId, points };
+    }
+
+    /**
      * Annuler la dernière action
      * @returns {Object|null} - Info sur ce qui a été annulé, ou null si rien à annuler
      */
@@ -88,6 +100,19 @@ export class UndoManager {
             hasTurnStartSnapshot: !!this.turnStartSnapshot
         });
         
+        // Cas 0 : Annuler le rappel de l'Abbé
+        if (this.abbeRecalledThisTurn && this.afterTilePlacedSnapshot) {
+            console.log('⏪ Annulation : remise en place de l'Abbé');
+            this.restoreSnapshot(this.afterTilePlacedSnapshot, placedMeeples);
+            const undoneAction = {
+                type: 'abbe-recalled-undo',
+                abbe: this.lastAbbeRecalled
+            };
+            this.abbeRecalledThisTurn = false;
+            this.lastAbbeRecalled = null;
+            return undoneAction;
+        }
+
         // Cas 1 : Annuler la pose de meeple
         if (this.meeplePlacedThisTurn && this.afterTilePlacedSnapshot) {
             console.log('⏪ Annulation : retrait du meeple');
@@ -189,7 +214,7 @@ export class UndoManager {
      * Vérifier si on peut annuler
      */
     canUndo() {
-        return this.meeplePlacedThisTurn || this.tilePlacedThisTurn;
+        return this.meeplePlacedThisTurn || this.tilePlacedThisTurn || this.abbeRecalledThisTurn;
     }
 
     /**
@@ -203,6 +228,8 @@ export class UndoManager {
         this.meeplePlacedThisTurn = false;
         this.lastTilePlaced = null;
         this.lastMeeplePlaced = null;
+        this.abbeRecalledThisTurn = false;
+        this.lastAbbeRecalled = null;
     }
 
     /**

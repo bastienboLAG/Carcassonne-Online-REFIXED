@@ -1,0 +1,36 @@
+{
+  "id": "08",
+  "quantity": 1,
+  "extension": "Abbot",
+  "image": "./assets/Abbot/C2/08.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north", "west-top", "east", "south-right"],
+      "features": [],
+      "meeplePosition": "14"
+    },
+    {
+      "id": 2,
+      "type": "garden",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "4"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["west", "south"],
+      "features": [],
+      "meeplePosition": "18"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "21"
+    }
+  ]
+}

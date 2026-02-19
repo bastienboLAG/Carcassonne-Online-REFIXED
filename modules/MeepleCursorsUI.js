@@ -9,6 +9,7 @@ export class MeepleCursorsUI {
         this.plateau = plateau;
         this.config = config;
         this.boardElement = null;
+        this.onAbbeRecall = null; // callback(x, y, key) quand le joueur rappelle l'Abbé
     }
 
     init() {
@@ -216,6 +217,144 @@ export class MeepleCursorsUI {
      */
     hideCursors() {
         document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
+        document.querySelectorAll('.abbe-recall-overlay').forEach(c => c.remove());
+    }
+
+    /**
+     * Mettre en évidence les Abbés rappelables du joueur courant
+     * Appelé en phase 2 si extension Abbé activée et Abbé posé sur le plateau
+     */
+    showAbbeRecallTargets(placedMeeples, playerId, onRecall) {
+        if (!this.config.extensions?.abbot) return;
+        this.onAbbeRecall = onRecall;
+
+        // Chercher tous les Abbés du joueur courant sur le plateau
+        Object.entries(placedMeeples).forEach(([key, meeple]) => {
+            if (meeple.type !== 'abbot' || meeple.playerId !== playerId) return;
+
+            // key = "x,y,position"
+            const [x, y] = key.split(',').map(Number);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'abbe-recall-overlay';
+            overlay.style.gridColumn = x;
+            overlay.style.gridRow    = y;
+            overlay.style.position   = 'relative';
+            overlay.style.width      = '208px';
+            overlay.style.height     = '208px';
+            overlay.style.pointerEvents = 'none';
+            overlay.style.zIndex     = '101';
+
+            // Trouver la position du meeple dans la grille 5x5
+            const position = parseInt(key.split(',')[2]);
+            const row = Math.floor((position - 1) / 5);
+            const col = (position - 1) % 5;
+            const offsetX = 20.8 + (col * 41.6);
+            const offsetY = 20.8 + (row * 41.6);
+
+            const btn = document.createElement('div');
+            btn.className = 'abbe-recall-btn';
+            btn.style.position   = 'absolute';
+            btn.style.left       = `${offsetX}px`;
+            btn.style.top        = `${offsetY}px`;
+            btn.style.width      = '32px';
+            btn.style.height     = '32px';
+            btn.style.borderRadius = '50%';
+            btn.style.border     = '3px solid rgb(200, 0, 175)';
+            btn.style.boxShadow  = '0 0 8px 2px rgba(200,0,175,0.7), inset 0 0 4px rgba(0,0,0,0.8)';
+            btn.style.cursor     = 'pointer';
+            btn.style.pointerEvents = 'auto';
+            btn.style.transform  = 'translate(-50%, -50%)';
+            btn.style.animation  = 'abbeRecallPulse 1.2s ease-in-out infinite';
+            btn.title = 'Rappeler l'Abbé';
+
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                this._showAbbeRecallModal(x, y, key, meeple, e.clientX, e.clientY);
+            };
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this._showAbbeRecallModal(x, y, key, meeple, 
+                    e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            }, { passive: false });
+
+            overlay.appendChild(btn);
+            this.boardElement.appendChild(overlay);
+        });
+    }
+
+    /**
+     * Afficher la mini-modale de rappel de l'Abbé
+     */
+    _showAbbeRecallModal(x, y, key, meeple, clientX, clientY) {
+        // Fermer toute modale existante
+        document.querySelectorAll('.abbe-recall-modal').forEach(m => m.remove());
+
+        const modal = document.createElement('div');
+        modal.className = 'abbe-recall-modal';
+
+        // Positionner près du clic
+        const left = Math.min(clientX + 10, window.innerWidth  - 160);
+        const top  = Math.min(clientY + 10, window.innerHeight - 80);
+        modal.style.position = 'fixed';
+        modal.style.left     = `${left}px`;
+        modal.style.top      = `${top}px`;
+        modal.style.zIndex   = '9000';
+        modal.style.background = 'rgba(30,20,40,0.95)';
+        modal.style.border   = '2px solid rgb(200,0,175)';
+        modal.style.borderRadius = '8px';
+        modal.style.padding  = '10px 14px';
+        modal.style.display  = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.gap      = '8px';
+        modal.style.boxShadow = '0 4px 20px rgba(200,0,175,0.4)';
+
+        const label = document.createElement('div');
+        label.style.color    = 'white';
+        label.style.fontSize = '13px';
+        label.style.fontWeight = 'bold';
+        label.textContent    = '↩️ Récupérer l'Abbé';
+        modal.appendChild(label);
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Récupérer';
+        confirmBtn.style.background = 'rgb(200,0,175)';
+        confirmBtn.style.color   = 'white';
+        confirmBtn.style.border  = 'none';
+        confirmBtn.style.borderRadius = '5px';
+        confirmBtn.style.padding = '6px 12px';
+        confirmBtn.style.cursor  = 'pointer';
+        confirmBtn.style.fontWeight = 'bold';
+        modal.appendChild(confirmBtn);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Annuler';
+        cancelBtn.style.background = 'rgba(255,255,255,0.1)';
+        cancelBtn.style.color   = 'white';
+        cancelBtn.style.border  = '1px solid rgba(255,255,255,0.2)';
+        cancelBtn.style.borderRadius = '5px';
+        cancelBtn.style.padding = '4px 10px';
+        cancelBtn.style.cursor  = 'pointer';
+        modal.appendChild(cancelBtn);
+
+        const close = () => modal.remove();
+        cancelBtn.onclick  = close;
+        cancelBtn.addEventListener('touchend', (e) => { e.preventDefault(); close(); }, { passive: false });
+
+        const confirm = () => {
+            close();
+            if (this.onAbbeRecall) this.onAbbeRecall(x, y, key, meeple);
+        };
+        confirmBtn.onclick = confirm;
+        confirmBtn.addEventListener('touchend', (e) => { e.preventDefault(); confirm(); }, { passive: false });
+
+        // Fermer si clic ailleurs
+        setTimeout(() => {
+            document.addEventListener('click', close, { once: true });
+        }, 100);
+
+        document.body.appendChild(modal);
     }
 
     /**

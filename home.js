@@ -49,7 +49,9 @@ let eventListenersInstalled = false;
 
 let gameConfig = {
     playFields:         true,
-    showRemainingTiles: true
+    showRemainingTiles: true,
+    extensions: { base: true, abbot: false },
+    tileGroups: { base: true, abbot: false }
 };
 
 // ═══════════════════════════════════════════════════════
@@ -91,7 +93,8 @@ let originalLobbyHandler = null;
 // ═══════════════════════════════════════════════════════
 let tuileEnMain    = null;
 let tuilePosee     = false;
-let waitingToRedraw = false;
+let waitingToRedraw   = false;
+let pendingAbbePoints = null; // { playerId, points } — points abbé à attribuer en fin de tour
 let firstTilePlaced = false;
 let isMyTurn       = false;
 let lastPlacedTile = null;
@@ -405,6 +408,14 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
                 // Option radio tuile implaçable
+                if (opts['ext-abbot'] !== undefined) {
+                    const el = document.getElementById('ext-abbot');
+                    if (el) el.checked = opts['ext-abbot'];
+                }
+                if (opts['tiles-abbot'] !== undefined) {
+                    const el = document.getElementById('tiles-abbot');
+                    if (el) el.checked = opts['tiles-abbot'];
+                }
                 if (opts['unplaceable']) {
                     const radio = document.querySelector(`input[name="unplaceable"][value="${opts['unplaceable']}"]`);
                     if (radio) radio.checked = true;
@@ -457,7 +468,14 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
         testDeck:           document.getElementById('use-test-deck').checked,
         enableDebug:        document.getElementById('enable-debug').checked,
         unplaceableAction:  document.querySelector('input[name="unplaceable"]:checked')?.value || 'destroy',
-        extensions: { base: true }
+        extensions: {
+            base:  true,
+            abbot: document.getElementById('ext-abbot')?.checked ?? false
+        },
+        tileGroups: {
+            base:  true,
+            abbot: document.getElementById('tiles-abbot')?.checked ?? false
+        }
     };
 
     if (isHost) {
@@ -473,7 +491,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
 function initializeGameModules() {
     console.log('🔧 Initialisation des modules de jeu...');
 
-    scorePanelUI   = new ScorePanelUI(eventBus, gameState);
+    scorePanelUI   = new ScorePanelUI(eventBus, gameState, gameConfig);
     slotsUI        = new SlotsUI(plateau, gameSync, eventBus, () => tuileEnMain);
     slotsUI.init();
     slotsUI.setSlotClickHandler(poserTuile);
@@ -532,6 +550,24 @@ function attachGameSyncCallbacks() {
         onFinalScores:    (scores) => finalScoresManager.receiveFromNetwork(scores),
         onTileDestroyed:  (tileId, pName, action) => unplaceableManager.showTileDestroyedModal(tileId, pName, false, action),
         onDeckReshuffled: (tiles, idx) => { deck.tiles = tiles; deck.currentIndex = idx; },
+        onAbbeRecalled: (x, y, key, playerId, points) => {
+            // Retirer visuellement l'Abbé
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+            delete placedMeeples[key];
+            const player = gameState.players.find(p => p.id === playerId);
+            if (player) player.hasAbbot = true;
+            pendingAbbePoints = { playerId, points };
+            eventBus.emit('score-updated');
+            updateTurnDisplay();
+        },
+        onAbbeRecalledUndo: (x, y, key, playerId) => {
+            pendingAbbePoints = null;
+            const player = gameState.players.find(p => p.id === playerId);
+            if (player) player.hasAbbot = false;
+            // Le meeple est déjà dans placedMeeples grâce à la synchro du snapshot
+            eventBus.emit('score-updated');
+            updateTurnDisplay();
+        },
         updateTurnDisplay,
         poserTuileSync,
     }).attach(isHost);
@@ -548,6 +584,10 @@ async function startGame() {
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    // Initialiser le flag Abbé pour chaque joueur
+    if (gameConfig.extensions?.abbot) {
+        gameState.players.forEach(p => { p.hasAbbot = true; });
+    }
 
     gameSync = new GameSync(multiplayer, gameState, null);
     gameSync.init();
@@ -562,7 +602,7 @@ async function startGame() {
     setupNavigation(document.getElementById('board-container'), document.getElementById('board'));
 
     // L'hôte charge et envoie la pioche
-    await deck.loadAllTiles(document.getElementById('use-test-deck')?.checked || false);
+    await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {});
     gameSync.startGame(deck);
     turnManager.drawTile();
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
@@ -819,8 +859,12 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     if (gameSync) gameSync.syncTilePlacement(x, y, tile);
 
-    if (isMyTurn && gameSync && meepleCursorsUI) {
+    if (isMyTurn && gameSync && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
         meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
+        // Afficher les Abbés rappelables si extension activée et aucun meeple/abbé posé ce tour
+        if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+        }
     }
 
     if (undoManager && isMyTurn) {
@@ -847,6 +891,60 @@ function poserTuileSync(x, y, tile) {
     lastPlacedTile = { x, y };
 
     if (undoManager) undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
+}
+
+// ═══════════════════════════════════════════════════════
+// ABBÉ — Rappel anticipé
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Rappeler l'Abbé depuis le plateau
+ * Appelé quand le joueur clique sur l'Abbé rappelable en phase 2
+ */
+function handleAbbeRecall(x, y, key, meeple) {
+    console.log('↩️ Rappel Abbé:', key);
+
+    // Calculer les points (abbaye/jardin : tuile centrale + adjacentes)
+    const points = _countAbbePoints(x, y);
+
+    // Retirer l'Abbé du plateau visuellement
+    document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+
+    // Mettre à jour placedMeeples
+    delete placedMeeples[key];
+
+    // Rendre l'Abbé au joueur
+    const player = gameState.players.find(p => p.id === meeple.playerId);
+    if (player) player.hasAbbot = true;
+
+    // Cacher les overlays
+    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+
+    // Marquer dans UndoManager
+    if (undoManager) undoManager.markAbbeRecalled(x, y, key, meeple.playerId, points);
+
+    // Stocker les points à ajouter en fin de tour
+    pendingAbbePoints = { playerId: meeple.playerId, points };
+
+    // Sync réseau
+    if (gameSync) gameSync.syncAbbeRecall(x, y, key, meeple.playerId, points);
+
+    updateTurnDisplay();
+    updateMobileButtons();
+    eventBus.emit('score-updated');
+}
+
+/**
+ * Compter les points d'un Abbé/Jardin à la position (x,y)
+ * = 1 (tuile centrale) + nombre de tuiles adjacentes (max 8)
+ */
+function _countAbbePoints(x, y) {
+    let count = 1; // la tuile elle-même
+    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+    dirs.forEach(([dx, dy]) => {
+        if (plateau.placedTiles[`${x+dx},${y+dy}`]) count++;
+    });
+    return count;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -924,6 +1022,17 @@ function setupEventListeners() {
         if (!tuilePosee) { alert('Vous devez poser la tuile avant de terminer votre tour !'); return; }
 
         console.log('⏭️ Fin de tour - calcul des scores et passage au joueur suivant');
+
+        // Appliquer les points Abbé en attente
+        if (pendingAbbePoints) {
+            const player = gameState.players.find(p => p.id === pendingAbbePoints.playerId);
+            if (player) {
+                player.score += pendingAbbePoints.points;
+                player.scoreDetail = player.scoreDetail || {};
+                player.scoreDetail.monasteries = (player.scoreDetail.monasteries || 0) + pendingAbbePoints.points;
+            }
+            pendingAbbePoints = null;
+        }
 
         // Calcul des scores des zones fermées
         if (scoring && zoneMerger) {
@@ -1039,6 +1148,28 @@ function setupEventListeners() {
 
         const undoneAction = undoManager.undo(placedMeeples);
         if (!undoneAction) return;
+
+        if (undoneAction.type === 'abbe-recalled-undo') {
+            // L'Abbé a été remis sur le plateau par restoreSnapshot (placedMeeples restauré)
+            // Il faut juste re-afficher visuellement l'Abbé et annuler les pendingAbbePoints
+            pendingAbbePoints = null;
+            const { playerId } = undoneAction.abbe;
+            const player = gameState.players.find(p => p.id === playerId);
+            if (player) player.hasAbbot = false;
+            // Re-render le meeple sur le plateau
+            const abbeKey = undoneAction.abbe.key;
+            const abbeData = placedMeeples[abbeKey];
+            if (abbeData) {
+                const [ax, ay] = abbeKey.split(',').map(Number);
+                eventBus.emit('meeple-placed', { ...abbeData, x: ax, y: ay, key: abbeKey, fromUndo: true });
+            }
+            if (gameSync) gameSync.syncAbbeRecallUndo(
+                undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId
+            );
+            eventBus.emit('score-updated');
+            updateTurnDisplay();
+            return;
+        }
 
         if (undoneAction.type === 'meeple') {
             document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
@@ -1192,6 +1323,7 @@ function returnToLobby() {
     unplaceableManager = null;
     finalScoresManager = null;
     waitingToRedraw  = false;
+    pendingAbbePoints = null;
 
     ruleRegistry.disable('base');
 

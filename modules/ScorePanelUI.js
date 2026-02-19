@@ -3,9 +3,10 @@
  * CONNECTÉ À EVENTBUS
  */
 export class ScorePanelUI {
-    constructor(eventBus, gameState) {
+    constructor(eventBus, gameState, config = {}) {
         this.eventBus  = eventBus;
         this.gameState = gameState;
+        this.config    = config;
 
         // ✅ Binder pour que off() retrouve la même référence
         this._onScoreUpdated      = this.onScoreUpdated.bind(this);
@@ -68,6 +69,19 @@ export class ScorePanelUI {
                 meeple.alt = 'Meeple';
                 if (i >= player.meeples) meeple.classList.add('unavailable');
                 meeplesDisplay.appendChild(meeple);
+            }
+
+            // Abbé (si extension activée)
+            if (this.config?.extensions?.abbot) {
+                const abbot = document.createElement('img');
+                abbot.src = `./assets/Meeples/${colorCap}/Abbot.png`;
+                abbot.alt = 'Abbé';
+                abbot.style.marginLeft = '6px';
+                abbot.style.width  = '25px';
+                abbot.style.height = '25px';
+                abbot.style.objectFit = 'contain';
+                if (!player.hasAbbot) abbot.classList.add('unavailable');
+                meeplesDisplay.appendChild(abbot);
             }
 
             card.appendChild(meeplesDisplay);

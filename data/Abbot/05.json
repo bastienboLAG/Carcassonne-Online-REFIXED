@@ -1,0 +1,31 @@
+{
+  "id": "05",
+  "quantity": 1,
+  "extension": "Abbot",
+  "image": "./assets/Abbot/C2/05.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north", "east"],
+      "features": [],
+      "meeplePosition": "9"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["west", "south"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "11"
+    },
+    {
+      "id": 3,
+      "type": "garden",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "17"
+    }
+  ]
+}
