@@ -493,6 +493,8 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
         }
     };
 
+    console.log('🔧 gameConfig construit:', JSON.stringify(gameConfig.extensions), '— tileGroups:', JSON.stringify(gameConfig.tileGroups));
+
     if (isHost) {
         multiplayer.broadcast({ type: 'game-starting', message: "L'hôte démarre la partie !", config: gameConfig });
     }
@@ -600,11 +602,12 @@ async function startGame() {
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
     // Initialiser le flag Abbé pour chaque joueur
+    console.log('🔧 startGame — gameConfig.extensions:', JSON.stringify(gameConfig.extensions));
     if (gameConfig.extensions?.abbot) {
         gameState.players.forEach(p => { p.hasAbbot = true; });
-        console.log('✅ [HOST] hasAbbot initialisé pour', gameState.players.map(p => p.id));
+        console.log('✅ [HOST] hasAbbot initialisé:', gameState.players.map(p => p.id + '=' + p.hasAbbot));
     } else {
-        console.log('ℹ️ [HOST] extension abbot désactivée — hasAbbot non initialisé');
+        console.log('ℹ️ [HOST] abbot désactivé');
     }
 
     gameSync = new GameSync(multiplayer, gameState, null);

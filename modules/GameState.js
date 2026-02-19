@@ -18,7 +18,8 @@ export class GameState {
             name: playerName,
             color: color,
             score: 0,
-            meeples: 7, // Nombre de meeples disponibles
+            meeples: 7,
+            hasAbbot: false, // Initialisé à false, mis à true si extension Abbé activée
             scoreDetail: {
                 cities: 0,
                 roads: 0,
@@ -78,7 +79,8 @@ export class GameState {
             name: p.name,
             color: p.color,
             score: p.score || 0,
-            meeples: p.meeples ?? 7,  // ?? au lieu de || pour accepter 0
+            meeples: p.meeples ?? 7,
+            hasAbbot: p.hasAbbot ?? false,
             scoreDetail: p.scoreDetail || {
                 cities: 0,
                 roads: 0,

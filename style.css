@@ -529,10 +529,34 @@ button:disabled {
 }
 
 .radio-group input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
     width: 18px;
     height: 18px;
-    accent-color: #3498db;
+    border-radius: 50%;
+    border: 2px solid #888;
+    background: #444;
     cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.radio-group input[type="radio"]:checked {
+    border-color: #3498db;
+    background: #3498db;
+    box-shadow: inset 0 0 0 4px #1a2a3a;
+}
+
+.radio-group input[type="radio"]:disabled {
+    cursor: default;
+    border-color: #666;
+    background: #555;
+}
+
+.radio-group input[type="radio"]:disabled:checked {
+    border-color: #999;
+    background: #777;
+    box-shadow: inset 0 0 0 4px #333;
 }
 
 .toggle-option {
