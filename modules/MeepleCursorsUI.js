@@ -310,37 +310,19 @@ export class MeepleCursorsUI {
         modal.style.gap      = '8px';
         modal.style.boxShadow = '0 4px 20px rgba(200,0,175,0.4)';
 
-        const label = document.createElement('div');
-        label.style.color    = 'white';
-        label.style.fontSize = '13px';
-        label.style.fontWeight = 'bold';
-        label.textContent    = '↩️ Récupérer l\'Abbé';
-        modal.appendChild(label);
-
         const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'Récupérer';
+        confirmBtn.textContent = '↩️ Récupérer';
         confirmBtn.style.background = 'rgb(200,0,175)';
         confirmBtn.style.color   = 'white';
         confirmBtn.style.border  = 'none';
         confirmBtn.style.borderRadius = '5px';
-        confirmBtn.style.padding = '6px 12px';
+        confirmBtn.style.padding = '8px 16px';
         confirmBtn.style.cursor  = 'pointer';
         confirmBtn.style.fontWeight = 'bold';
+        confirmBtn.style.fontSize = '14px';
         modal.appendChild(confirmBtn);
 
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Annuler';
-        cancelBtn.style.background = 'rgba(255,255,255,0.1)';
-        cancelBtn.style.color   = 'white';
-        cancelBtn.style.border  = '1px solid rgba(255,255,255,0.2)';
-        cancelBtn.style.borderRadius = '5px';
-        cancelBtn.style.padding = '4px 10px';
-        cancelBtn.style.cursor  = 'pointer';
-        modal.appendChild(cancelBtn);
-
         const close = () => modal.remove();
-        cancelBtn.onclick  = close;
-        cancelBtn.addEventListener('touchend', (e) => { e.preventDefault(); close(); }, { passive: false });
 
         const confirm = () => {
             close();

@@ -1005,6 +1005,7 @@ function placerMeeple(x, y, position, meepleType) {
     if (meepleType === 'Abbot') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasAbbot = false;
+        eventBus.emit('score-updated'); // Mise à jour visuelle immédiate
     }
 
     if (undoManager && isMyTurn) {
