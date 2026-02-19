@@ -266,7 +266,7 @@ export class MeepleCursorsUI {
             btn.style.pointerEvents = 'auto';
             btn.style.transform  = 'translate(-50%, -50%)';
             btn.style.animation  = 'abbeRecallPulse 1.2s ease-in-out infinite';
-            btn.title = 'Rappeler l'Abbé';
+            btn.title = 'Rappeler l\'Abbé';
 
             btn.onclick = (e) => {
                 e.stopPropagation();
@@ -314,7 +314,7 @@ export class MeepleCursorsUI {
         label.style.color    = 'white';
         label.style.fontSize = '13px';
         label.style.fontWeight = 'bold';
-        label.textContent    = '↩️ Récupérer l'Abbé';
+        label.textContent    = '↩️ Récupérer l\'Abbé';
         modal.appendChild(label);
 
         const confirmBtn = document.createElement('button');
