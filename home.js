@@ -1108,8 +1108,11 @@ function setupEventListeners() {
 
         // Terminer mon tour / Repiocher / Scores — appel direct du handler (ignore disabled)
         document.getElementById('mobile-end-turn-btn').addEventListener('click', () => {
+            console.log('📱 mobile-end-turn-btn cliqué');
             const btn = document.getElementById('end-turn-btn');
+            console.log('📱 end-turn-btn trouvé:', !!btn, '— onclick:', !!btn?.onclick, '— disabled:', btn?.disabled);
             if (btn?.onclick) btn.onclick();
+            else console.log('📱 ❌ pas de onclick sur end-turn-btn !');
         });
 
         // Annuler le coup — appel direct du handler
