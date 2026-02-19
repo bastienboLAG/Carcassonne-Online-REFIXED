@@ -897,6 +897,7 @@ function setupEventListeners() {
     });
 
     // Bouton "Terminer mon tour" / "Repiocher" / "Détails des scores"
+    // Bouton "Terminer mon tour" / "Repiocher" / "Détails des scores"
     document.getElementById('end-turn-btn').onclick = () => {
         if (finalScoresManager?.gameEnded) {
             finalScoresManager.showModal(finalScoresManager.finalScoresData);
@@ -1104,14 +1105,15 @@ function setupEventListeners() {
             eventBus.emit('tile-rotated', { rotation: tuileEnMain.rotation });
         });
 
-        // Terminer mon tour / Repiocher / Scores — délégation vers le bouton PC
+        // Terminer mon tour / Repiocher / Scores — appel direct du handler (ignore disabled)
         document.getElementById('mobile-end-turn-btn').addEventListener('click', () => {
-            document.getElementById('end-turn-btn').click();
+            const btn = document.getElementById('end-turn-btn');
+            if (btn?.onclick) btn.onclick();
         });
 
-        // Annuler le coup
+        // Annuler le coup — appel direct du handler
         document.getElementById('mobile-undo-btn').addEventListener('click', () => {
-            document.getElementById('undo-btn').click();
+            document.getElementById('undo-btn').dispatchEvent(new MouseEvent('click'));
         });
 
         // Recentrer
