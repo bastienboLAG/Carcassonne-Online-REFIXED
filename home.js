@@ -10,6 +10,7 @@ import { Scoring }                from './modules/Scoring.js';
 import { EventBus }               from './modules/core/EventBus.js';
 import { RuleRegistry }           from './modules/core/RuleRegistry.js';
 import { BaseRules }              from './modules/rules/BaseRules.js';
+import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -646,6 +647,12 @@ async function startGameForInvite() {
 function _postStartSetup() {
     ruleRegistry.register('base', BaseRules, gameConfig);
     ruleRegistry.enable('base');
+
+    // Extension Abbé
+    if (gameConfig.extensions?.abbot) {
+        ruleRegistry.register('abbot', AbbeRules, gameConfig);
+        ruleRegistry.enable('abbot');
+    }
 
     document.getElementById('remaining-tiles-btn').style.display =
         gameConfig.showRemainingTiles ? 'block' : 'none';
@@ -1326,6 +1333,7 @@ function returnToLobby() {
     pendingAbbePoints = null;
 
     ruleRegistry.disable('base');
+    ruleRegistry.disable('abbot'); // no-op si non enregistré
 
     deck.tiles = []; deck.currentIndex = 0; deck.totalTiles = 0;
     plateau.reset();

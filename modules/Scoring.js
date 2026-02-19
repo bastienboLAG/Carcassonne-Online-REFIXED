@@ -53,6 +53,9 @@ export class Scoring {
             } else if (mergedZone.type === 'abbey') {
                 points = this._scoreClosedAbbey();
                 reason = 'Abbaye complète';
+            } else if (mergedZone.type === 'garden') {
+                points = this._scoreClosedAbbey(); // même logique : 9 pts
+                reason = 'Jardin complet';
             }
 
             // Attribuer les points aux propriétaires
@@ -177,9 +180,9 @@ export class Scoring {
             });
         });
 
-        // 3. Abbayes incomplètes : 1 pt + 1 pt/tuile adjacente
+        // 3. Abbayes et jardins incomplets : 1 pt + 1 pt/tuile adjacente
         allZones.forEach(mergedZone => {
-            if (mergedZone.type !== 'abbey' || mergedZone.isComplete) return;
+            if ((mergedZone.type !== 'abbey' && mergedZone.type !== 'garden') || mergedZone.isComplete) return;
 
             const meeples = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
             if (meeples.length === 0) return;
@@ -192,7 +195,7 @@ export class Scoring {
                 finalScores.push({
                     playerId: meeple.playerId,
                     points,
-                    reason: `Abbaye incomplète (1 + ${adjacentCount} tuiles adjacentes)`
+                    reason: `${mergedZone.type === 'garden' ? 'Jardin' : 'Abbaye'} incomplet (1 + ${adjacentCount} tuiles adjacentes)`
                 });
             });
         });

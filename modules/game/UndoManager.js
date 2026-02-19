@@ -102,7 +102,7 @@ export class UndoManager {
         
         // Cas 0 : Annuler le rappel de l'Abbé
         if (this.abbeRecalledThisTurn && this.afterTilePlacedSnapshot) {
-            console.log('⏪ Annulation : remise en place de l'Abbé');
+            console.log('⏪ Annulation : remise en place de l\'Abbé');
             this.restoreSnapshot(this.afterTilePlacedSnapshot, placedMeeples);
             const undoneAction = {
                 type: 'abbe-recalled-undo',
