@@ -1293,6 +1293,10 @@ function setupNavigation(container, board) {
         }, { passive: true });
     }
 
+    if (isMobile()) {
+        zoomLevel = 0.5;
+        board.style.transform = `scale(${zoomLevel})`;
+    }
     container.scrollLeft = 10400 - container.clientWidth  / 2;
     container.scrollTop  = 10400 - container.clientHeight / 2;
 }
