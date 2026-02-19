@@ -319,6 +319,8 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                     'use-test-deck':   document.getElementById('use-test-deck')?.checked   ?? false,
                     'enable-debug':    document.getElementById('enable-debug')?.checked    ?? false,
                     'unplaceable':     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'destroy',
+                    'ext-abbot':       document.getElementById('ext-abbot')?.checked       ?? false,
+                    'tiles-abbot':     document.getElementById('tiles-abbot')?.checked     ?? false,
                 };
                 multiplayer.sendTo(from, { type: 'options-sync', options: currentOptions });
             }
@@ -623,6 +625,9 @@ async function startGameForInvite() {
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    if (gameConfig.extensions?.abbot) {
+        gameState.players.forEach(p => { p.hasAbbot = true; });
+    }
 
     gameSync = new GameSync(multiplayer, gameState, originalLobbyHandler);
     gameSync.init();
@@ -965,6 +970,12 @@ function placerMeeple(x, y, position, meepleType) {
     if (!gameState || !multiplayer) return;
     const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
     if (!success) return;
+
+    // Si l'Abbé est posé, il n'est plus disponible
+    if (meepleType === 'Abbot') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasAbbot = false;
+    }
 
     if (undoManager && isMyTurn) {
         undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);

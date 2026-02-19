@@ -57,8 +57,27 @@ export class MeepleSelectorUI {
             meepleTypes = [
                 { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
             ];
+        } else if (zoneType === 'garden') {
+            // Garden → Abbé uniquement (si disponible)
+            const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
+            if (player?.hasAbbot) {
+                meepleTypes = [
+                    { type: 'Abbot', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png` }
+                ];
+            }
+        } else if (zoneType === 'abbey') {
+            // Abbey → Normal + Abbé si disponible
+            const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
+            meepleTypes = [
+                { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
+            ];
+            if (player?.hasAbbot) {
+                meepleTypes.push(
+                    { type: 'Abbot', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png` }
+                );
+            }
         } else {
-            // Par défaut (abbey, etc.) → Normal
+            // Par défaut → Normal
             meepleTypes = [
                 { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
             ];
