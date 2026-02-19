@@ -809,6 +809,7 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     document.querySelectorAll('.slot').forEach(s => s.remove());
     if (tilePreviewUI) tilePreviewUI.showBackside();
+    updateMobileButtons();
 
     if (gameSync) gameSync.syncTilePlacement(x, y, tile);
 
