@@ -38,7 +38,8 @@ export class UndoManager {
             placedMeeples: this.deepCopy(placedMeeples),
             playerMeeples: this.gameState.players.map(p => ({
                 id: p.id,
-                meeples: p.meeples
+                meeples: p.meeples,
+                hasAbbot: p.hasAbbot
             }))
         };
         
@@ -63,7 +64,8 @@ export class UndoManager {
             placedMeeples: this.deepCopy(placedMeeples),
             playerMeeples: this.gameState.players.map(p => ({
                 id: p.id,
-                meeples: p.meeples
+                meeples: p.meeples,
+                hasAbbot: p.hasAbbot
             }))
         };
         
@@ -205,7 +207,8 @@ export class UndoManager {
         snapshot.playerMeeples.forEach(saved => {
             const player = this.gameState.players.find(p => p.id === saved.id);
             if (player) {
-                player.meeples = saved.meeples;
+                player.meeples  = saved.meeples;
+                if (saved.hasAbbot !== undefined) player.hasAbbot = saved.hasAbbot;
             }
         });
     }

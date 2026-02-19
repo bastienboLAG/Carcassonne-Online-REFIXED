@@ -574,6 +574,7 @@ function attachGameSyncCallbacks() {
             const player = gameState.players.find(p => p.id === playerId);
             if (player) player.hasAbbot = true;
             pendingAbbePoints = { playerId, points };
+            eventBus.emit('meeple-count-updated', { playerId });
             eventBus.emit('score-updated');
             updateTurnDisplay();
         },
@@ -956,7 +957,10 @@ function handleAbbeRecall(x, y, key, meeple) {
 
     // Rendre l'Abbé au joueur
     const player = gameState.players.find(p => p.id === meeple.playerId);
-    if (player) player.hasAbbot = true;
+    if (player) {
+        player.hasAbbot = true;
+        eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
+    }
 
     // Cacher les overlays
     if (meepleCursorsUI) meepleCursorsUI.hideCursors();
@@ -1005,7 +1009,7 @@ function placerMeeple(x, y, position, meepleType) {
     if (meepleType === 'Abbot') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasAbbot = false;
-        eventBus.emit('score-updated'); // Mise à jour visuelle immédiate
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
     }
 
     if (undoManager && isMyTurn) {
@@ -1267,8 +1271,10 @@ function setupEventListeners() {
         }
 
         if (gameSync) gameSync.syncUndo(undoneAction);
+        // Mettre à jour les compteurs de meeples après undo (hasAbbot peut avoir changé)
+        gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
         eventBus.emit('score-updated');
-        updateTurnDisplay(); // Mettre à jour undo (canUndo peut avoir changé)
+        updateTurnDisplay();
     });
 
     // Tuiles restantes
