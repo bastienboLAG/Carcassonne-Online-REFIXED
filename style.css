@@ -669,24 +669,22 @@ button:disabled {
 }
 
 /* Panneau de score à droite */
-#score-panel {
-    width: 320px;
-    height: 100vh;
-    background-color: #2c3e50;
+#score-overlay {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 280px;
+    max-height: calc(100vh - 40px);
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    border-left: 3px solid #444;
-    z-index: 10;
-    box-shadow: -4px 0 10px rgba(0,0,0,0.5);
+    gap: 10px;
+    z-index: 40;
     overflow-y: auto;
+    pointer-events: none;
 }
 
-#score-panel h2 {
-    color: gold;
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 24px;
+#score-overlay > * {
+    pointer-events: auto;
 }
 
 #players-scores {
@@ -1090,5 +1088,50 @@ button:disabled {
 
     #mobile-secondary .mobile-icon-btn {
         flex: 1;
+    }
+}
+
+/* ── Score overlay : caché sur mobile (remplacé par mobile-players-bar) ── */
+@media (max-width: 768px) {
+    #score-overlay {
+        display: none !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   LOBBY MOBILE
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .home-page {
+        align-items: flex-start;
+        padding: 12px;
+    }
+
+    .home-container {
+        flex-direction: column;
+        gap: 16px;
+        max-width: 100%;
+    }
+
+    .home-left {
+        max-width: 100%;
+        width: 100%;
+        padding: 20px;
+    }
+
+    .home-right {
+        width: 100%;
+        max-height: none;
+        padding: 20px;
+    }
+
+    .home-left h1 {
+        font-size: 26px;
+        margin-bottom: 20px;
+    }
+
+    .options-columns {
+        flex-direction: column;
+        gap: 16px;
     }
 }
