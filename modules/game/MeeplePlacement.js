@@ -37,7 +37,13 @@ export class MeeplePlacement {
         
         // 2. Vérifier que le joueur a des meeples disponibles
         const player = this.gameState.players.find(p => p.id === playerId);
-        if (!player || player.meeples <= 0) {
+        if (!player) return false;
+        const isAbbot = meepleType === 'Abbot';
+        if (isAbbot && !player.hasAbbot) {
+            console.log('❌ Abbé non disponible');
+            return false;
+        }
+        if (!isAbbot && player.meeples <= 0) {
             console.log('❌ Plus de meeples disponibles');
             return false;
         }
@@ -89,8 +95,10 @@ export class MeeplePlacement {
             playerId: playerId
         };
         
-        // Décrémenter le compteur
-        this.decrementMeeples(playerId);
+        // Décrémenter le compteur (pas pour l'Abbé — géré via hasAbbot dans home.js)
+        if (meepleType !== 'Abbot') {
+            this.decrementMeeples(playerId);
+        }
         
         // Émettre événement
         this.eventBus.emit('meeple-placed', {

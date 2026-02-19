@@ -230,7 +230,7 @@ export class MeepleCursorsUI {
 
         // Chercher tous les Abbés du joueur courant sur le plateau
         Object.entries(placedMeeples).forEach(([key, meeple]) => {
-            if (meeple.type !== 'abbot' || meeple.playerId !== playerId) return;
+            if (meeple.type?.toLowerCase() !== 'abbot' || meeple.playerId !== playerId) return;
 
             // key = "x,y,position"
             const [x, y] = key.split(',').map(Number);
