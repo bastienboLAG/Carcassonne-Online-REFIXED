@@ -531,7 +531,7 @@ button:disabled {
 .radio-group input[type="radio"] {
     width: 18px;
     height: 18px;
-    accent-color: #f39c12;
+    accent-color: #3498db;
     cursor: pointer;
 }
 
@@ -591,14 +591,16 @@ button:disabled {
     cursor: pointer;
     width: 18px;
     height: 18px;
-    accent-color: #f39c12;
+    accent-color: #3498db;
 }
 
-/* Invité : radio désactivé toujours lisible */
+/* Invité : radio désactivé — point blanc sur fond gris pour lisibilité */
 .radio-inline input[type="radio"]:disabled {
-    opacity: 0.7;
+    opacity: 1;
     width: 18px;
     height: 18px;
+    accent-color: #aaa;
+    cursor: default;
 }
 
 .config-note {

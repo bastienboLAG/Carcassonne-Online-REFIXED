@@ -602,6 +602,10 @@ async function startGame() {
     turnManager.init();
 
     initializeGameModules();
+    // ✅ Mettre à jour la config sur les modules APRÈS que gameConfig est finalisé
+    if (meepleSelectorUI) meepleSelectorUI.config = gameConfig;
+    if (meepleCursorsUI)  meepleCursorsUI.config  = gameConfig;
+    if (scorePanelUI)     scorePanelUI.config      = gameConfig;
     attachGameSyncCallbacks();
 
     setupEventListeners();
@@ -642,6 +646,10 @@ async function startGameForInvite() {
     turnManager.init();
 
     initializeGameModules();
+    // ✅ Mettre à jour la config sur les modules APRÈS que gameConfig est finalisé
+    if (meepleSelectorUI) meepleSelectorUI.config = gameConfig;
+    if (meepleCursorsUI)  meepleCursorsUI.config  = gameConfig;
+    if (scorePanelUI)     scorePanelUI.config      = gameConfig;
     attachGameSyncCallbacks();
 
     setupEventListeners();

@@ -103,8 +103,8 @@
                     </div>
                     <div class="options-col">
                         <h4>Tuile implaçable</h4>
-                        <label class="radio-inline"><input type="radio" name="unplaceable" value="reshuffle"> Remettre dans la pioche</label>
-                        <label class="radio-inline"><input type="radio" name="unplaceable" value="destroy" checked> Détruire la tuile</label>
+                        <label class="radio-inline"><input type="radio" name="unplaceable" value="reshuffle" checked> Remettre dans la pioche</label>
+                        <label class="radio-inline"><input type="radio" name="unplaceable" value="destroy"> Détruire la tuile</label>
                     </div>
                 </div>
             </div>
@@ -130,7 +130,7 @@
             <div class="config-section">
                 <h3>Tuiles</h3>
                 <label class="toggle-option">
-                    <input type="checkbox" id="tiles-base" checked disabled style="pointer-events:none;opacity:0.5;">
+                    <input type="checkbox" id="tiles-base" checked onclick="return false;" style="cursor:default;">
                     <span>Base <em style="color:rgba(255,255,255,0.4)">(obligatoires)</em></span>
                 </label>
                 <label class="toggle-option">
