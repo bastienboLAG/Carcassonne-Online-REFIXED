@@ -23,7 +23,7 @@
       "type": "river",
       "edges": ["east", "south"],
       "features": [],
-      "meeplePosition": ""
+      "meeplePosition": null
     },
     {
       "id": 4,

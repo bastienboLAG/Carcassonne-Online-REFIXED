@@ -307,6 +307,9 @@ export class ModalUI {
             if (config.tileGroups?.abbot) {
                 list.push("L'Abbé : +8 tuiles");
             }
+            if (config.startType === 'river') {
+                list.push('Rivière : +12 tuiles');
+            }
             return list;
         })());
         content.appendChild(tilesSection);
