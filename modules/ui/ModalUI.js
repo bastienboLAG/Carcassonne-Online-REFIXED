@@ -293,7 +293,6 @@ export class ModalUI {
             abbotLine.textContent = '└─ ✓ L\'Abbé';
             abbotLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
             abbotContainer.appendChild(abbotLine);
-            }
 
             extensionsSection.appendChild(abbotContainer);
         }
