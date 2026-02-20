@@ -748,6 +748,15 @@ function updateMobilePlayers() {
             if (i >= player.meeples) img.classList.add('unavailable');
             meeplesDiv.appendChild(img);
         }
+        // Abbé (si extension activée)
+        if (gameConfig?.extensions?.abbot) {
+            const abbot = document.createElement('img');
+            abbot.src = `./assets/Meeples/${colorCap}/Abbot.png`;
+            abbot.alt = 'Abbé';
+            abbot.style.marginLeft = '6px';
+            if (!player.hasAbbot) abbot.classList.add('unavailable');
+            meeplesDiv.appendChild(abbot);
+        }
         card.appendChild(meeplesDiv);
         container.appendChild(card);
     });
