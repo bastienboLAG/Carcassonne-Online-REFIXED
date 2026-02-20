@@ -293,26 +293,6 @@ export class ModalUI {
             abbotLine.textContent = '└─ ✓ L\'Abbé';
             abbotLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
             abbotContainer.appendChild(abbotLine);
-
-            const rules = [
-                '✓ Meeple Abbé disponible (1 par joueur)',
-                '✓ Pose sur abbaye ou jardin uniquement',
-                '✓ Rappel anticipé en phase 2 (si aucun meeple posé)',
-                '✓ Score : 1 pt par tuile adjacente + 1 pt (max 9)',
-            ];
-            rules.forEach(r => {
-                const line = document.createElement('div');
-                line.textContent = `   └─ ${r}`;
-                line.style.cssText = 'margin-left:5px;font-size:13px;color:#a8d8a8;padding-left:20px;';
-                abbotContainer.appendChild(line);
-            });
-
-            // Tuiles Abbot
-            if (config.tileGroups?.abbot) {
-                const tilesLine = document.createElement('div');
-                tilesLine.textContent = '   └─ ✓ 8 tuiles Abbé ajoutées à la pioche';
-                tilesLine.style.cssText = 'margin-left:5px;font-size:13px;color:#a8c8ff;padding-left:20px;';
-                abbotContainer.appendChild(tilesLine);
             }
 
             extensionsSection.appendChild(abbotContainer);
