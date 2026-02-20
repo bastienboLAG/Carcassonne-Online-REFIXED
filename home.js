@@ -939,6 +939,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     }
 
     tuileEnMain = null;
+    updateMobileTilePreview();
     updateTurnDisplay(); // Mettre à jour undo (canUndo vient de changer)
 }
 
@@ -950,6 +951,7 @@ function poserTuileSync(x, y, tile) {
     // synchrone, ce qui déclenche refreshAllSlots() immédiatement.
     // Si tuileEnMain est encore non-null à ce moment, des slots fantômes apparaissent.
     tuileEnMain = null;
+    updateMobileTilePreview();
 
     tilePlacement.placeTile(x, y, tile, { isFirst, skipSync: true });
 

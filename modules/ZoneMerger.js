@@ -86,11 +86,9 @@ export class ZoneMerger {
             for (let i = 1; i < adjacentZones.length; i++) {
                 const zoneToMerge = this.registry.getZone(adjacentZones[i]);
                 
-                // ✅ CORRECTION : Ne pas fusionner si c'est une zone de la MÊME tuile
-                // qui a déjà été traitée (et qui n'est pas dans connectedTo)
-                const isSameTileZone = zoneToMerge.tiles.some(t => t.x === x && t.y === y);
-                if (isSameTileZone) {
-                    console.log(`    ⚠️ Skip fusion ${adjacentZones[i]} (même tuile, pas connectée)`);
+                // ✅ CORRECTION : Ne pas fusionner une zone avec elle-même
+                if (adjacentZones[i] === primaryZone.id) {
+                    console.log(`    ⚠️ Skip fusion ${adjacentZones[i]} (même zone que primaire)`);
                     continue;
                 }
                 
@@ -422,7 +420,15 @@ export class ZoneMerger {
     _isCityComplete(mergedZone) {
         for (const { x, y, zoneIndex } of mergedZone.tiles) {
             const tile = this.board.placedTiles[`${x},${y}`];
+            if (!tile) {
+                console.error(`❌ Tuile fantôme dans ${mergedZone.id}: (${x},${y})`);
+                continue;
+            }
             const zone = tile.zones[zoneIndex];
+            if (!zone) {
+                console.error(`❌ Zone ${zoneIndex} introuvable sur (${x},${y}) dans ${mergedZone.id}`);
+                continue;
+            }
 
             if (!zone.edges) continue;
 
@@ -475,7 +481,15 @@ export class ZoneMerger {
     _isRoadComplete(mergedZone) {
         for (const { x, y, zoneIndex } of mergedZone.tiles) {
             const tile = this.board.placedTiles[`${x},${y}`];
+            if (!tile) {
+                console.error(`❌ Tuile fantôme dans ${mergedZone.id}: (${x},${y})`);
+                continue;
+            }
             const zone = tile.zones[zoneIndex];
+            if (!zone) {
+                console.error(`❌ Zone ${zoneIndex} introuvable sur (${x},${y}) dans ${mergedZone.id}`);
+                continue;
+            }
 
             if (!zone.edges) continue;
 
