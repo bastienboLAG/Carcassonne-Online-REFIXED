@@ -1265,6 +1265,13 @@ function setupEventListeners() {
             if (gameSync) gameSync.syncAbbeRecallUndo(
                 undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId
             );
+            // Réafficher les curseurs de la tuile courante + curseur rappel abbé
+            if (lastPlacedTile && meepleCursorsUI) {
+                meepleCursorsUI.showCursors(
+                    lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple
+                );
+                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+            }
             eventBus.emit('score-updated');
             updateTurnDisplay();
             return;
