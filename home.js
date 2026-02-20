@@ -1121,16 +1121,25 @@ function setupEventListeners() {
                     const player = gameState.players.find(p => p.id === playerId);
                     if (player) {
                         player.score += points;
-                        if (zoneType === 'city')       player.scoreDetail.cities      += points;
-                        else if (zoneType === 'road')  player.scoreDetail.roads       += points;
-                        else if (zoneType === 'abbey') player.scoreDetail.monasteries += points;
+                        if (zoneType === 'city')         player.scoreDetail.cities      += points;
+                        else if (zoneType === 'road')    player.scoreDetail.roads       += points;
+                        else if (zoneType === 'abbey' || zoneType === 'garden') player.scoreDetail.monasteries += points;
                     }
                 });
 
                 meeplesToReturn.forEach(key => {
                     const meeple = placedMeeples[key];
                     if (meeple) {
-                        incrementPlayerMeeples(meeple.playerId);
+                        // Si c'est l'Abbé, remettre hasAbbot au lieu d'incrémenter les meeples normaux
+                        if (meeple.type === 'Abbot') {
+                            const player = gameState.players.find(p => p.id === meeple.playerId);
+                            if (player) {
+                                player.hasAbbot = true;
+                                eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
+                            }
+                        } else {
+                            incrementPlayerMeeples(meeple.playerId);
+                        }
                         document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
                         delete placedMeeples[key];
                     }
@@ -1141,8 +1150,9 @@ function setupEventListeners() {
             }
         }
 
-        // Nettoyer les curseurs
-        document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
+        // Nettoyer les curseurs et overlays abbé
+        if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+        else document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
 
         // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
         // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()

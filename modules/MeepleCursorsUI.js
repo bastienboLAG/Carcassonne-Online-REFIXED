@@ -131,10 +131,17 @@ export class MeepleCursorsUI {
         container.style.zIndex = '100';
         
         // Créer un curseur pour chaque position valide
+        // Récupérer le joueur actif pour vérifier hasAbbot
+        const activePlayer = gameState.players.find(p => p.id === this.multiplayer.playerId);
+
         validPositions.forEach(({position, zoneType}) => {
             // Filtrer les champs si désactivés
             if (zoneType === 'field' && this.config.playFields === false) {
                 console.log('🚫 Champs désactivés, pas de curseur field à position', position);
+                return;
+            }
+            // Filtrer les jardins si l'abbé est déjà posé
+            if (zoneType === 'garden' && !activePlayer?.hasAbbot) {
                 return;
             }
             

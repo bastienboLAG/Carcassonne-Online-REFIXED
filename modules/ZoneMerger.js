@@ -397,7 +397,7 @@ export class ZoneMerger {
                 zone.isComplete = this._isCityComplete(zone);
             } else if (zone.type === 'road') {
                 zone.isComplete = this._isRoadComplete(zone);
-            } else if (zone.type === 'abbey') {
+            } else if (zone.type === 'abbey' || zone.type === 'garden') {
                 zone.isComplete = this._isAbbeyComplete(zone);
             }
         }
