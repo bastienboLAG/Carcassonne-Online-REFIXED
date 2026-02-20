@@ -1,0 +1,38 @@
+{
+  "id": "05",
+  "quantity": 1,
+  "extension": "river",
+  "image": "./assets/River/C2/05.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north", "east"],
+      "features": [],
+      "meeplePosition": "9"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["west-top", "south-right"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "24"
+    },
+    {
+      "id": 3,
+      "type": "river",
+      "edges": ["west", "south"],
+      "features": [],
+      "meeplePosition": ""
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "16"
+    }
+  ]
+}

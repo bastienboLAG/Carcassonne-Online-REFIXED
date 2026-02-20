@@ -1,0 +1,22 @@
+{
+  "id": "12",
+  "quantity": 1,
+  "extension": "river",
+  "image": "./assets/River/C2/12.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north-left", "west", "south", "east", "north-right"],
+      "features": [],
+      "meeplePosition": "10"
+    },
+    {
+      "id": 2,
+      "type": "river",
+      "edges": ["north"],
+      "features": [],
+      "meeplePosition": ""
+    }
+  ]
+}

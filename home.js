@@ -495,13 +495,15 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
         testDeck:           document.getElementById('use-test-deck').checked,
         enableDebug:        document.getElementById('enable-debug').checked,
         unplaceableAction:  document.querySelector('input[name="unplaceable"]:checked')?.value || 'destroy',
+        startType: document.querySelector('input[name="start"]:checked')?.value || 'unique',
         extensions: {
             base:  true,
             abbot: document.getElementById('ext-abbot')?.checked ?? false
         },
         tileGroups: {
             base:  true,
-            abbot: document.getElementById('tiles-abbot')?.checked ?? false
+            abbot: document.getElementById('tiles-abbot')?.checked ?? false,
+            river: document.querySelector('input[name="start"]:checked')?.value === 'river'
         }
     };
 
@@ -640,7 +642,7 @@ async function startGame() {
     setupNavigation(document.getElementById('board-container'), document.getElementById('board'));
 
     // L'hôte charge et envoie la pioche
-    await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {});
+    await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {}, gameConfig.startType ?? 'unique');
     gameSync.startGame(deck);
     turnManager.drawTile();
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });

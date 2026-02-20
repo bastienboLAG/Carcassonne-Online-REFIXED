@@ -1,0 +1,36 @@
+{
+  "id": "10",
+  "quantity": 1,
+  "extension": "river",
+  "image": "./assets/River/C2/10.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north", "west", "east-top", "south-left"],
+      "features": [],
+      "meeplePosition": "17"
+    },
+    {
+      "id": 2,
+      "type": "garden",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "7"
+    },
+    {
+      "id": 3,
+      "type": "river",
+      "edges": ["east", "south"],
+      "features": [],
+      "meeplePosition": ""
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["east-bottom", "south-right"],
+      "features": [],
+      "meeplePosition": "25"
+    }
+  ]
+}

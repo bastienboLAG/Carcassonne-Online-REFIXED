@@ -1,0 +1,29 @@
+{
+  "id": "04",
+  "quantity": 1,
+  "extension": "river",
+  "image": "./assets/River/C2/04.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north-left", "west", "south-left"],
+      "features": [],
+      "meeplePosition": "11"
+    },
+    {
+      "id": 2,
+      "type": "river",
+      "edges": ["north", "south"],
+      "features": [],
+      "meeplePosition": ""
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["north-right", "east", "south-right"],
+      "features": [],
+      "meeplePosition": "15"
+    }
+  ]
+}

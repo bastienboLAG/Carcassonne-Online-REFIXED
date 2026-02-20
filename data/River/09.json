@@ -1,0 +1,43 @@
+{
+  "id": "09",
+  "quantity": 1,
+  "extension": "river",
+  "image": "./assets/River/C2/09.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north-left", "west-top"],
+      "features": [],
+      "meeplePosition": "1"
+    },
+    {
+      "id": 2,
+      "type": "road",
+      "edges": ["north", "west"],
+      "features": [],
+      "meeplePosition": "11"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["north-right", "east-top", "west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "17"
+    },
+    {
+      "id": 4,
+      "type": "river",
+      "edges": ["east", "south"],
+      "features": [],
+      "meeplePosition": ""
+    },
+    {
+      "id": 5,
+      "type": "field",
+      "edges": ["east-bottom", "south-right"],
+      "features": [],
+      "meeplePosition": "25"
+    }
+  ]
+}

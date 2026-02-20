@@ -191,9 +191,8 @@ export class ModalUI {
         `;
         
         // Section Départ
-        const startSection = this._createSection('🏁 Départ', [
-            'Tuile unique'
-        ]);
+        const startLabel = config.startType === 'river' ? 'Rivière 1' : 'Tuile unique';
+        const startSection = this._createSection('🏁 Départ', [startLabel]);
         content.appendChild(startSection);
         
         // Section Options
