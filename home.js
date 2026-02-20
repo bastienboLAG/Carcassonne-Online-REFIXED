@@ -576,7 +576,7 @@ function attachGameSyncCallbacks() {
             delete placedMeeples[key];
             const player = gameState.players.find(p => p.id === playerId);
             if (player) player.hasAbbot = true;
-            pendingAbbePoints = { playerId, points };
+            // ✅ PAS de pendingAbbePoints côté invité — les points seront reçus via score-update en fin de tour
             eventBus.emit('meeple-count-updated', { playerId });
             eventBus.emit('score-updated');
             updateTurnDisplay();
@@ -890,8 +890,10 @@ function handleRemoteUndo(undoneAction) {
         }
 
         // Remettre la tuile en main côté invité (slot + preview)
-        if (undoneAction.tile?.tile) {
-            eventBus.emit('tile-drawn', { tile: undoneAction.tile.tile, isSync: true });
+        const tileObj = undoneAction.tile?.tile;
+        if (tileObj) {
+            // tileObj est un plain object sérialisé {id, imagePath, zones, rotation}
+            eventBus.emit('tile-drawn', { tileData: tileObj, fromNetwork: true });
         }
     }
 
@@ -1243,6 +1245,10 @@ function setupEventListeners() {
                 meepleCursorsUI.showCursors(
                     lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple
                 );
+                // ✅ Re-afficher les curseurs abbé si l'extension est active
+                if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
+                    meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+                }
             }
 
         } else if (undoneAction.type === 'tile') {
