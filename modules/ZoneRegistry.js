@@ -69,6 +69,27 @@ export class ZoneRegistry {
         if (zone2.adjacentCities && zone2.adjacentCities.length > 0) {
             zone1.adjacentCities = [...new Set([...zone1.adjacentCities, ...zone2.adjacentCities])];
         }
+        console.log(`  🔗 [MERGE] ${zoneId1} adjacentCities après fusion: [${zone1.adjacentCities.join(', ')}]`);
+
+        // ✅ Fusionner _unresolvedCities (IDs locaux pas encore résolus)
+        if (zone2._unresolvedCities && zone2._unresolvedCities.length > 0) {
+            if (!zone1._unresolvedCities) zone1._unresolvedCities = [];
+            zone1._unresolvedCities.push(...zone2._unresolvedCities);
+            console.log(`  🔗 [MERGE] _unresolvedCities transférés: ${zone2._unresolvedCities.length} entrées`);
+        }
+
+        // ✅ Mettre à jour toutes les zones field qui référencent zoneId2 → zoneId1
+        // (cas où une ville absorbée était déjà dans adjacentCities d'un champ)
+        for (const [id, zone] of this.zones) {
+            if (zone.type === 'field' && zone.adjacentCities) {
+                const idx = zone.adjacentCities.indexOf(zoneId2);
+                if (idx !== -1) {
+                    zone.adjacentCities[idx] = zoneId1;
+                    zone.adjacentCities = [...new Set(zone.adjacentCities)]; // dédupliquer
+                    console.log(`  🔗 [REMAP] field ${id}: ${zoneId2} → ${zoneId1} dans adjacentCities`);
+                }
+            }
+        }
 
         // Supprimer zone2
         this.deleteZone(zoneId2);
