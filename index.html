@@ -283,6 +283,17 @@
 
     <!-- DEBUG MOBILE - À retirer après debug -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+    <script>
+        eruda.init();
+        setTimeout(() => {
+            const btn = document.querySelector('.eruda-entry-btn');
+            if (btn) {
+                btn.style.left   = '10px';
+                btn.style.right  = 'auto';
+                btn.style.top    = '10px';
+                btn.style.bottom = 'auto';
+            }
+        }, 500);
+    </script>
 </body>
 </html>
