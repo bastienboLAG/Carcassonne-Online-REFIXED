@@ -259,7 +259,7 @@ export class Scoring {
                     player.scoreDetail.cities += points;
                 } else if (reason.includes('Route')) {
                     player.scoreDetail.roads += points;
-                } else if (reason.includes('Abbaye')) {
+                } else if (reason.includes('Abbaye') || reason.includes('Jardin') || reason.includes('complet')) {
                     player.scoreDetail.monasteries += points;
                 } else if (reason.includes('Champ')) {
                     player.scoreDetail.fields += points;

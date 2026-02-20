@@ -64,12 +64,14 @@ export class Deck {
 
         // ── Ordre / mélange ──────────────────────────────────────────────
         if (testMode) {
-            const idx01 = this.tiles.findIndex(t => t.id === 'base-01');
-            const idx02 = this.tiles.findIndex(t => t.id === 'base-02');
-            if (idx01 !== -1 && idx02 !== -1) {
-                [this.tiles[idx01], this.tiles[idx02]] = [this.tiles[idx02], this.tiles[idx01]];
+            this.shuffle();
+            // Forcer base-04 en première position même en mode test
+            const index04 = this.tiles.findIndex(t => t.id === 'base-04');
+            if (index04 !== -1) {
+                const tile04 = this.tiles.splice(index04, 1)[0];
+                this.tiles.unshift(tile04);
             }
-            console.log('🧪 Mode test : ordre des tuiles fixé');
+            console.log('🧪 Mode test : ordre aléatoire (' + this.tiles.length + ' tuiles)');
         } else {
             this.shuffle();
             // Forcer base-04 en première position
