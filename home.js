@@ -124,6 +124,9 @@ eventBus.on('tile-drawn', (data) => {
     tuileEnMain.rotation = data.tileData.rotation || 0;
     tuilePosee           = false;
 
+    // Mettre à jour isRiverPhase : true si la tuile courante est une tuile river
+    if (slotsUI) slotsUI.isRiverPhase = tuileEnMain.id.startsWith('river-');
+
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
     updateMobileTilePreview();
 

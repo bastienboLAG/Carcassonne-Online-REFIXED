@@ -18,7 +18,7 @@ export class Board {
      * @param {Tile} newTile - La tuile à placer
      * @returns {boolean} - true si le placement est valide
      */
-    canPlaceTile(x, y, newTile) {
+    canPlaceTile(x, y, newTile, riverPhase = false) {
         // Définition des voisins et des positions à vérifier pour chaque bord
         const neighbors = [
             {
@@ -86,7 +86,29 @@ export class Board {
         }
 
         // La tuile doit avoir au moins un voisin
-        return hasNeighbor;
+        if (!hasNeighbor) return false;
+
+        // ── Contrainte rivière ─────────────────────────────────────────
+        // En phase rivière, la tuile doit connecter au moins un edge river
+        if (riverPhase) {
+            const riverEdges = ['north', 'east', 'south', 'west'];
+            const hasRiverConnection = riverEdges.some(dir => {
+                const dirMap = {
+                    north: { nx: x,     ny: y - 1, newEdge: 'north', neighborEdge: 'south' },
+                    east:  { nx: x + 1, ny: y,     newEdge: 'east',  neighborEdge: 'west'  },
+                    south: { nx: x,     ny: y + 1, newEdge: 'south', neighborEdge: 'north' },
+                    west:  { nx: x - 1, ny: y,     newEdge: 'west',  neighborEdge: 'east'  }
+                };
+                const { nx, ny, newEdge, neighborEdge } = dirMap[dir];
+                const neighbor = this.placedTiles[`${nx},${ny}`];
+                if (!neighbor) return false;
+                return newTile.getEdgeType(newEdge) === 'river'
+                    && neighbor.getEdgeType(neighborEdge) === 'river';
+            });
+            if (!hasRiverConnection) return false;
+        }
+
+        return true;
     }
 
     /**

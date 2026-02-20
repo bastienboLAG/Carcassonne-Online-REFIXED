@@ -20,6 +20,7 @@ export class SlotsUI {
         this.isMyTurn        = false;
         this.firstTilePlaced = false;
         this.onSlotClick     = null;
+        this.isRiverPhase    = false;
 
         // ✅ Flag interne : une tuile est-elle disponible pour CE joueur CE tour ?
         // Mis à true par tile-drawn, remis à false par tile-placed.
@@ -162,7 +163,7 @@ export class SlotsUI {
         directions.forEach(({ dx, dy }) => {
             const nx = x + dx, ny = y + dy;
             if (!this.plateau.isFree(nx, ny)) return;
-            if (!this.plateau.canPlaceTile(nx, ny, tile)) return;
+            if (!this.plateau.canPlaceTile(nx, ny, tile, this.isRiverPhase)) return;
 
             const slot = document.createElement('div');
             slot.className        = 'slot';
