@@ -191,7 +191,7 @@ export class ModalUI {
         `;
         
         // Section Départ
-        const startSection = this._createSection('🎯 Départ', [
+        const startSection = this._createSection('🏁 Départ', [
             'Tuile unique'
         ]);
         content.appendChild(startSection);
@@ -298,7 +298,20 @@ export class ModalUI {
         }
 
         content.appendChild(extensionsSection);
-        
+
+        // Section Tuiles
+        const tilesSection = this._createSection('🧩 Tuiles', (() => {
+            const list = [];
+            if (config.tileGroups?.base !== false) {
+                list.push('Base : 72 tuiles');
+            }
+            if (config.tileGroups?.abbot) {
+                list.push("L'Abbé : +8 tuiles");
+            }
+            return list;
+        })());
+        content.appendChild(tilesSection);
+
         modal.appendChild(content);
         
         // Bouton fermer
