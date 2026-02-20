@@ -1080,13 +1080,12 @@ button:disabled {
         align-items: center;
         justify-content: center;
         gap: 4px;
-        min-width: 90px;
-        max-width: 110px;
+        min-width: 80px;
     }
 
     #mobile-tile-preview {
-        width: 88px;
-        height: 88px;
+        width: 72px;
+        height: 72px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1094,8 +1093,8 @@ button:disabled {
     }
 
     #mobile-tile-preview img {
-        width: 88px;
-        height: 88px;
+        width: 72px;
+        height: 72px;
         object-fit: contain;
     }
 
@@ -1112,7 +1111,6 @@ button:disabled {
         flex-direction: column;
         gap: 4px;
         flex: 1;
-        max-width: 400px;
     }
 
     .mobile-action-btn {

@@ -1260,7 +1260,7 @@ function setupEventListeners() {
             const abbeData = placedMeeples[abbeKey];
             if (abbeData) {
                 const [ax, ay] = abbeKey.split(',').map(Number);
-                eventBus.emit('meeple-placed', { ...abbeData, x: ax, y: ay, key: abbeKey, fromUndo: true });
+                eventBus.emit('meeple-placed', { ...abbeData, x: ax, y: ay, key: abbeKey, position: parseInt(abbeKey.split(',')[2]), meepleType: abbeData.type, playerColor: abbeData.color, fromUndo: true });
             }
             if (gameSync) gameSync.syncAbbeRecallUndo(
                 undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId
