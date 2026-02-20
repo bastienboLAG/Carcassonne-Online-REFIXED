@@ -187,6 +187,15 @@ eventBus.on('meeple-placed', (data) => {
     }
 });
 
+// Nettoyer pendingAbbePoints côté invité quand le tour change
+// (les scores sont déjà dans gameStateData reçu via deserialize)
+eventBus.on('turn-changed', () => {
+    if (!isMyTurn && pendingAbbePoints) {
+        console.log('🧹 pendingAbbePoints nettoyé côté invité au changement de tour');
+        pendingAbbePoints = null;
+    }
+});
+
 eventBus.on('meeple-count-updated', (data) => {
     if (gameSync && data.playerId === multiplayer.playerId) {
         // Toujours lire depuis gameState pour éviter de broadcaster null
@@ -891,9 +900,10 @@ function handleRemoteUndo(undoneAction) {
 
         // Remettre la tuile en main côté invité (slot + preview)
         const tileObj = undoneAction.tile?.tile;
+        console.log('⏪ [REMOTE UNDO] tileObj:', tileObj, 'slotsUI.tileAvailable:', slotsUI?.tileAvailable, 'tuileEnMain avant:', tuileEnMain?.id);
         if (tileObj) {
-            // tileObj est un plain object sérialisé {id, imagePath, zones, rotation}
             eventBus.emit('tile-drawn', { tileData: tileObj, fromNetwork: true });
+            console.log('⏪ [REMOTE UNDO] tile-drawn émis, tuileEnMain après:', tuileEnMain?.id, 'tileAvailable:', slotsUI?.tileAvailable);
         }
     }
 
