@@ -263,6 +263,7 @@ function updateLobbyUI() {
     joinBtn.style.display   = inLobby ? 'none' : 'block';
     updateColorPickerVisibility();
     updateOptionsAccess();
+    if (window.updatePresetButtons) window.updatePresetButtons();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -348,15 +349,23 @@ async function loadPresets() {
         btn.className = 'preset-btn';
         btn.textContent = preset.name ?? `Préset ${i}`;
         btn.addEventListener('click', () => {
+            if (!isHost && inLobby) return; // invité ne peut pas changer les presets
             applyPreset(preset);
-            // Mettre à jour l'état actif
             container.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            // Sync vers les invités si hôte
             if (isHost && inLobby) syncAllOptions();
         });
         container.appendChild(btn);
     });
+
+    // Mettre à jour l'apparence des boutons selon le rôle
+    window.updatePresetButtons = () => {
+        container.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.disabled = inLobby && !isHost;
+            btn.style.opacity = (inLobby && !isHost) ? '0.4' : '1';
+            btn.style.cursor  = (inLobby && !isHost) ? 'not-allowed' : 'pointer';
+        });
+    };
 
     if (presets.length === 0) {
         container.closest('.config-section').style.display = 'none';
