@@ -1,8 +1,4 @@
 {
-  "_commentaires": [
-    "start : river ou unique",
-    "unplaceable : reshuffle ou destroy",
-		   ],
   "name": "Partie complète",
   "start": "river",
   "play_fields": true,
