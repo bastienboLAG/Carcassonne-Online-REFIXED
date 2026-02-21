@@ -964,7 +964,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     updateMobileButtons();
     updateTurnDisplay();
 
-    if (gameSync) gameSync.syncTilePlacement(x, y, tile);
+    if (gameSync) gameSync.syncTilePlacement(x, y, tile, zoneMerger);
 
     if (isMyTurn && gameSync && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
         meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
@@ -983,7 +983,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     updateTurnDisplay(); // Mettre à jour undo (canUndo vient de changer)
 }
 
-function poserTuileSync(x, y, tile) {
+function poserTuileSync(x, y, tile, extraOptions = {}) {
     console.log('🔄 poserTuileSync appelé:', { x, y, tile });
     const isFirst = !firstTilePlaced;
 
@@ -993,7 +993,7 @@ function poserTuileSync(x, y, tile) {
     tuileEnMain = null;
     updateMobileTilePreview();
 
-    tilePlacement.placeTile(x, y, tile, { isFirst, skipSync: true });
+    tilePlacement.placeTile(x, y, tile, { isFirst, skipSync: true, ...extraOptions });
 
     if (!firstTilePlaced) firstTilePlaced = true;
     tuilePosee     = true;

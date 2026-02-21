@@ -92,7 +92,7 @@ export class GameSync {
     /**
      * Synchroniser le placement d'une tuile
      */
-    syncTilePlacement(x, y, tile) {
+    syncTilePlacement(x, y, tile, zoneMerger) {
         console.log('📍 Sync placement:', x, y, tile.id, tile.rotation);
         this.multiplayer.broadcast({
             type: 'tile-placed',
@@ -100,7 +100,9 @@ export class GameSync {
             y: y,
             tileId: tile.id,
             rotation: tile.rotation,
-            playerId: this.multiplayer.playerId
+            playerId: this.multiplayer.playerId,
+            zoneRegistry: zoneMerger ? zoneMerger.registry.serialize() : null,
+            tileToZone:   zoneMerger ? Array.from(zoneMerger.tileToZone.entries()) : null
         });
     }
 
@@ -256,7 +258,7 @@ export class GameSync {
             case 'tile-placed':
                 if (this.onTilePlaced && data.playerId !== this.multiplayer.playerId) {
                     console.log('📍 [SYNC] Placement reçu:', data.x, data.y, data.tileId);
-                    this.onTilePlaced(data.x, data.y, data.tileId, data.rotation);
+                    this.onTilePlaced(data.x, data.y, data.tileId, data.rotation, data.zoneRegistry, data.tileToZone);
                 }
                 break;
 

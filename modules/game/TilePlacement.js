@@ -72,8 +72,8 @@ export class TilePlacement {
         
         this.lastPlacedTile = { x, y };
         
-        // Merger les zones
-        if (this.zoneMerger) {
+        // Merger les zones (sauf si l'état est fourni par l'hôte)
+        if (this.zoneMerger && !options.skipZoneMerger) {
             this.zoneMerger.updateZonesForNewTile(x, y);
         }
         
