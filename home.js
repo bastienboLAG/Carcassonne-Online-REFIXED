@@ -1449,10 +1449,13 @@ function returnToInitialLobby(message = null) {
     isHost       = false;
     gameCode     = '';
 
-    lobbyUI.reset();
-    lobbyUI.onKickPlayer = null;
-    lobbyUI.onLeaveGame  = null;
+    // Cacher le code de partie
+    const gameCodeContainer = document.getElementById('game-code-container');
+    if (gameCodeContainer) gameCodeContainer.style.display = 'none';
 
+    lobbyUI.reset();
+    lobbyUI.setIsHost(false);
+    lobbyUI.show();   // ← revenir à la page lobby
     updateLobbyUI();
 
     if (message) {

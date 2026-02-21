@@ -68,11 +68,13 @@ export class MeepleSelectorUI {
                 ];
             }
         } else if (zoneType === 'abbey') {
-            // Abbey → Normal + Abbé si disponible
+            // Abbey → Normal (si dispo) + Abbé (si dispo)
             const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
-            meepleTypes = [
-                { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
-            ];
+            if (player?.meeples > 0) {
+                meepleTypes.push(
+                    { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
+                );
+            }
             if (player?.hasAbbot) {
                 meepleTypes.push(
                     { type: 'Abbot', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png` }
