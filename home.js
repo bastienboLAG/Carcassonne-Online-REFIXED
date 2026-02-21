@@ -1450,9 +1450,12 @@ function returnToInitialLobby(message = null) {
     const gameCodeContainer = document.getElementById('game-code-container');
     if (gameCodeContainer) gameCodeContainer.style.display = 'none';
 
-    // Réinitialiser et afficher le lobby AVANT de détruire la connexion
+    // Couper immédiatement tout message entrant
+    multiplayer.onDataReceived = null;
+
+    // Réinitialiser et afficher le lobby
     lobbyUI.setIsHost(false);
-    lobbyUI.setPlayers([]);   // forcer liste vide avant reset
+    lobbyUI.setPlayers([]);
     lobbyUI.reset();
     lobbyUI.show();
     updateLobbyUI();
