@@ -265,6 +265,129 @@ function updateLobbyUI() {
     updateOptionsAccess();
 }
 
+// ═══════════════════════════════════════════════════════
+// PRESETS & LOCALSTORAGE
+// ═══════════════════════════════════════════════════════
+
+const LS_KEY = 'carcassonne_lobby_options';
+
+function applyPreset(preset) {
+    // Départ
+    const startRadio = document.querySelector(`input[name="start"][value="${preset.start ?? 'unique'}"]`);
+    if (startRadio) startRadio.checked = true;
+
+    // Checkboxes
+    const map = {
+        'play_fields':       'base-fields',
+        'show_remaining':    'list-remaining',
+        'test_deck':         'use-test-deck',
+        'debug':             'enable-debug',
+        'abbot_extension':   'ext-abbot',
+        'abbot_tiles':       'tiles-abbot',
+    };
+    for (const [key, id] of Object.entries(map)) {
+        if (preset[key] !== undefined) {
+            const el = document.getElementById(id);
+            if (el) el.checked = preset[key];
+        }
+    }
+
+    // Tuile implaçable
+    if (preset.unplaceable !== undefined) {
+        const radio = document.querySelector(`input[name="unplaceable"][value="${preset.unplaceable}"]`);
+        if (radio) radio.checked = true;
+    }
+
+    saveLobbyOptions();
+}
+
+function saveLobbyOptions() {
+    const state = {
+        start:           document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
+        play_fields:     document.getElementById('base-fields')?.checked ?? true,
+        show_remaining:  document.getElementById('list-remaining')?.checked ?? true,
+        test_deck:       document.getElementById('use-test-deck')?.checked ?? false,
+        debug:           document.getElementById('enable-debug')?.checked ?? false,
+        abbot_extension: document.getElementById('ext-abbot')?.checked ?? false,
+        abbot_tiles:     document.getElementById('tiles-abbot')?.checked ?? false,
+        unplaceable:     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+
+function loadLobbyOptions() {
+    try {
+        const saved = localStorage.getItem(LS_KEY);
+        if (saved) applyPreset(JSON.parse(saved));
+    } catch (e) {
+        console.warn('⚠️ Impossible de restaurer les options:', e);
+    }
+}
+
+async function loadPresets() {
+    const container = document.getElementById('presets-buttons');
+    if (!container) return;
+
+    const presets = [];
+    let i = 1;
+    while (true) {
+        const id = String(i).padStart(2, '0');
+        try {
+            const res = await fetch(`./data/Presets/${id}.json`);
+            if (!res.ok) break;
+            const data = await res.json();
+            presets.push(data);
+            i++;
+        } catch (e) {
+            break;
+        }
+    }
+
+    presets.forEach(preset => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = preset.name ?? `Préset ${i}`;
+        btn.addEventListener('click', () => {
+            applyPreset(preset);
+            // Mettre à jour l'état actif
+            container.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // Sync vers les invités si hôte
+            if (isHost && inLobby) syncAllOptions();
+        });
+        container.appendChild(btn);
+    });
+
+    if (presets.length === 0) {
+        container.closest('.config-section').style.display = 'none';
+    }
+}
+
+function syncAllOptions() {
+    const options = {
+        'base-fields':    document.getElementById('base-fields')?.checked ?? true,
+        'list-remaining': document.getElementById('list-remaining')?.checked ?? true,
+        'use-test-deck':  document.getElementById('use-test-deck')?.checked ?? false,
+        'enable-debug':   document.getElementById('enable-debug')?.checked ?? false,
+        'ext-abbot':      document.getElementById('ext-abbot')?.checked ?? false,
+        'tiles-abbot':    document.getElementById('tiles-abbot')?.checked ?? false,
+        'unplaceable':    document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
+        'start':          document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
+    };
+    multiplayer.broadcast({ type: 'options-sync', options });
+}
+
+// Sauvegarder les options à chaque changement manuel
+document.querySelectorAll(
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot'
+).forEach(el => el.addEventListener('change', saveLobbyOptions));
+document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
+    .forEach(el => el.addEventListener('change', saveLobbyOptions));
+
+// Charger presets et options sauvegardées au démarrage
+loadLobbyOptions();
+loadPresets();
+
 // Sélection de couleur
 const colorOptions = document.querySelectorAll('.color-option');
 colorOptions.forEach(option => {
@@ -310,10 +433,15 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
             });
         });
-        // Sync des radios (unplaceable)
+        // Sync des radios (unplaceable + start)
         document.querySelectorAll('input[name="unplaceable"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.checked) multiplayer.broadcast({ type: 'option-change', option: 'unplaceable', value: e.target.value });
+            });
+        });
+        document.querySelectorAll('input[name="start"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) multiplayer.broadcast({ type: 'option-change', option: 'start', value: e.target.value });
             });
         });
 
@@ -342,9 +470,10 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                     'list-remaining':  document.getElementById('list-remaining')?.checked  ?? true,
                     'use-test-deck':   document.getElementById('use-test-deck')?.checked   ?? false,
                     'enable-debug':    document.getElementById('enable-debug')?.checked    ?? false,
-                    'unplaceable':     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'destroy',
+                    'unplaceable':     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
                     'ext-abbot':       document.getElementById('ext-abbot')?.checked       ?? false,
                     'tiles-abbot':     document.getElementById('tiles-abbot')?.checked     ?? false,
+                    'start':           document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
                 };
                 multiplayer.sendTo(from, { type: 'options-sync', options: currentOptions });
             }
@@ -439,8 +568,8 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
             }
             if (data.type === 'return-to-lobby') returnToLobby();
             if (data.type === 'option-change') {
-                if (data.option === 'unplaceable') {
-                    const radio = document.querySelector(`input[name="unplaceable"][value="${data.value}"]`);
+                if (data.option === 'unplaceable' || data.option === 'start') {
+                    const radio = document.querySelector(`input[name="${data.option}"][value="${data.value}"]`);
                     if (radio) radio.checked = true;
                 } else {
                     const checkbox = document.getElementById(data.option);
@@ -448,23 +577,18 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 }
             }
             if (data.type === 'options-sync') {
-                // ✅ Réception de l'état complet des options au moment où on rejoint
+                // ✅ Réception de l'état complet des options
                 const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug'].forEach(id => {
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
-                // Option radio tuile implaçable
-                if (opts['ext-abbot'] !== undefined) {
-                    const el = document.getElementById('ext-abbot');
-                    if (el) el.checked = opts['ext-abbot'];
-                }
-                if (opts['tiles-abbot'] !== undefined) {
-                    const el = document.getElementById('tiles-abbot');
-                    if (el) el.checked = opts['tiles-abbot'];
-                }
                 if (opts['unplaceable']) {
                     const radio = document.querySelector(`input[name="unplaceable"][value="${opts['unplaceable']}"]`);
+                    if (radio) radio.checked = true;
+                }
+                if (opts['start']) {
+                    const radio = document.querySelector(`input[name="start"][value="${opts['start']}"]`);
                     if (radio) radio.checked = true;
                 }
             }

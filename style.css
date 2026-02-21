@@ -464,6 +464,35 @@ button:disabled {
     background: #c0392b;
 }
 
+.presets-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.preset-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.preset-btn:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: gold;
+}
+
+.preset-btn.active {
+    background: rgba(255,200,0,0.2);
+    border-color: gold;
+    color: gold;
+}
+
 .color-picker {
     background-color: rgba(0,0,0,0.3);
     padding: 20px;
