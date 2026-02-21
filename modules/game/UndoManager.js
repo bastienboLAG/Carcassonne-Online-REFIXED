@@ -30,7 +30,21 @@ export class UndoManager {
      */
     saveTurnStart(placedMeeples) {
         console.log('📸 Sauvegarde snapshot début de tour');
-        
+
+        // ✅ Nettoyage préventif : purger les zones qui référencent des tuiles absentes du plateau
+        for (const [zoneId, zone] of this.zoneRegistry.zones) {
+            const before = zone.tiles.length;
+            zone.tiles = zone.tiles.filter(({ x, y }) =>
+                this.plateau.placedTiles[`${x},${y}`] !== undefined
+            );
+            if (zone.tiles.length === 0 && before > 0) {
+                this.zoneRegistry.zones.delete(zoneId);
+                console.log(`    🧹 [saveTurnStart] Zone vide purgée: ${zoneId}`);
+            } else if (zone.tiles.length !== before) {
+                console.log(`    🧹 [saveTurnStart] Fantômes retirés de ${zoneId}: ${before} → ${zone.tiles.length} tuiles`);
+            }
+        }
+
         this.turnStartSnapshot = {
             placedTileKeys: Object.keys(this.plateau.placedTiles), // Seulement les clés
             zones: this.deepCopy(this.zoneRegistry.serialize()), // ✅ COPIE PROFONDE
@@ -56,7 +70,21 @@ export class UndoManager {
      */
     saveAfterTilePlaced(x, y, tile, placedMeeples) {
         console.log('📸 Sauvegarde snapshot après pose tuile');
-        
+
+        // ✅ Nettoyage préventif identique
+        for (const [zoneId, zone] of this.zoneRegistry.zones) {
+            const before = zone.tiles.length;
+            zone.tiles = zone.tiles.filter(({ x: tx, y: ty }) =>
+                this.plateau.placedTiles[`${tx},${ty}`] !== undefined
+            );
+            if (zone.tiles.length === 0 && before > 0) {
+                this.zoneRegistry.zones.delete(zoneId);
+                console.log(`    🧹 [saveAfterTile] Zone vide purgée: ${zoneId}`);
+            } else if (zone.tiles.length !== before) {
+                console.log(`    🧹 [saveAfterTile] Fantômes retirés de ${zoneId}: ${before} → ${zone.tiles.length} tuiles`);
+            }
+        }
+
         this.afterTilePlacedSnapshot = {
             placedTileKeys: Object.keys(this.plateau.placedTiles), // Seulement les clés
             zones: this.deepCopy(this.zoneRegistry.serialize()), // ✅ COPIE PROFONDE
