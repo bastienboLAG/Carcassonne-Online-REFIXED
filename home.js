@@ -1451,8 +1451,9 @@ function returnToInitialLobby(message = null) {
     if (gameCodeContainer) gameCodeContainer.style.display = 'none';
 
     // Réinitialiser et afficher le lobby AVANT de détruire la connexion
-    lobbyUI.reset();
     lobbyUI.setIsHost(false);
+    lobbyUI.setPlayers([]);   // forcer liste vide avant reset
+    lobbyUI.reset();
     lobbyUI.show();
     updateLobbyUI();
 
