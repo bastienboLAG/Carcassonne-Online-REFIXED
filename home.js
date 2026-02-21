@@ -327,7 +327,9 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
             if (data.type === 'player-info') {
                 if (!players.find(p => p.id === from)) {
                     const taken    = players.map(p => p.color);
-                    const assigned = taken.includes(data.color) ? getAvailableColor() : data.color;
+                    const assigned = taken.includes(data.color)
+                        ? (allColors.find(c => !taken.includes(c)) || 'blue')
+                        : data.color;
                     players.push({ id: from, name: data.name, color: assigned, isHost: false });
                     lobbyUI.setPlayers(players);
                 }
@@ -1438,11 +1440,6 @@ function setupEventListeners() {
 function returnToInitialLobby(message = null) {
     console.log('🔙 Retour au lobby initial...');
 
-    // Fermer la connexion PeerJS
-    if (multiplayer?.peer) {
-        multiplayer.peer.destroy();
-    }
-
     // Réinitialiser l'état
     players      = [];
     inLobby      = false;
@@ -1453,13 +1450,19 @@ function returnToInitialLobby(message = null) {
     const gameCodeContainer = document.getElementById('game-code-container');
     if (gameCodeContainer) gameCodeContainer.style.display = 'none';
 
+    // Réinitialiser et afficher le lobby AVANT de détruire la connexion
     lobbyUI.reset();
     lobbyUI.setIsHost(false);
-    lobbyUI.show();   // ← revenir à la page lobby
+    lobbyUI.show();
     updateLobbyUI();
 
+    // Fermer la connexion PeerJS après la mise à jour UI
+    if (multiplayer?.peer) {
+        setTimeout(() => multiplayer.peer.destroy(), 100);
+    }
+
     if (message) {
-        setTimeout(() => alert(message), 100);
+        setTimeout(() => alert(message), 200);
     }
 
     console.log('✅ Retour au lobby initial terminé');
