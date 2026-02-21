@@ -998,8 +998,8 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
     if (!firstTilePlaced) firstTilePlaced = true;
     tuilePosee     = true;
     lastPlacedTile = { x, y };
-
-    if (undoManager) undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
+    // ✅ Le snapshot est sauvegardé par GameSyncCallbacks après application des zones
+    // Ne pas le sauvegarder ici pour éviter un snapshot avec zones incomplètes
 }
 
 // ═══════════════════════════════════════════════════════

@@ -144,8 +144,12 @@ export class MeepleCursorsUI {
             if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples) {
                 return;
             }
-            // Filtrer les jardins/abbayes si l'abbé n'est pas disponible
-            if ((zoneType === 'garden' || zoneType === 'abbey') && !hasAbbot) {
+            // Filtrer les jardins si pas d'abbé
+            if (zoneType === 'garden' && !hasAbbot) {
+                return;
+            }
+            // Filtrer les abbayes si ni meeple normal ni abbé disponible
+            if (zoneType === 'abbey' && !hasMeeples && !hasAbbot) {
                 return;
             }
             
