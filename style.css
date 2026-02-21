@@ -439,6 +439,21 @@ button:disabled {
     object-fit: contain;
 }
 
+.lobby-kick-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.15s;
+    margin-left: 8px;
+}
+.lobby-kick-btn:hover {
+    color: #e74c3c;
+}
+
 .color-picker {
     background-color: rgba(0,0,0,0.3);
     padding: 20px;

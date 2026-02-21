@@ -15,6 +15,8 @@ export class LobbyUI {
         this.players = [];
         this.takenColors = [];
         this.isHost = false;
+        this.onKickPlayer  = null; // callback(playerId) — hôte kick un invité
+        this.onLeaveGame   = null; // callback() — invité quitte volontairement
         
         // Éléments DOM
         this.playersListEl = null;
@@ -130,10 +132,35 @@ export class LobbyUI {
                 });
             }
             
-            slot.innerHTML = `
-                <span class="player-name">${player.name}${player.isHost ? ' 👑' : ''}</span>
-                <img src="${this.colorImages[player.color]}" class="player-meeple-img" alt="${player.color}">
-            `;
+            const nameSpan = document.createElement('span');
+            nameSpan.className   = 'player-name';
+            nameSpan.textContent = player.name + (player.isHost ? ' 👑' : '');
+            slot.appendChild(nameSpan);
+
+            const meepleImg = document.createElement('img');
+            meepleImg.src       = this.colorImages[player.color];
+            meepleImg.className = 'player-meeple-img';
+            meepleImg.alt       = player.color;
+            slot.appendChild(meepleImg);
+
+            // Croix kick (hôte sur les invités) ou quitter (invité sur soi-même)
+            const myId = this.multiplayer?.playerId;
+            const showKick  = this.isHost && !player.isHost;
+            const showLeave = !this.isHost && player.id === myId;
+
+            if (showKick || showLeave) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className   = 'lobby-kick-btn';
+                closeBtn.textContent = '✕';
+                closeBtn.title       = showKick ? 'Retirer ce joueur' : 'Quitter le salon';
+                closeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (showKick && this.onKickPlayer) this.onKickPlayer(player.id);
+                    if (showLeave && this.onLeaveGame)  this.onLeaveGame();
+                });
+                slot.appendChild(closeBtn);
+            }
+
             this.playersListEl.appendChild(slot);
         });
         
@@ -241,7 +268,10 @@ export class LobbyUI {
      * Réinitialiser le lobby (pour retour après partie)
      */
     reset() {
-        // Garder les joueurs mais réinitialiser l'état
+        this.players       = [];
+        this.onKickPlayer  = null;
+        this.onLeaveGame   = null;
+        this.isHost        = false;
         this.updatePlayersList();
     }
 

@@ -361,6 +361,21 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                 players = data.players;
                 lobbyUI.setPlayers(players);
             }
+
+            if (data.type === 'player-left') {
+                // Un invité quitte volontairement
+                players = players.filter(p => p.id !== from);
+                lobbyUI.setPlayers(players);
+                multiplayer.broadcast({ type: 'players-update', players });
+            }
+        };
+
+        // Hôte : kick un invité
+        lobbyUI.onKickPlayer = (playerId) => {
+            multiplayer.sendTo(playerId, { type: 'you-are-kicked' });
+            players = players.filter(p => p.id !== playerId);
+            lobbyUI.setPlayers(players);
+            multiplayer.broadcast({ type: 'players-update', players });
         };
 
     } catch (error) {
@@ -456,6 +471,15 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 if (data.config) { gameConfig = data.config; }
                 startGameForInvite();
             }
+            if (data.type === 'you-are-kicked') {
+                returnToInitialLobby('Vous avez été retiré du salon.');
+            }
+        };
+
+        // Invité : quitter volontairement
+        lobbyUI.onLeaveGame = () => {
+            multiplayer.broadcast({ type: 'player-left' });
+            returnToInitialLobby();
         };
 
         originalLobbyHandler          = lobbyHandler;
@@ -1411,6 +1435,33 @@ function setupEventListeners() {
 // ═══════════════════════════════════════════════════════
 // RETOUR AU LOBBY
 // ═══════════════════════════════════════════════════════
+function returnToInitialLobby(message = null) {
+    console.log('🔙 Retour au lobby initial...');
+
+    // Fermer la connexion PeerJS
+    if (multiplayer?.peer) {
+        multiplayer.peer.destroy();
+    }
+
+    // Réinitialiser l'état
+    players      = [];
+    inLobby      = false;
+    isHost       = false;
+    gameCode     = '';
+
+    lobbyUI.reset();
+    lobbyUI.onKickPlayer = null;
+    lobbyUI.onLeaveGame  = null;
+
+    updateLobbyUI();
+
+    if (message) {
+        setTimeout(() => alert(message), 100);
+    }
+
+    console.log('✅ Retour au lobby initial terminé');
+}
+
 function returnToLobby() {
     console.log('🔙 Retour au lobby...');
 

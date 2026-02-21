@@ -304,11 +304,11 @@ export class ModalUI {
             if (config.tileGroups?.base !== false) {
                 list.push('Base : 72 tuiles');
             }
-            if (config.tileGroups?.abbot) {
-                list.push("L'Abbé : +8 tuiles");
-            }
             if (config.startType === 'river') {
                 list.push('Rivière : +12 tuiles');
+            }
+            if (config.tileGroups?.abbot) {
+                list.push("L'Abbé : +8 tuiles");
             }
             return list;
         })());

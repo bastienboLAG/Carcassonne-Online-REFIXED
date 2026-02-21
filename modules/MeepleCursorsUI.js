@@ -101,9 +101,12 @@ export class MeepleCursorsUI {
     showCursors(x, y, gameState, placedMeeples, onCursorClick) {
         console.log('🎯 Affichage des curseurs de meeple sur', x, y);
         
-        // ✅ Vérifier si le joueur a des meeples disponibles
-        if (!this.hasAvailableMeeples(this.multiplayer.playerId, gameState)) {
-            console.log('❌ Pas de meeples disponibles, pas d\'affichage de curseurs');
+        // ✅ Vérifier si le joueur a des ressources disponibles (meeples ou abbé)
+        const activePlayer = gameState.players.find(p => p.id === this.multiplayer.playerId);
+        const hasMeeples = activePlayer && activePlayer.meeples > 0;
+        const hasAbbot   = activePlayer?.hasAbbot === true;
+        if (!hasMeeples && !hasAbbot) {
+            console.log('❌ Pas de meeples ni d\'abbé disponibles, pas d\'affichage de curseurs');
             return;
         }
         
@@ -131,17 +134,18 @@ export class MeepleCursorsUI {
         container.style.zIndex = '100';
         
         // Créer un curseur pour chaque position valide
-        // Récupérer le joueur actif pour vérifier hasAbbot
-        const activePlayer = gameState.players.find(p => p.id === this.multiplayer.playerId);
-
         validPositions.forEach(({position, zoneType}) => {
             // Filtrer les champs si désactivés
             if (zoneType === 'field' && this.config.playFields === false) {
                 console.log('🚫 Champs désactivés, pas de curseur field à position', position);
                 return;
             }
-            // Filtrer les jardins si l'abbé est déjà posé
-            if (zoneType === 'garden' && !activePlayer?.hasAbbot) {
+            // Filtrer les zones normales si pas de meeples
+            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples) {
+                return;
+            }
+            // Filtrer les jardins/abbayes si l'abbé n'est pas disponible
+            if ((zoneType === 'garden' || zoneType === 'abbey') && !hasAbbot) {
                 return;
             }
             
