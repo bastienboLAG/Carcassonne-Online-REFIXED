@@ -59,12 +59,12 @@ export class Multiplayer {
 
                 // Se connecter à l'hôte
                 const conn = this.peer.connect(hostId);
-                this._handleConnection(conn);
-
-                conn.on('open', () => {
+                // resolve() dans le conn.on('open') de _handleConnection
+                conn.once('open', () => {
                     console.log('✅ Connecté à l\'hôte !');
                     resolve();
                 });
+                this._handleConnection(conn);
             });
 
             this.peer.on('error', (err) => {
@@ -79,17 +79,19 @@ export class Multiplayer {
      * @private
      */
     _handleConnection(conn) {
-        // ✅ Dédupliquer : si une connexion vers ce pair existe déjà, l'ignorer
-        const alreadyConnected = this.connections.some(c => c.peer === conn.peer);
-        if (alreadyConnected) {
-            console.warn(`⚠️ Connexion dupliquée ignorée pour: ${conn.peer}`);
-            return;
-        }
-
-        this.connections.push(conn);
-
+        // ✅ Toute la logique est dans conn.on('open') où conn.peer est garanti non-null
         conn.on('open', () => {
+            // Dédupliquer : ignorer si une connexion vers ce pair existe déjà
+            const alreadyConnected = this.connections.some(c => c.peer === conn.peer);
+            if (alreadyConnected) {
+                console.warn(`⚠️ Connexion dupliquée ignorée pour: ${conn.peer}`);
+                conn.close();
+                return;
+            }
+
+            this.connections.push(conn);
             console.log('👤 Nouveau joueur connecté:', conn.peer);
+
             if (this.onPlayerJoined) {
                 this.onPlayerJoined(conn.peer);
             }
@@ -100,23 +102,23 @@ export class Multiplayer {
                 from: this.playerId,
                 message: 'Bienvenue dans la partie !'
             });
-        });
 
-        conn.on('data', (data) => {
-            // ✅ Dédupliquer les messages avec le même msgId reçus en double
-            if (data.msgId) {
-                if (this._recentMsgIds.has(data.msgId)) {
-                    console.warn(`⚠️ Message dupliqué ignoré: ${data.msgId}`);
-                    return;
+            // Brancher data APRÈS déduplication confirmée
+            conn.on('data', (data) => {
+                // Dédupliquer les messages broadcast reçus en double
+                if (data.msgId) {
+                    if (this._recentMsgIds.has(data.msgId)) {
+                        console.warn(`⚠️ Message dupliqué ignoré: ${data.msgId}`);
+                        return;
+                    }
+                    this._recentMsgIds.add(data.msgId);
+                    setTimeout(() => this._recentMsgIds.delete(data.msgId), 5000);
                 }
-                this._recentMsgIds.add(data.msgId);
-                // Nettoyer après 5 secondes
-                setTimeout(() => this._recentMsgIds.delete(data.msgId), 5000);
-            }
-            console.log('📨 Données reçues:', data);
-            if (this.onDataReceived) {
-                this.onDataReceived(data, conn.peer);
-            }
+                console.log('📨 Données reçues:', data);
+                if (this.onDataReceived) {
+                    this.onDataReceived(data, conn.peer);
+                }
+            });
         });
 
         conn.on('close', () => {
