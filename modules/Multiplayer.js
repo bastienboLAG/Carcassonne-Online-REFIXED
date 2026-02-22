@@ -9,6 +9,8 @@ export class Multiplayer {
         this.onPlayerJoined = null; // Callback quand un joueur rejoint
         this.onPlayerLeft = null; // Callback quand un joueur part
         this.onDataReceived = null; // Callback pour recevoir des données
+        this._recentMsgIds = new Set(); // Pour dédupliquer les messages reçus en double
+        this._msgCounter = 0; // Compteur pour générer des IDs uniques
     }
 
     /**
@@ -77,6 +79,13 @@ export class Multiplayer {
      * @private
      */
     _handleConnection(conn) {
+        // ✅ Dédupliquer : si une connexion vers ce pair existe déjà, l'ignorer
+        const alreadyConnected = this.connections.some(c => c.peer === conn.peer);
+        if (alreadyConnected) {
+            console.warn(`⚠️ Connexion dupliquée ignorée pour: ${conn.peer}`);
+            return;
+        }
+
         this.connections.push(conn);
 
         conn.on('open', () => {
@@ -94,6 +103,16 @@ export class Multiplayer {
         });
 
         conn.on('data', (data) => {
+            // ✅ Dédupliquer les messages avec le même msgId reçus en double
+            if (data.msgId) {
+                if (this._recentMsgIds.has(data.msgId)) {
+                    console.warn(`⚠️ Message dupliqué ignoré: ${data.msgId}`);
+                    return;
+                }
+                this._recentMsgIds.add(data.msgId);
+                // Nettoyer après 5 secondes
+                setTimeout(() => this._recentMsgIds.delete(data.msgId), 5000);
+            }
             console.log('📨 Données reçues:', data);
             if (this.onDataReceived) {
                 this.onDataReceived(data, conn.peer);
@@ -114,6 +133,8 @@ export class Multiplayer {
      * @param {Object} data - Données à envoyer
      */
     broadcast(data) {
+        // ✅ Ajouter un ID unique pour détecter les doublons côté receveur
+        data.msgId = `${this.playerId}-${++this._msgCounter}`;
         this.connections.forEach(conn => {
             if (conn.open) {
                 conn.send(data);
