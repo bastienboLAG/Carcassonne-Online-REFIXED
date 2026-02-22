@@ -66,6 +66,7 @@ export class ModalUI {
             margin: 0 0 20px 0;
             text-align: center;
         `;
+        modal.insertBefore(this._createStickyCloseBtn(), title);
         modal.appendChild(title);
         
         // Grille de tuiles
@@ -135,23 +136,6 @@ export class ModalUI {
         
         modal.appendChild(grid);
         
-        // Bouton fermer
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Fermer';
-        closeBtn.style.cssText = `
-            display: block;
-            margin: 0 auto;
-            padding: 10px 30px;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        `;
-        closeBtn.onclick = () => this.hide();
-        modal.appendChild(closeBtn);
-        
         this.show(modal);
     }
 
@@ -181,6 +165,7 @@ export class ModalUI {
             border-bottom: 2px solid #444;
             padding-bottom: 15px;
         `;
+        modal.insertBefore(this._createStickyCloseBtn(), title);
         modal.appendChild(title);
         
         // Contenu
@@ -316,28 +301,48 @@ export class ModalUI {
 
         modal.appendChild(content);
         
-        // Bouton fermer
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Fermer';
-        closeBtn.style.cssText = `
-            display: block;
-            margin: 25px auto 0;
-            padding: 12px 40px;
-            background: #3498db;
+        this.show(modal);
+    }
+
+
+    /**
+     * Créer une croix sticky en haut à droite de la modale
+     */
+    _createStickyCloseBtn() {
+        const bar = document.createElement('div');
+        bar.style.cssText = `
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: flex-end;
+            margin: -30px -30px 10px -30px;
+            padding: 8px 10px 0 0;
+            background: #2a2a2a;
+        `;
+        const btn = document.createElement('button');
+        btn.textContent = '✕';
+        btn.style.cssText = `
+            background: #e74c3c;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 14px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            flex-shrink: 0;
+            transition: background 0.15s;
         `;
-        closeBtn.onmouseover = () => closeBtn.style.background = '#2980b9';
-        closeBtn.onmouseout = () => closeBtn.style.background = '#3498db';
-        closeBtn.onclick = () => this.hide();
-        modal.appendChild(closeBtn);
-        
-        this.show(modal);
+        btn.onmouseover = () => btn.style.background = '#c0392b';
+        btn.onmouseout  = () => btn.style.background = '#e74c3c';
+        btn.onclick = () => this.hide();
+        bar.appendChild(btn);
+        return bar;
     }
 
     /**
