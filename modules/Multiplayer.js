@@ -31,6 +31,13 @@ export class Multiplayer {
                 
                 // Écouter les connexions entrantes
                 this.peer.on('connection', (conn) => {
+                    // PeerJS peut déclencher 'connection' deux fois pour le même pair
+                    // (connexion entrante + connexion retour automatique)
+                    // On bloque immédiatement si le pair est déjà connu
+                    if (conn.peer && this._connectedPeers.has(conn.peer)) {
+                        console.warn(`⚠️ [HOST] Connexion entrante ignorée (pair déjà connu): ${conn.peer}`);
+                        return;
+                    }
                     this._handleConnection(conn);
                 });
 
