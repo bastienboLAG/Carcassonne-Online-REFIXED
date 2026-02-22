@@ -11,6 +11,7 @@ export class Multiplayer {
         this.onDataReceived = null; // Callback pour recevoir des données
         this._recentMsgIds = new Set(); // Pour dédupliquer les messages reçus en double
         this._msgCounter = 0; // Compteur pour générer des IDs uniques
+        this._connectedPeers = new Set(); // Pour dédupliquer les connexions par peer ID
     }
 
     /**
@@ -84,24 +85,21 @@ export class Multiplayer {
         conn._initialized = false;
 
         const onOpen = () => {
-            if (conn._initialized) {
-                console.warn(`⚠️ conn.on('open') déclenché en double pour: ${conn.peer}, ignoré`);
-                return;
-            }
-            conn._initialized = true;
+            const peerId = conn.peer;
 
-            // Dédupliquer par peer ID
-            const alreadyConnected = this.connections.some(c => c.peer === conn.peer);
-            if (alreadyConnected) {
-                console.warn(`⚠️ Connexion dupliquée ignorée pour: ${conn.peer}`);
+            // ✅ Dédupliquer via Set global — couvre tous les cas
+            // (double open, double _handleConnection, deux objets conn pour même pair)
+            if (this._connectedPeers.has(peerId)) {
+                console.warn(`⚠️ Pair déjà connecté, connexion ignorée: ${peerId}`);
                 return;
             }
+            this._connectedPeers.add(peerId);
 
             this.connections.push(conn);
-            console.log('👤 Nouveau joueur connecté:', conn.peer);
+            console.log('👤 Nouveau joueur connecté:', peerId);
 
             if (this.onPlayerJoined) {
-                this.onPlayerJoined(conn.peer);
+                this.onPlayerJoined(peerId);
             }
 
             conn.send({
@@ -128,10 +126,12 @@ export class Multiplayer {
         };
 
         const onClose = () => {
-            console.log('👋 Joueur déconnecté:', conn.peer);
+            const peerId = conn.peer;
+            console.log('👋 Joueur déconnecté:', peerId);
             this.connections = this.connections.filter(c => c !== conn);
+            this._connectedPeers.delete(peerId);
             if (this.onPlayerLeft) {
-                this.onPlayerLeft(conn.peer);
+                this.onPlayerLeft(peerId);
             }
         };
 
