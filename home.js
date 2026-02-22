@@ -1663,6 +1663,24 @@ function returnToLobby() {
 
     lobbyUI.show();
     lobbyUI.reset();
+
+    // ✅ Restaurer isHost et les callbacks après reset()
+    if (isHost) {
+        lobbyUI.setIsHost(true);
+        lobbyUI.onKickPlayer = (playerId) => {
+            multiplayer.sendTo(playerId, { type: 'you-are-kicked' });
+            players = players.filter(p => p.id !== playerId);
+            lobbyUI.setPlayers(players);
+            multiplayer.broadcast({ type: 'players-update', players });
+        };
+    } else {
+        lobbyUI.setIsHost(false);
+        lobbyUI.onLeaveGame = () => {
+            multiplayer.broadcast({ type: 'player-left' });
+            returnToInitialLobby();
+        };
+    }
+
     lobbyUI.setPlayers(players);
     updateLobbyUI();
 
