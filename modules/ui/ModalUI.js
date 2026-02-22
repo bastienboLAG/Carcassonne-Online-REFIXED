@@ -66,7 +66,7 @@ export class ModalUI {
             margin: 0 0 20px 0;
             text-align: center;
         `;
-        modal.insertBefore(this._createStickyCloseBtn(), title);
+        modal.appendChild(this._createStickyCloseBtn());
         modal.appendChild(title);
         
         // Grille de tuiles
@@ -165,7 +165,7 @@ export class ModalUI {
             border-bottom: 2px solid #444;
             padding-bottom: 15px;
         `;
-        modal.insertBefore(this._createStickyCloseBtn(), title);
+        modal.appendChild(this._createStickyCloseBtn());
         modal.appendChild(title);
         
         // Contenu
