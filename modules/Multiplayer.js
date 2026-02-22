@@ -174,6 +174,17 @@ export class Multiplayer {
     }
 
     /**
+     * Envoyer à tous sauf un pair spécifique (pour le relais hôte)
+     */
+    broadcastExcept(data, excludePeerId) {
+        this.connections.forEach(conn => {
+            if (conn.open && conn.peer !== excludePeerId) {
+                conn.send(data);
+            }
+        });
+    }
+
+    /**
      * Fermer toutes les connexions
      */
     disconnect() {

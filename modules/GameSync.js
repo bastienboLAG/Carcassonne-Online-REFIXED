@@ -240,6 +240,19 @@ export class GameSync {
     _handleGameMessage(data, from) {
         console.log('📨 [SYNC] Message reçu:', data.type);
 
+        // ✅ RELAIS HÔTE : si on est l'hôte et que le message vient d'un invité,
+        // le re-broadcaster aux autres joueurs (topologie étoile, invités non connectés entre eux)
+        const relayTypes = [
+            'tile-rotated', 'tile-placed', 'tile-drawn', 'turn-ended',
+            'meeple-placed', 'meeple-count-update', 'score-update', 'turn-undo',
+            'tile-destroyed', 'deck-reshuffled', 'abbe-recalled', 'abbe-recalled-undo',
+            'game-ended'
+        ];
+        if (this.isHost && from && from !== this.multiplayer.playerId && relayTypes.includes(data.type)) {
+            console.log(`🔀 [HÔTE] Relais message ${data.type} de ${from} vers les autres`);
+            this.multiplayer.broadcastExcept(data, from);
+        }
+
         switch (data.type) {
             case 'game-start':
                 if (!this.isHost && this.onGameStarted) {
