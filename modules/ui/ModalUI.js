@@ -309,20 +309,13 @@ export class ModalUI {
      * Créer une croix sticky en haut à droite de la modale
      */
     _createStickyCloseBtn() {
-        const bar = document.createElement('div');
-        bar.style.cssText = `
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            display: flex;
-            justify-content: flex-end;
-            margin: -30px -30px 10px -30px;
-            padding: 8px 10px 0 0;
-            background: #2a2a2a;
-        `;
         const btn = document.createElement('button');
         btn.textContent = '✕';
         btn.style.cssText = `
+            position: sticky;
+            top: 8px;
+            float: right;
+            z-index: 10;
             background: #e74c3c;
             color: white;
             border: none;
@@ -337,12 +330,12 @@ export class ModalUI {
             line-height: 1;
             flex-shrink: 0;
             transition: background 0.15s;
+            margin-bottom: -28px;
         `;
         btn.onmouseover = () => btn.style.background = '#c0392b';
         btn.onmouseout  = () => btn.style.background = '#e74c3c';
         btn.onclick = () => this.hide();
-        bar.appendChild(btn);
-        return bar;
+        return btn;
     }
 
     /**
