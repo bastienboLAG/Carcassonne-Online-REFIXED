@@ -79,13 +79,21 @@ export class Multiplayer {
      * @private
      */
     _handleConnection(conn) {
-        // ✅ Toute la logique est dans conn.on('open') où conn.peer est garanti non-null
-        conn.on('open', () => {
-            // Dédupliquer : ignorer si une connexion vers ce pair existe déjà
+        // ✅ Utiliser un flag sur conn pour garantir l'initialisation unique
+        // même si PeerJS déclenche 'open' plusieurs fois
+        conn._initialized = false;
+
+        const onOpen = () => {
+            if (conn._initialized) {
+                console.warn(`⚠️ conn.on('open') déclenché en double pour: ${conn.peer}, ignoré`);
+                return;
+            }
+            conn._initialized = true;
+
+            // Dédupliquer par peer ID
             const alreadyConnected = this.connections.some(c => c.peer === conn.peer);
             if (alreadyConnected) {
                 console.warn(`⚠️ Connexion dupliquée ignorée pour: ${conn.peer}`);
-                conn.close();
                 return;
             }
 
@@ -96,38 +104,40 @@ export class Multiplayer {
                 this.onPlayerJoined(conn.peer);
             }
 
-            // Envoyer un message de bienvenue
             conn.send({
                 type: 'welcome',
                 from: this.playerId,
                 message: 'Bienvenue dans la partie !'
             });
+        };
 
-            // Brancher data APRÈS déduplication confirmée
-            conn.on('data', (data) => {
-                // Dédupliquer les messages broadcast reçus en double
-                if (data.msgId) {
-                    if (this._recentMsgIds.has(data.msgId)) {
-                        console.warn(`⚠️ Message dupliqué ignoré: ${data.msgId}`);
-                        return;
-                    }
-                    this._recentMsgIds.add(data.msgId);
-                    setTimeout(() => this._recentMsgIds.delete(data.msgId), 5000);
+        const onData = (data) => {
+            // Dédupliquer les messages broadcast reçus en double
+            if (data.msgId) {
+                if (this._recentMsgIds.has(data.msgId)) {
+                    console.warn(`⚠️ Message dupliqué ignoré: ${data.msgId}`);
+                    return;
                 }
-                console.log('📨 Données reçues:', data);
-                if (this.onDataReceived) {
-                    this.onDataReceived(data, conn.peer);
-                }
-            });
-        });
+                this._recentMsgIds.add(data.msgId);
+                setTimeout(() => this._recentMsgIds.delete(data.msgId), 5000);
+            }
+            console.log('📨 Données reçues:', data);
+            if (this.onDataReceived) {
+                this.onDataReceived(data, conn.peer);
+            }
+        };
 
-        conn.on('close', () => {
+        const onClose = () => {
             console.log('👋 Joueur déconnecté:', conn.peer);
             this.connections = this.connections.filter(c => c !== conn);
             if (this.onPlayerLeft) {
                 this.onPlayerLeft(conn.peer);
             }
-        });
+        };
+
+        conn.on('open',  onOpen);
+        conn.on('data',  onData);
+        conn.on('close', onClose);
     }
 
     /**
