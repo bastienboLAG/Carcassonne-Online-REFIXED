@@ -112,18 +112,21 @@ export class UnplaceableTileManager {
 
         if (action === 'reshuffle' && this.deck && tuileEnMain) {
             const tileData = { id: tuileEnMain.id, zones: tuileEnMain.zones, imagePath: tuileEnMain.imagePath };
-            const idx      = this.deck.currentIndex - 1; // -1 car draw() a déjà incrémenté
+            const idx      = this.deck.currentIndex - 1; // idx de la tuile courante (toujours dans le deck)
             const isRiver  = idx < 12 && tuileEnMain.id?.startsWith('river-');
 
             if (isRiver) {
-                // ✅ Insérer river-10 à une position aléatoire entre idx et 10 inclus
-                // sans jamais toucher à river-12 qui est à l'index 11
+                // ✅ La tuile est toujours dans tiles[idx] — on mélange tiles[idx..10] en place
+                // River-12 à l'index 11 n'est jamais touchée
                 console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
-                // Choisir un index aléatoire entre idx et 10 inclus
-                const insertAt = idx + Math.floor(Math.random() * (11 - idx));
-                console.log(`🔍 idx=${idx} insertAt=${insertAt} deck[idx..12]=${this.deck.tiles.slice(idx, 13).map(t=>t.id).join(',')}`);
-                this.deck.tiles.splice(insertAt, 0, tileData);
-                console.log(`🔍 APRÈS splice deck[idx..13]=${this.deck.tiles.slice(idx, 14).map(t=>t.id).join(',')}`);
+                console.log(`🔍 AVANT mélange deck[idx..12]=${this.deck.tiles.slice(idx, 13).map(t=>t.id).join(',')}`);
+                const sub = this.deck.tiles.slice(idx, 11); // tiles[idx..10]
+                for (let i = sub.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [sub[i], sub[j]] = [sub[j], sub[i]];
+                }
+                this.deck.tiles.splice(idx, sub.length, ...sub);
+                console.log(`🔍 APRÈS mélange deck[idx..12]=${this.deck.tiles.slice(idx, 13).map(t=>t.id).join(',')}`);
             } else {
                 // Phase normale : mélanger toutes les tuiles restantes
                 console.log('🔀 Remise de la tuile dans la pioche + mélange');
