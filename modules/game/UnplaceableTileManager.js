@@ -107,12 +107,12 @@ export class UnplaceableTileManager {
 
         if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
 
-        const idx     = this.deck?.currentIndex ?? 0;
+        const idx     = (this.deck?.currentIndex ?? 1) - 1;
         const isRiver = idx < 12 && tuileEnMain?.id?.startsWith('river-');
 
         if (action === 'reshuffle' && this.deck && tuileEnMain) {
             const tileData = { id: tuileEnMain.id, zones: tuileEnMain.zones, imagePath: tuileEnMain.imagePath };
-            const idx      = this.deck.currentIndex;
+            const idx      = this.deck.currentIndex - 1; // -1 car draw() a déjà incrémenté
             const isRiver  = idx < 12 && tuileEnMain.id?.startsWith('river-');
 
             if (isRiver) {
@@ -143,7 +143,7 @@ export class UnplaceableTileManager {
             if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
 
         } else if (action === 'destroy' && this.deck && tuileEnMain) {
-            const idx     = this.deck.currentIndex;
+            const idx     = this.deck.currentIndex - 1;
             const isRiver = idx < 12 && tuileEnMain.id?.startsWith('river-');
             if (isRiver) {
                 // ✅ Phase rivière + destroy : on détruit simplement, la rivière continue normalement
