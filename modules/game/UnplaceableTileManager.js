@@ -118,6 +118,7 @@ export class UnplaceableTileManager {
             if (isRiver) {
                 // ✅ La tuile est toujours dans tiles[idx] — on mélange tiles[idx..10] en place
                 // River-12 à l'index 11 n'est jamais touchée
+                // On recule currentIndex pour que draw() repioche à partir de idx
                 console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
                 console.log(`🔍 AVANT mélange deck[idx..12]=${this.deck.tiles.slice(idx, 13).map(t=>t.id).join(',')}`);
                 const sub = this.deck.tiles.slice(idx, 11); // tiles[idx..10]
@@ -126,6 +127,7 @@ export class UnplaceableTileManager {
                     [sub[i], sub[j]] = [sub[j], sub[i]];
                 }
                 this.deck.tiles.splice(idx, sub.length, ...sub);
+                this.deck.currentIndex--; // reculer pour que draw() repioche à partir de idx
                 console.log(`🔍 APRÈS mélange deck[idx..12]=${this.deck.tiles.slice(idx, 13).map(t=>t.id).join(',')}`);
             } else {
                 // Phase normale : mélanger toutes les tuiles restantes
