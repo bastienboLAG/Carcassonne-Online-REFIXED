@@ -225,11 +225,12 @@ export class GameSync {
     /**
      * Synchroniser la fin de partie
      */
-    syncGameEnded(detailedScores) {
+    syncGameEnded(detailedScores, destroyedTilesCount = 0) {
         console.log('🏁 Sync game ended:', detailedScores);
         this.multiplayer.broadcast({
             type: 'game-ended',
             scores: detailedScores,
+            destroyedTilesCount: destroyedTilesCount,
             playerId: this.multiplayer.playerId
         });
     }
@@ -321,7 +322,7 @@ export class GameSync {
             case 'game-ended':
                 if (this.onGameEnded && data.playerId !== this.multiplayer.playerId) {
                     console.log('🏁 [SYNC] Fin de partie reçue');
-                    this.onGameEnded(data.scores);
+                    this.onGameEnded(data.scores, data.destroyedTilesCount ?? 0);
                 }
                 break;
             

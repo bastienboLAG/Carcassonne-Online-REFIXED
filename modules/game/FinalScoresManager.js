@@ -31,7 +31,7 @@ export class FinalScoresManager {
         this.updateTurnDisplay();
         this.showModal(detailedScores);
 
-        if (this.gameSync) this.gameSync.syncGameEnded(detailedScores);
+        if (this.gameSync) this.gameSync.syncGameEnded(detailedScores, this.gameState?.destroyedTilesCount ?? 0);
 
         return detailedScores;
     }
@@ -39,10 +39,11 @@ export class FinalScoresManager {
     /**
      * Réception des scores finaux depuis le réseau (invité)
      */
-    receiveFromNetwork(detailedScores) {
+    receiveFromNetwork(detailedScores, destroyedTilesCount = 0) {
         console.log('🏁 [SYNC] Fin de partie reçue');
         this.gameEnded       = true;
         this.finalScoresData = detailedScores;
+        if (this.gameState) this.gameState.destroyedTilesCount = destroyedTilesCount;
 
         detailedScores.forEach(playerScore => {
             const player = this.gameState.players.find(p => p.id === playerScore.id);

@@ -775,7 +775,7 @@ function attachGameSyncCallbacks() {
         eventBus,
         getPlacedMeeples: () => placedMeeples,
         onRemoteUndo:     handleRemoteUndo,
-        onFinalScores:    (scores) => finalScoresManager.receiveFromNetwork(scores),
+        onFinalScores:    (scores, destroyedTilesCount = 0) => finalScoresManager.receiveFromNetwork(scores, destroyedTilesCount),
         onTileDestroyed:  (tileId, pName, action, count = 1) => {
             if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
             unplaceableManager.showTileDestroyedModal(tileId, pName, false, action);

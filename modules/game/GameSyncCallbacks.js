@@ -168,9 +168,9 @@ export class GameSyncCallbacks {
         };
 
         // ── Fin de partie ─────────────────────────────────────────────────────
-        gs.onGameEnded = (detailedScores) => {
+        gs.onGameEnded = (detailedScores, destroyedTilesCount = 0) => {
             console.log('🏁 [SYNC] Fin de partie reçue');
-            this.onFinalScores(detailedScores);
+            this.onFinalScores(detailedScores, destroyedTilesCount);
         };
 
         // ── Tuile détruite ────────────────────────────────────────────────────
