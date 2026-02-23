@@ -397,20 +397,6 @@ document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
 loadLobbyOptions();
 loadPresets();
 
-// ✅ Bouton retour Android — interception pendant la partie
-window.addEventListener('popstate', (e) => {
-    if (!gameState) return; // pas en partie, laisser naviguer normalement
-    // Repousser l'état pour rester sur la page
-    history.pushState({ inGame: true }, '');
-    // Demander confirmation
-    const quitter = confirm('Voulez-vous vraiment quitter la partie ?');
-    if (quitter) {
-        // Retirer notre état factice et retourner au lobby
-        history.back();
-        returnToLobby();
-    }
-});
-
 // Sélection de couleur
 const colorOptions = document.querySelectorAll('.color-option');
 colorOptions.forEach(option => {
@@ -790,9 +776,6 @@ async function startGame() {
     document.getElementById('lobby-page').style.display = 'none';
     document.getElementById('game-page').style.display  = 'flex';
 
-    // ✅ Bloquer le bouton retour Android pendant la partie
-    history.pushState({ inGame: true }, '');
-
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
     // Initialiser le flag Abbé pour chaque joueur
@@ -838,9 +821,6 @@ async function startGame() {
 async function startGameForInvite() {
     console.log('🎮 [INVITÉ] Initialisation du jeu...');
     lobbyUI.hide();
-
-    // ✅ Bloquer le bouton retour Android pendant la partie
-    history.pushState({ inGame: true }, '');
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
