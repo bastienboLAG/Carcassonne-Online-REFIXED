@@ -398,11 +398,12 @@ loadLobbyOptions();
 loadPresets();
 
 // ✅ Bouton retour Android — interception pendant la partie
+let _handlingPopstate = false;
 window.addEventListener('popstate', (e) => {
-    if (!gameState) return; // pas en partie, navigation normale
-    // Annuler la navigation retour
+    if (!gameState) return;
+    if (_handlingPopstate) { _handlingPopstate = false; return; }
+    _handlingPopstate = true;
     history.go(1);
-    // Demander confirmation avec un léger délai (go(1) est asynchrone)
     setTimeout(() => {
         const quitter = confirm('Voulez-vous vraiment quitter la partie ?');
         if (quitter) {
