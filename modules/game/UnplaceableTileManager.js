@@ -121,7 +121,9 @@ export class UnplaceableTileManager {
                 console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
                 // Choisir un index aléatoire entre idx et 10 inclus
                 const insertAt = idx + Math.floor(Math.random() * (11 - idx));
+                console.log(`🔍 idx=${idx} insertAt=${insertAt} deck[idx..12]=${this.deck.tiles.slice(idx, 13).map(t=>t.id).join(',')}`);
                 this.deck.tiles.splice(insertAt, 0, tileData);
+                console.log(`🔍 APRÈS splice deck[idx..13]=${this.deck.tiles.slice(idx, 14).map(t=>t.id).join(',')}`);
             } else {
                 // Phase normale : mélanger toutes les tuiles restantes
                 console.log('🔀 Remise de la tuile dans la pioche + mélange');
