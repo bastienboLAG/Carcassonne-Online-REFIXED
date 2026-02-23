@@ -174,7 +174,7 @@ export class UnplaceableTileManager {
                 : `La rivière était complètement bloquée. ${count} tuile(s) rivière ont été détruites. ${playerName} va piocher l'embouchure.`;
 
         this.showTileDestroyedModal('?', playerName, true, 'destroy', true, msg(true));
-        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles rivière]`, playerName, 'destroy');
+        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles rivière]`, playerName, 'destroy', count);
 
         this._seenImplacableRiver.clear();
         this._riverTilesToTest = null;
@@ -222,7 +222,7 @@ export class UnplaceableTileManager {
         const playerName    = currentPlayer?.name || '?';
         const msg = `Plus aucune tuile ne peut être placée. ${count} tuile${count > 1 ? 's ont' : ' a'} été détruite${count > 1 ? 's' : ''}. La partie se termine.`;
         this.showTileDestroyedModal('?', playerName, true, 'destroy', false, msg);
-        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles]`, playerName, 'destroy');
+        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles]`, playerName, 'destroy', count);
 
         this._seenImplacableRiver.clear();
         this._normalTilesToTest = null;

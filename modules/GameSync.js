@@ -197,13 +197,14 @@ export class GameSync {
     /**
      * Synchroniser la destruction d'une tuile
      */
-    syncTileDestroyed(tileId, playerName, action) {
+    syncTileDestroyed(tileId, playerName, action, count = 1) {
         console.log('🗑️ Sync tile destroyed:', tileId);
         this.multiplayer.broadcast({
             type: 'tile-destroyed',
             tileId: tileId,
             playerName: playerName,
             action: action,
+            count: count,
             playerId: this.multiplayer.playerId
         });
     }
@@ -327,7 +328,7 @@ export class GameSync {
             case 'tile-destroyed':
                 if (this.onTileDestroyed && data.playerId !== this.multiplayer.playerId) {
                     console.log('🗑️ [SYNC] Tuile détruite reçue:', data.tileId);
-                    this.onTileDestroyed(data.tileId, data.playerName, data.action);
+                    this.onTileDestroyed(data.tileId, data.playerName, data.action, data.count ?? 1);
                 }
                 break;
             
