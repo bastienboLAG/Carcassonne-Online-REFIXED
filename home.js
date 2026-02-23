@@ -406,7 +406,7 @@ window.addEventListener('popstate', (e) => {
     setTimeout(() => {
         const quitter = confirm('Voulez-vous vraiment quitter la partie ?');
         if (quitter) {
-            returnToLobby();
+            location.reload();
         }
     }, 50);
 });
