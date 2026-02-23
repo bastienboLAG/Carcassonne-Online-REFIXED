@@ -116,19 +116,12 @@ export class UnplaceableTileManager {
             const isRiver  = idx < 12 && tuileEnMain.id?.startsWith('river-');
 
             if (isRiver) {
-                // ✅ Phase rivière : remettre dans les tuiles rivière restantes
-                // sans toucher à river-12 (embouchure, toujours à l'index 11)
+                // ✅ Insérer river-10 à une position aléatoire entre idx et 10 inclus
+                // sans jamais toucher à river-12 qui est à l'index 11
                 console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
-                const originalCount = 11 - idx; // nombre de tuiles à remplacer (sans river-12)
-                const riverMiddle = this.deck.tiles.slice(idx, 11); // tiles[idx..10], exclut index 11 (river-12)
-                riverMiddle.push(tileData);
-                // Mélanger
-                for (let i = riverMiddle.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [riverMiddle[i], riverMiddle[j]] = [riverMiddle[j], riverMiddle[i]];
-                }
-                // Replacer exactement originalCount éléments — river-12 à l'index 11 reste intact
-                this.deck.tiles.splice(idx, originalCount, ...riverMiddle);
+                // Choisir un index aléatoire entre idx et 10 inclus
+                const insertAt = idx + Math.floor(Math.random() * (11 - idx));
+                this.deck.tiles.splice(insertAt, 0, tileData);
             } else {
                 // Phase normale : mélanger toutes les tuiles restantes
                 console.log('🔀 Remise de la tuile dans la pioche + mélange');
