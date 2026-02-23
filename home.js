@@ -535,7 +535,8 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
 
         // Hôte : quitter le lobby (kick général + retour menu)
         lobbyUI.onHostLeave = () => {
-            multiplayer.broadcast({ type: 'you-are-kicked' });
+            const invites = players.filter(p => !p.isHost);
+            if (invites.length > 0) multiplayer.broadcast({ type: 'you-are-kicked' });
             returnToInitialLobby();
         };
 
@@ -1703,7 +1704,8 @@ function returnToLobby() {
             multiplayer.broadcast({ type: 'players-update', players });
         };
         lobbyUI.onHostLeave = () => {
-            multiplayer.broadcast({ type: 'you-are-kicked' });
+            const invites = players.filter(p => !p.isHost);
+            if (invites.length > 0) multiplayer.broadcast({ type: 'you-are-kicked' });
             returnToInitialLobby();
         };
     } else {
