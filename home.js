@@ -130,6 +130,11 @@ eventBus.on('tile-drawn', (data) => {
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
     updateMobileTilePreview();
 
+    // Réinitialiser le suivi des tuiles implaçables après chaque placement réussi
+    if (!data.fromNetwork && !data.fromUndo && unplaceableManager) {
+        unplaceableManager.resetSeenImplacable();
+    }
+
     // Snapshot début de tour (sauf lors d'une annulation)
     if (undoManager && !data.fromNetwork && !data.fromUndo) {
         undoManager.saveTurnStart(placedMeeples);

@@ -106,6 +106,20 @@ export class FinalScoresManager {
 
             tbody.appendChild(row);
         });
+
+        // Ligne tuiles détruites
+        const destroyed = this.gameState?.destroyedTilesCount ?? 0;
+        if (destroyed > 0) {
+            const footerRow = document.createElement('tr');
+            footerRow.style.cssText = 'border-top: 2px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); font-size: 13px;';
+            const td = document.createElement('td');
+            td.colSpan = 6;
+            td.style.textAlign = 'center';
+            td.style.padding = '8px 0 4px';
+            td.textContent = `🗑️ ${destroyed} tuile${destroyed > 1 ? 's' : ''} détruite${destroyed > 1 ? 's' : ''} durant la partie`;
+            footerRow.appendChild(td);
+            tbody.appendChild(footerRow);
+        }
     }
 
     _showModalMobile(detailedScores, modal) {
@@ -180,6 +194,15 @@ export class FinalScoresManager {
 
             cardsContainer.appendChild(card);
         });
+
+        // Ligne tuiles détruites
+        const destroyed = this.gameState?.destroyedTilesCount ?? 0;
+        if (destroyed > 0) {
+            const footer = document.createElement('div');
+            footer.style.cssText = 'text-align:center;color:rgba(255,255,255,0.5);font-size:13px;padding:4px 0 8px;';
+            footer.textContent = `🗑️ ${destroyed} tuile${destroyed > 1 ? 's' : ''} détruite${destroyed > 1 ? 's' : ''} durant la partie`;
+            cardsContainer.appendChild(footer);
+        }
     }
 
     /**

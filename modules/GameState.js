@@ -7,6 +7,7 @@ export class GameState {
         this.currentPlayerIndex = 0; // Index du joueur actuel
         this.placedTiles = {}; // Tuiles posées sur le plateau
         this.deck = []; // Pioche (seulement côté hôte)
+        this.destroyedTilesCount = 0; // Compteur global de tuiles détruites
     }
 
     /**
