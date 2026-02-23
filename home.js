@@ -397,6 +397,20 @@ document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
 loadLobbyOptions();
 loadPresets();
 
+// ✅ Bouton retour Android — interception pendant la partie
+window.addEventListener('popstate', (e) => {
+    if (!gameState) return; // pas en partie, navigation normale
+    // Annuler la navigation retour
+    history.go(1);
+    // Demander confirmation avec un léger délai (go(1) est asynchrone)
+    setTimeout(() => {
+        const quitter = confirm('Voulez-vous vraiment quitter la partie ?');
+        if (quitter) {
+            returnToLobby();
+        }
+    }, 50);
+});
+
 // Sélection de couleur
 const colorOptions = document.querySelectorAll('.color-option');
 colorOptions.forEach(option => {
@@ -775,6 +789,7 @@ async function startGame() {
 
     document.getElementById('lobby-page').style.display = 'none';
     document.getElementById('game-page').style.display  = 'flex';
+    history.pushState({ inGame: true }, '');
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
@@ -821,6 +836,7 @@ async function startGame() {
 async function startGameForInvite() {
     console.log('🎮 [INVITÉ] Initialisation du jeu...');
     lobbyUI.hide();
+    history.pushState({ inGame: true }, '');
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
