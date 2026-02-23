@@ -17,6 +17,7 @@ export class LobbyUI {
         this.isHost = false;
         this.onKickPlayer  = null; // callback(playerId) — hôte kick un invité
         this.onLeaveGame   = null; // callback() — invité quitte volontairement
+        this.onHostLeave   = null; // callback() — hôte quitte (kick général)
         
         // Éléments DOM
         this.playersListEl = null;
@@ -145,18 +146,20 @@ export class LobbyUI {
 
             // Croix kick (hôte sur les invités) ou quitter (invité sur soi-même)
             const myId = this.multiplayer?.playerId;
-            const showKick  = this.isHost && !player.isHost;
-            const showLeave = !this.isHost && player.id === myId;
+            const showKick      = this.isHost && !player.isHost;
+            const showHostLeave = this.isHost && player.isHost;
+            const showLeave     = !this.isHost && player.id === myId;
 
-            if (showKick || showLeave) {
+            if (showKick || showLeave || showHostLeave) {
                 const closeBtn = document.createElement('button');
                 closeBtn.className   = 'lobby-kick-btn';
                 closeBtn.textContent = '✕';
                 closeBtn.title       = showKick ? 'Retirer ce joueur' : 'Quitter le salon';
                 closeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (showKick && this.onKickPlayer) this.onKickPlayer(player.id);
-                    if (showLeave && this.onLeaveGame)  this.onLeaveGame();
+                    if (showKick && this.onKickPlayer)   this.onKickPlayer(player.id);
+                    if (showLeave && this.onLeaveGame)   this.onLeaveGame();
+                    if (showHostLeave && this.onHostLeave) this.onHostLeave();
                 });
                 slot.appendChild(closeBtn);
             }
@@ -271,6 +274,7 @@ export class LobbyUI {
         this.players       = [];
         this.onKickPlayer  = null;
         this.onLeaveGame   = null;
+        this.onHostLeave   = null;
         this.isHost        = false;
         this.updatePlayersList();
     }

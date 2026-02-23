@@ -533,6 +533,12 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
             multiplayer.broadcast({ type: 'players-update', players });
         };
 
+        // Hôte : quitter le lobby (kick général + retour menu)
+        lobbyUI.onHostLeave = () => {
+            multiplayer.broadcast({ type: 'you-are-kicked' });
+            returnToInitialLobby();
+        };
+
     } catch (error) {
         console.error('❌ Erreur:', error);
         alert('Erreur lors de la création de la partie: ' + error.message);
@@ -568,7 +574,12 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
         const lobbyHandler = (data, from) => {
             console.log('📨 [INVITÉ] Reçu:', data);
 
-            if (data.type === 'welcome')         console.log('🎉', data.message);
+            if (data.type === 'welcome') {
+                console.log('🎉', data.message);
+                // Afficher le code d'invitation côté invité
+                document.getElementById('game-code-container').style.display = 'block';
+                document.getElementById('game-code-text').textContent = `Code: ${code}`;
+            }
             if (data.type === 'players-update') {
                 players = data.players;
                 lobbyUI.setPlayers(players);
@@ -1690,6 +1701,10 @@ function returnToLobby() {
             players = players.filter(p => p.id !== playerId);
             lobbyUI.setPlayers(players);
             multiplayer.broadcast({ type: 'players-update', players });
+        };
+        lobbyUI.onHostLeave = () => {
+            multiplayer.broadcast({ type: 'you-are-kicked' });
+            returnToInitialLobby();
         };
     } else {
         lobbyUI.setIsHost(false);
