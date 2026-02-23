@@ -13,6 +13,8 @@ export class UnplaceableTileManager {
 
         // Tuiles rivière vues comme implaçables depuis le dernier placement réussi
         this._seenImplacableRiver = new Set();
+        // IDs des tuiles rivière à tester (capturés à la première alerte)
+        this._riverTilesToTest = null;
     }
 
     /**
@@ -20,6 +22,7 @@ export class UnplaceableTileManager {
      */
     resetSeenImplacable() {
         this._seenImplacableRiver.clear();
+        this._riverTilesToTest = null;
     }
 
     /**
@@ -123,14 +126,20 @@ export class UnplaceableTileManager {
      */
     _checkRiverAllImplacable(currentTileId, gameSync) {
         const idx = this.deck.currentIndex - 1;
-        // Tuiles rivière restantes entre idx et 10 inclus (exclut river-12 à 11)
-        const riverRemaining = this.deck.tiles.slice(idx, 11).map(t => t.id);
+
+        // À la première alerte, capturer les IDs des tuiles rivière restantes (sans river-12)
+        if (!this._riverTilesToTest) {
+            this._riverTilesToTest = new Set(
+                this.deck.tiles.slice(idx, 11).map(t => t.id)
+            );
+            console.log('🌊 Capture des tuiles rivière à tester:', [...this._riverTilesToTest]);
+        }
 
         // Ajouter la tuile courante aux vues
         this._seenImplacableRiver.add(currentTileId);
 
-        // Vérifier si toutes les tuiles restantes ont été vues
-        const allSeen = riverRemaining.every(id => this._seenImplacableRiver.has(id));
+        // Vérifier si toutes les tuiles capturées ont été vues
+        const allSeen = [...this._riverTilesToTest].every(id => this._seenImplacableRiver.has(id));
 
         if (!allSeen) return false;
 
@@ -164,6 +173,7 @@ export class UnplaceableTileManager {
         if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles rivière]`, playerName, 'destroy');
 
         this._seenImplacableRiver.clear();
+        this._riverTilesToTest = null;
         this.setRedrawMode(true);
         return true;
     }
@@ -199,6 +209,7 @@ export class UnplaceableTileManager {
                     this.showTileDestroyedModal(tileId, playerName, true, 'destroy', true, msg);
                     if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, 'destroy');
                     this._seenImplacableRiver.clear();
+                    this._riverTilesToTest = null;
                     this.setRedrawMode(true);
                     return;
                 }
@@ -240,21 +251,26 @@ export class UnplaceableTileManager {
                     console.log('🌊 river-12 implaçable — détruite, fin de rivière');
                     const msg = `L'embouchure (river-12) était impossible à placer et a été détruite. La rivière se termine sans embouchure. Cliquez sur Repiocher pour continuer avec les tuiles normales.`;
                     this._destroyTileAtIndex(idx);
+                    this.deck.currentIndex--;
                     if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
                     this.showTileDestroyedModal(tileId, playerName, true, 'destroy', true, msg);
                     if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, 'destroy');
                     this._seenImplacableRiver.clear();
+                    this._riverTilesToTest = null;
                     this.setRedrawMode(true);
                     return;
                 }
                 // Destroy rivière : détruire la tuile courante
+                // currentIndex-- car splice décale les tuiles suivantes d'un cran
                 console.log('🌊 Tuile rivière implaçable — détruite, rivière continue');
                 this._destroyTileAtIndex(idx);
+                this.deck.currentIndex--;
                 if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
             } else {
-                // Destroy normal : décrémenter total
-                this.deck.totalTiles--;
-                if (this.gameState) this.gameState.destroyedTilesCount++;
+                // Destroy normal : détruire la tuile du deck
+                // currentIndex-- car splice décale les tuiles suivantes d'un cran
+                this._destroyTileAtIndex(idx);
+                this.deck.currentIndex--;
             }
         }
 
