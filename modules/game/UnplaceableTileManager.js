@@ -3,18 +3,21 @@
  * Extrait de home.js pour alléger le fichier principal
  */
 export class UnplaceableTileManager {
-    constructor({ deck, gameState, tilePreviewUI, gameSync, gameConfig, setRedrawMode }) {
-        this.deck          = deck;
-        this.gameState     = gameState;
-        this.tilePreviewUI = tilePreviewUI;
-        this.gameSync      = gameSync;
-        this.gameConfig    = gameConfig;
-        this.setRedrawMode = setRedrawMode;
+    constructor({ deck, gameState, tilePreviewUI, gameSync, gameConfig, setRedrawMode, triggerEndGame }) {
+        this.deck           = deck;
+        this.gameState      = gameState;
+        this.tilePreviewUI  = tilePreviewUI;
+        this.gameSync       = gameSync;
+        this.gameConfig     = gameConfig;
+        this.setRedrawMode  = setRedrawMode;
+        this.triggerEndGame = triggerEndGame;
 
         // Tuiles rivière vues comme implaçables depuis le dernier placement réussi
         this._seenImplacableRiver = new Set();
         // IDs des tuiles rivière à tester (capturés à la première alerte)
         this._riverTilesToTest = null;
+        // IDs des tuiles normales à tester (phase normale)
+        this._normalTilesToTest = null;
     }
 
     /**
@@ -23,6 +26,7 @@ export class UnplaceableTileManager {
     resetSeenImplacable() {
         this._seenImplacableRiver.clear();
         this._riverTilesToTest = null;
+        this._normalTilesToTest = null;
     }
 
     /**
@@ -179,6 +183,65 @@ export class UnplaceableTileManager {
     }
 
     /**
+     * Vérifier si toutes les tuiles normales restantes ont été vues comme implaçables
+     * Si oui, les détruire toutes et déclencher la fin de partie
+     */
+    _checkNormalAllImplacable(currentTileId, gameSync) {
+        const idx = this.deck.currentIndex - 1;
+
+        // À la première alerte, capturer les IDs des tuiles restantes
+        if (!this._normalTilesToTest) {
+            this._normalTilesToTest = new Set(
+                this.deck.tiles.slice(idx).map(t => t.id)
+            );
+            console.log('🎴 Capture des tuiles normales à tester:', [...this._normalTilesToTest]);
+        }
+
+        // Ajouter la tuile courante aux vues
+        this._seenImplacableRiver.add(currentTileId);
+
+        // Vérifier si toutes les tuiles capturées ont été vues
+        const allSeen = [...this._normalTilesToTest].every(id => this._seenImplacableRiver.has(id));
+        if (!allSeen) return false;
+
+        // Toutes vues → détruire toutes les tuiles restantes et fin de partie
+        const count = this.deck.tiles.length - idx;
+        console.log(`🎴 Toutes les tuiles normales implaçables — destruction de ${count} tuile(s), fin de partie`);
+
+        // Détruire depuis la fin pour ne pas décaler les indices
+        for (let i = this.deck.tiles.length - 1; i >= idx; i--) {
+            this.deck.tiles.splice(i, 1);
+            this.deck.totalTiles--;
+            if (this.gameState) this.gameState.destroyedTilesCount++;
+        }
+        this.deck.currentIndex = idx;
+
+        if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
+
+        const currentPlayer = this.gameState?.getCurrentPlayer();
+        const playerName    = currentPlayer?.name || '?';
+        const msg = `Plus aucune tuile ne peut être placée. ${count} tuile${count > 1 ? 's ont' : ' a'} été détruite${count > 1 ? 's' : ''}. La partie se termine.`;
+        this.showTileDestroyedModal('?', playerName, true, 'destroy', false, msg);
+        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles]`, playerName, 'destroy');
+
+        this._seenImplacableRiver.clear();
+        this._normalTilesToTest = null;
+
+        // Déclencher la fin de partie après fermeture de la modale
+        const modal = document.getElementById('tile-destroyed-modal');
+        const btn   = modal?.querySelector('button');
+        if (btn) {
+            const originalOnclick = btn.onclick;
+            btn.onclick = () => {
+                if (originalOnclick) originalOnclick();
+                if (this.triggerEndGame) this.triggerEndGame();
+            };
+        }
+
+        return true;
+    }
+
+    /**
      * Gestion du clic "Confirmer" sur la modale implaçable
      */
     handleConfirm(tuileEnMain, gameSync) {
@@ -229,9 +292,11 @@ export class UnplaceableTileManager {
                 if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
 
             } else {
-                // Phase normale : mélanger toutes les tuiles restantes
+                // Phase normale : vérifier si toutes les tuiles restantes sont implaçables
+                if (this._checkNormalAllImplacable(tileId, gameSync)) return;
+
+                // Mélanger toutes les tuiles restantes
                 console.log('🔀 Remise de la tuile dans la pioche + mélange');
-                const tileData = { id: tuileEnMain.id, zones: tuileEnMain.zones, imagePath: tuileEnMain.imagePath };
                 const remaining = this.deck.tiles.slice(idx);
                 for (let i = remaining.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));

@@ -741,7 +741,13 @@ function initializeGameModules() {
     // ✅ Modules extraits de home.js
     unplaceableManager = new UnplaceableTileManager({
         deck, gameState, tilePreviewUI, gameSync, gameConfig,
-        setRedrawMode: (active) => { waitingToRedraw = active; updateTurnDisplay(); }
+        setRedrawMode: (active) => { waitingToRedraw = active; updateTurnDisplay(); },
+        triggerEndGame: () => {
+            if (deck.remaining() <= 0) {
+                if (gameSync) gameSync.syncTurnEnd();
+                finalScoresManager.computeAndApply(placedMeeples);
+            }
+        }
     });
 
     finalScoresManager = new FinalScoresManager({

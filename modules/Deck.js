@@ -105,15 +105,11 @@ export class Deck {
             console.log(`🌊 Mode rivière : ${riverDeck.length} tuiles river + ${normalDeck.length} tuiles normales`);
 
         } else if (testMode) {
-            this._shuffleArray(normalDeck);
-            // Forcer base-04 en première position en mode test
-            const index04 = normalDeck.findIndex(t => t.id === 'base-04');
-            if (index04 !== -1) {
-                const tile04 = normalDeck.splice(index04, 1)[0];
-                normalDeck.unshift(tile04);
-            }
-            this.tiles = normalDeck;
-            console.log('🧪 Mode test : ordre aléatoire (' + this.tiles.length + ' tuiles)');
+            // Mode test : seulement base-02, base-03, base-24
+            const testIds = ['base-02', 'base-03', 'base-24'];
+            this.tiles = testIds.map(id => normalDeck.find(t => t.id === id)).filter(Boolean);
+            this.totalTiles = this.tiles.length;
+            console.log('🧪 Mode test implaçable : ' + this.tiles.map(t => t.id).join(', '));
 
         } else {
             // Tuile unique : shuffle + base-04 en premier
