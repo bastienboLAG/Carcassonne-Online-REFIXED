@@ -146,7 +146,7 @@ export class UnplaceableTileManager {
         // Toutes vues → destruction en chaîne jusqu'à river-12
         const currentPlayer = this.gameState?.getCurrentPlayer();
         const playerName    = currentPlayer?.name || '?';
-        const count         = riverRemaining.length;
+        const count         = this._riverTilesToTest.size;
 
         console.log(`🌊 Toutes les tuiles rivière implaçables — destruction de ${count} tuile(s)`);
 
