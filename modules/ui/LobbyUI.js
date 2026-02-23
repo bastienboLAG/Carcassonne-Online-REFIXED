@@ -157,8 +157,9 @@ export class LobbyUI {
                 closeBtn.title       = showKick ? 'Retirer ce joueur' : 'Quitter le salon';
                 closeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (showKick && this.onKickPlayer)   this.onKickPlayer(player.id);
-                    if (showLeave && this.onLeaveGame)   this.onLeaveGame();
+                    console.log('🔴 Croix cliquée — showKick:', showKick, 'showLeave:', showLeave, 'showHostLeave:', showHostLeave, 'onHostLeave:', !!this.onHostLeave);
+                    if (showKick && this.onKickPlayer)     this.onKickPlayer(player.id);
+                    if (showLeave && this.onLeaveGame)     this.onLeaveGame();
                     if (showHostLeave && this.onHostLeave) this.onHostLeave();
                 });
                 slot.appendChild(closeBtn);
