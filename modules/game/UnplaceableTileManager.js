@@ -72,21 +72,23 @@ export class UnplaceableTileManager {
     /**
      * Afficher la modale info destruction/remélange
      */
-    showTileDestroyedModal(tileId, playerName, isActivePlayer, action) {
+    showTileDestroyedModal(tileId, playerName, isActivePlayer, action, isRiver = false) {
         const modal = document.getElementById('tile-destroyed-modal');
         const text  = document.getElementById('tile-destroyed-text');
         const title = modal.querySelector('h2');
 
+        const riverNote = isRiver ? ' (tuile rivière)' : '';
+
         if (action === 'reshuffle') {
             title.textContent = '🎲 Tuile remélangée';
             text.textContent  = isActivePlayer
-                ? `La tuile ${tileId} était impossible à placer, elle a été remise dans la pioche. Cliquez sur Repiocher pour continuer.`
-                : `La tuile ${tileId} était impossible à placer, elle a été remise dans la pioche. ${playerName} va repiocher.`;
+                ? `La tuile ${tileId}${riverNote} était impossible à placer, elle a été remise dans la rivière. Cliquez sur Repiocher pour continuer.`
+                : `La tuile ${tileId}${riverNote} était impossible à placer, elle a été remise dans la rivière. ${playerName} va repiocher.`;
         } else {
             title.textContent = '🗑️ Tuile détruite';
             text.textContent  = isActivePlayer
-                ? `La tuile ${tileId} était impossible à placer, elle a été détruite. Cliquez sur Repiocher pour continuer.`
-                : `La tuile ${tileId} était impossible à placer, elle a été détruite. ${playerName} va repiocher.`;
+                ? `La tuile ${tileId}${riverNote} était impossible à placer, elle a été détruite. Cliquez sur Repiocher pour continuer.`
+                : `La tuile ${tileId}${riverNote} était impossible à placer, elle a été détruite. ${playerName} va repiocher.`;
         }
 
         modal.style.display = 'flex';
@@ -105,22 +107,53 @@ export class UnplaceableTileManager {
 
         if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
 
-        if (action === 'reshuffle' && this.deck && tuileEnMain) {
-            console.log('🔀 Remise de la tuile dans la pioche + mélange');
-            const tileData = { id: tuileEnMain.id, zones: tuileEnMain.zones, imagePath: tuileEnMain.imagePath };
-            this.deck.tiles.splice(this.deck.currentIndex, 0, tileData);
+        const idx     = this.deck?.currentIndex ?? 0;
+        const isRiver = idx < 12 && tuileEnMain?.id?.startsWith('river-');
 
-            const remaining = this.deck.tiles.slice(this.deck.currentIndex);
-            for (let i = remaining.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+        if (action === 'reshuffle' && this.deck && tuileEnMain) {
+            const tileData = { id: tuileEnMain.id, zones: tuileEnMain.zones, imagePath: tuileEnMain.imagePath };
+            const idx      = this.deck.currentIndex;
+            const isRiver  = idx < 12 && tuileEnMain.id?.startsWith('river-');
+
+            if (isRiver) {
+                // ✅ Phase rivière : remettre dans les tuiles rivière restantes
+                // sans toucher à river-12 (embouchure, toujours à l'index 11)
+                console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
+                const riverMiddle = this.deck.tiles.slice(idx, 11); // tiles[idx..10], exclut index 11 (river-12)
+                riverMiddle.push(tileData);
+                // Mélanger
+                for (let i = riverMiddle.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [riverMiddle[i], riverMiddle[j]] = [riverMiddle[j], riverMiddle[i]];
+                }
+                // Replacer : river-12 reste à l'index 11
+                this.deck.tiles.splice(idx, riverMiddle.length, ...riverMiddle);
+            } else {
+                // Phase normale : mélanger toutes les tuiles restantes
+                console.log('🔀 Remise de la tuile dans la pioche + mélange');
+                this.deck.tiles.splice(idx, 0, tileData);
+                const remaining = this.deck.tiles.slice(idx);
+                for (let i = remaining.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+                }
+                this.deck.tiles.splice(idx, remaining.length, ...remaining);
             }
-            this.deck.tiles.splice(this.deck.currentIndex, remaining.length, ...remaining);
 
             if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
+
+        } else if (action === 'destroy' && this.deck && tuileEnMain) {
+            const idx     = this.deck.currentIndex;
+            const isRiver = idx < 12 && tuileEnMain.id?.startsWith('river-');
+            if (isRiver) {
+                // ✅ Phase rivière + destroy : on détruit simplement, la rivière continue normalement
+                console.log('🌊 Tuile rivière implaçable — détruite, rivière continue');
+            }
+            // Pas d'action supplémentaire — la tuile n'est pas remise dans le deck
         }
 
-        this.showTileDestroyedModal(tileId, playerName, true, action);
+        const displayAction = isRiver ? action : action; // même valeur, mais on pourrait différencier
+        this.showTileDestroyedModal(tileId, playerName, true, action, isRiver);
 
         if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, action);
 
