@@ -1167,6 +1167,12 @@ button:disabled {
         flex: 1;
     }
 
+    .mobile-main-btns {
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+    }
+
     .mobile-action-btn {
         border: none;
         border-radius: 6px;
@@ -1175,7 +1181,8 @@ button:disabled {
         cursor: pointer;
         padding: 6px 8px;
         text-align: center;
-        width: 100%;
+        flex: 1;
+        min-height: 52px;
     }
 
     .mobile-action-btn.undo-btn {
@@ -1186,7 +1193,6 @@ button:disabled {
     .mobile-action-btn.end-turn-btn {
         background: #2ecc71;
         color: #000;
-        flex: 1;
     }
 
     .mobile-action-btn:disabled {
