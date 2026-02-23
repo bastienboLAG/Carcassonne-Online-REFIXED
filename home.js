@@ -142,7 +142,8 @@ eventBus.on('tile-drawn', (data) => {
 
     // Vérifier si la tuile est plaçable
     if (!data.fromNetwork && !data.fromUndo && tilePlacement && unplaceableManager) {
-        const placeable = unplaceableManager.isTilePlaceable(tuileEnMain, tilePlacement.plateau);
+        const isRiverPhase = tuileEnMain?.id?.startsWith('river-') ?? false;
+        const placeable = unplaceableManager.isTilePlaceable(tuileEnMain, tilePlacement.plateau, isRiverPhase);
         if (!placeable) {
             const actionText = gameConfig?.unplaceableAction === 'reshuffle'
                 ? 'remise dans la pioche'

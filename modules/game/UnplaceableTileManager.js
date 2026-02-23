@@ -15,7 +15,7 @@ export class UnplaceableTileManager {
     /**
      * Vérifie si une tuile peut être posée quelque part sur le plateau
      */
-    isTilePlaceable(tile, plateau) {
+    isTilePlaceable(tile, plateau, isRiverPhase = false) {
         if (!plateau) return true;
 
         const placedCount = Object.keys(plateau.placedTiles).length;
@@ -31,7 +31,7 @@ export class UnplaceableTileManager {
                 const directions = [{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0}];
                 for (const {dx, dy} of directions) {
                     const nx = x + dx, ny = y + dy;
-                    if (plateau.isFree(nx, ny) && plateau.canPlaceTile(nx, ny, tile)) {
+                    if (plateau.isFree(nx, ny) && plateau.canPlaceTile(nx, ny, tile, isRiverPhase)) {
                         tile.rotation = originalRotation;
                         return true;
                     }
