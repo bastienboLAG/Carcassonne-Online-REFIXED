@@ -447,8 +447,8 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         document.getElementById('game-code-text').textContent = `Code: ${gameCode}`;
 
         players.push({ id: multiplayer.playerId, name: playerName, color: playerColor, isHost: true });
-        lobbyUI.setPlayers(players);
         lobbyUI.setIsHost(true);
+        lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
         ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot'].forEach(id => {
