@@ -102,6 +102,7 @@ let lastPlacedTile = null;
 let placedMeeples  = {};
 
 let zoomLevel  = 1;
+let _navigationSetup = false;
 let isDragging = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0;
 
 const allColors   = ['black', 'red', 'pink', 'green', 'blue', 'yellow'];
@@ -1694,6 +1695,7 @@ function returnToLobby() {
     if (boardEl) boardEl.style.transform = '';
     if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
     zoomLevel = 1;
+    _navigationSetup = false;
 
     lobbyUI.show();
     lobbyUI.reset();
@@ -1730,6 +1732,8 @@ function returnToLobby() {
 // NAVIGATION (zoom + drag)
 // ═══════════════════════════════════════════════════════
 function setupNavigation(container, board) {
+    if (_navigationSetup) return;
+    _navigationSetup = true;
     // ── PC : zoom molette ─────────────────────────────────────────────────
     container.addEventListener('wheel', (e) => {
         e.preventDefault();
