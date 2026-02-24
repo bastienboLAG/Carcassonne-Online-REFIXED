@@ -152,18 +152,6 @@ export class Deck {
             }
             counts[tile.id].count++;
         }
-        const prefixOrder = ['base', 'river', 'abbot'];
-        const prefixRank = id => {
-            const prefix = prefixOrder.findIndex(p => id.startsWith(p));
-            return prefix === -1 ? prefixOrder.length : prefix;
-        };
-        return Object.values(counts).sort((a, b) => {
-            const rankA = prefixRank(a.id), rankB = prefixRank(b.id);
-            if (rankA !== rankB) return rankA - rankB;
-            // Même préfixe : tri par numéro
-            const numA = parseInt(a.id.replace(/[^0-9]/g, '')) || 0;
-            const numB = parseInt(b.id.replace(/[^0-9]/g, '')) || 0;
-            return numA - numB;
-        });
+        return Object.values(counts).sort((a, b) => b.count - a.count);
     }
 }
