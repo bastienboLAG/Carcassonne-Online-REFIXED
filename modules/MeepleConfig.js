@@ -9,8 +9,8 @@
 export const MEEPLE_CONFIG = {
     'Normal':       { w: 69, h: 70, scale: 0.87 },
     'Farmer':       { w: 70, h: 69, scale: 0.87 },
-    'Large':        { w: 79, h: 80, scale: 0.87 },
-    'Large-Farmer': { w: 80, h: 79, scale: 0.87 },
+    'Large':        { w: 79, h: 80, scale: 0.92 },
+    'Large-Farmer': { w: 80, h: 79, scale: 0.92 },
     'Abbot':        { w: 62, h: 80, scale: 0.87 },
 };
 
