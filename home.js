@@ -17,6 +17,7 @@ import { TilePlacement }          from './modules/game/TilePlacement.js';
 import { MeeplePlacement }        from './modules/game/MeeplePlacement.js';
 import { GameSyncCallbacks }      from './modules/game/GameSyncCallbacks.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
+import { HeartbeatManager }       from './modules/HeartbeatManager.js';
 import { FinalScoresManager }     from './modules/game/FinalScoresManager.js';
 
 import { ScorePanelUI }    from './modules/ScorePanelUI.js';
@@ -102,6 +103,7 @@ let lastPlacedTile = null;
 let placedMeeples  = {};
 
 let zoomLevel  = 1;
+let heartbeatManager = null;
 let _navigationSetup = false;
 let isDragging = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0;
 
@@ -910,6 +912,21 @@ function _postStartSetup() {
     document.getElementById('test-modal-btn').style.display =
         gameConfig.enableDebug ? 'block' : 'none';
     document.getElementById('back-to-lobby-btn').style.display = isHost ? 'block' : 'none';
+
+    // Démarrer le heartbeat si partie multijoueur
+    if (multiplayer?.peer) {
+        heartbeatManager = new HeartbeatManager({
+            multiplayer,
+            onPeerTimeout: (peerId) => {
+                const player = players.find(p => p.id === peerId);
+                const name   = player?.name || peerId;
+                alert(`⚠️ ${name} ne répond plus (connexion perdue).`);
+            }
+        });
+        multiplayer.onHeartbeatPing = () => heartbeatManager.receivePing();
+        multiplayer.onHeartbeatPong = (peerId) => heartbeatManager.receivePong(peerId);
+        heartbeatManager.start();
+    }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1705,6 +1722,8 @@ function returnToLobby() {
     if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
     zoomLevel = 1;
     _navigationSetup = false;
+
+    if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
 
     lobbyUI.show();
     lobbyUI.reset();

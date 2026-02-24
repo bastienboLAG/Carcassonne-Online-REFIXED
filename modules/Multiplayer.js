@@ -12,6 +12,8 @@ export class Multiplayer {
         this._recentMsgIds = new Set(); // Pour dédupliquer les messages reçus en double
         this._msgCounter = 0; // Compteur pour générer des IDs uniques
         this._connectedPeers = new Set(); // Pour dédupliquer les connexions par peer ID
+        this.onHeartbeatPing = null; // Callback quand on reçoit un ping
+        this.onHeartbeatPong = null; // Callback quand on reçoit un pong
     }
 
     /**
@@ -117,6 +119,16 @@ export class Multiplayer {
         };
 
         const onData = (data) => {
+            // Messages heartbeat — traités directement, pas de dédup ni de log
+            if (data.type === 'heartbeat-ping') {
+                if (this.onHeartbeatPing) this.onHeartbeatPing(conn.peer);
+                return;
+            }
+            if (data.type === 'heartbeat-pong') {
+                if (this.onHeartbeatPong) this.onHeartbeatPong(conn.peer);
+                return;
+            }
+
             // Dédupliquer les messages broadcast reçus en double
             if (data.msgId) {
                 if (this._recentMsgIds.has(data.msgId)) {
