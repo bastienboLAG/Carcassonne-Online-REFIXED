@@ -47,8 +47,10 @@ export class MeepleDisplayUI {
         meeple.style.position = 'absolute';
         meeple.style.left = `${offsetX}px`;
         meeple.style.top = `${offsetY}px`;
-        meeple.style.width = '60px'; // ✅ Doublé de 30px à 60px
-        meeple.style.height = '60px';
+        const isLarge = meepleType === 'Large' || meepleType === 'Large-Farmer';
+        const meepleSize = isLarge ? '72px' : '60px';
+        meeple.style.width = meepleSize;
+        meeple.style.height = meepleSize;
         meeple.style.transform = 'translate(-50%, -50%)';
         meeple.style.pointerEvents = 'none';
         

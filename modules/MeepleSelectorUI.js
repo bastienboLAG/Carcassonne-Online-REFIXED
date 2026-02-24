@@ -103,8 +103,9 @@ export class MeepleSelectorUI {
             
             const img = document.createElement('img');
             img.src = meeple.image;
-            img.style.width = '30px';
-            img.style.height = '30px';
+            const imgSize = (meeple.type === 'Large' || meeple.type === 'Large-Farmer') ? '36px' : '30px';
+            img.style.width = imgSize;
+            img.style.height = imgSize;
             img.style.display = 'block';
             
             option.appendChild(img);
