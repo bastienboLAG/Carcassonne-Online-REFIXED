@@ -84,6 +84,19 @@ export class ScorePanelUI {
                 meeplesDisplay.appendChild(abbot);
             }
 
+            // Grand meeple (si extension activée)
+            if (this.config?.extensions?.largeMeeple) {
+                const large = document.createElement('img');
+                large.src = `./assets/Meeples/${colorCap}/Large.png`;
+                large.alt = 'Grand Meeple';
+                large.style.marginLeft = '6px';
+                large.style.width  = '25px';
+                large.style.height = '25px';
+                large.style.objectFit = 'contain';
+                if (!player.hasLargeMeeple) large.classList.add('unavailable');
+                meeplesDisplay.appendChild(large);
+            }
+
             card.appendChild(meeplesDisplay);
             playersScoresDiv.appendChild(card);
         });

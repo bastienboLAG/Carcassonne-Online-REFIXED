@@ -1,5 +1,3 @@
-// prout
-
 /**
  * MeepleSelectorUI - Gère le sélecteur de type de meeple
  * CODE COPIÉ EXACTEMENT de afficherSelecteurMeeple et getPlayerColor
