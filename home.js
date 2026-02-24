@@ -918,11 +918,17 @@ function _postStartSetup() {
     if (multiplayer?.peer) {
         const handleDisconnect = (peerId) => {
             if (!isHost) return;
+            // Retirer aussi du tableau lobby
+            players = players.filter(p => p.id !== peerId);
             if (turnManager) {
                 turnManager.handlePlayerDisconnected(peerId, {
                     tuileEnMain,
                     gameSync,
-                    afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); }
+                    afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); },
+                    onPlayerRemoved: (id) => {
+                        players = players.filter(p => p.id !== id);
+                        lobbyUI.setPlayers(players);
+                    }
                 });
             }
             // Retirer du heartbeat pour éviter un double déclenchement

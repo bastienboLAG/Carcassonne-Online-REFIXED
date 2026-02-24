@@ -176,7 +176,7 @@ export class TurnManager {
      * @param {string} peerId - ID du joueur déconnecté
      * @param {Object} options - { tuileEnMain, gameSync, afficherMessage }
      */
-    handlePlayerDisconnected(peerId, { tuileEnMain, gameSync, afficherMessage } = {}) {
+    handlePlayerDisconnected(peerId, { tuileEnMain, gameSync, afficherMessage, onPlayerRemoved } = {}) {
         if (!this.gameState) return;
 
         console.log('🔍 [DECO] peerId reçu:', peerId);
@@ -210,6 +210,7 @@ export class TurnManager {
         if (gameSync) gameSync.syncPlayerDisconnected(peerId, playerName, this.gameState.currentPlayerIndex);
 
         afficherMessage?.(`💔 ${playerName} s'est déconnecté.`);
+        onPlayerRemoved?.(peerId);
 
         // Si c'était son tour et qu'il n'avait pas encore posé sa tuile → donner la tuile au suivant
         if (wasCurrentTurn && tuileEnMain) {
