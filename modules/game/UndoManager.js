@@ -53,7 +53,8 @@ export class UndoManager {
             playerMeeples: this.gameState.players.map(p => ({
                 id: p.id,
                 meeples: p.meeples,
-                hasAbbot: p.hasAbbot
+                hasAbbot: p.hasAbbot,
+                hasLargeMeeple: p.hasLargeMeeple
             }))
         };
         
@@ -93,7 +94,8 @@ export class UndoManager {
             playerMeeples: this.gameState.players.map(p => ({
                 id: p.id,
                 meeples: p.meeples,
-                hasAbbot: p.hasAbbot
+                hasAbbot: p.hasAbbot,
+                hasLargeMeeple: p.hasLargeMeeple
             }))
         };
         
@@ -236,7 +238,8 @@ export class UndoManager {
             const player = this.gameState.players.find(p => p.id === saved.id);
             if (player) {
                 player.meeples  = saved.meeples;
-                if (saved.hasAbbot !== undefined) player.hasAbbot = saved.hasAbbot;
+                if (saved.hasAbbot       !== undefined) player.hasAbbot       = saved.hasAbbot;
+                if (saved.hasLargeMeeple !== undefined) player.hasLargeMeeple = saved.hasLargeMeeple;
             }
         });
     }
