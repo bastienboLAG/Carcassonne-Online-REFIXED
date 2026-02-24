@@ -1099,7 +1099,7 @@ function afficherMessage(msg) {
         `<p style="text-align: center; color: white;">${msg}</p>`;
 }
 
-function afficherToast(msg, duration = 5000) {
+function afficherToast(msg) {
     let toast = document.getElementById('disconnect-toast');
     if (!toast) {
         toast = document.createElement('div');
@@ -1111,25 +1111,45 @@ function afficherToast(msg, duration = 5000) {
             transform: translateX(-50%);
             background: rgba(30,30,30,0.92);
             color: white;
-            padding: 12px 24px;
+            padding: 12px 20px 12px 24px;
             border-radius: 10px;
             border-left: 4px solid #e74c3c;
             font-size: 15px;
             font-weight: bold;
             z-index: 9999;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 16px;
             transition: opacity 0.4s;
         `;
         document.body.appendChild(toast);
     }
-    toast.textContent = msg;
-    toast.style.opacity = '1';
-    toast.style.display = 'block';
-    clearTimeout(toast._timeout);
-    toast._timeout = setTimeout(() => {
+
+    toast.innerHTML = '';
+
+    const text = document.createElement('span');
+    text.textContent = msg;
+    toast.appendChild(text);
+
+    const close = document.createElement('span');
+    close.textContent = '✕';
+    close.style.cssText = `
+        cursor: pointer;
+        font-size: 14px;
+        opacity: 0.7;
+        flex-shrink: 0;
+    `;
+    close.onmouseenter = () => close.style.opacity = '1';
+    close.onmouseleave = () => close.style.opacity = '0.7';
+    close.onclick = () => {
         toast.style.opacity = '0';
         setTimeout(() => { toast.style.display = 'none'; }, 400);
-    }, duration);
+    };
+    toast.appendChild(close);
+
+    toast.style.opacity = '1';
+    toast.style.display = 'flex';
 }
 
 /**
