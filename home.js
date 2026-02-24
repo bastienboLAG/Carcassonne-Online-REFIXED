@@ -916,21 +916,26 @@ function _postStartSetup() {
 
     // Démarrer le heartbeat si partie multijoueur
     if (multiplayer?.peer) {
+        const handleDisconnect = (peerId) => {
+            if (!isHost) return;
+            if (turnManager) {
+                turnManager.handlePlayerDisconnected(peerId, {
+                    tuileEnMain,
+                    gameSync,
+                    afficherMessage
+                });
+            }
+            // Retirer du heartbeat pour éviter un double déclenchement
+            if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
+        };
+
         heartbeatManager = new HeartbeatManager({
             multiplayer,
-            onPeerTimeout: (peerId) => {
-                if (!isHost) return; // Seul l'hôte gère la déco
-                if (turnManager) {
-                    turnManager.handlePlayerDisconnected(peerId, {
-                        tuileEnMain,
-                        gameSync,
-                        afficherMessage
-                    });
-                }
-            }
+            onPeerTimeout: handleDisconnect
         });
         multiplayer.onHeartbeatPing = () => heartbeatManager.receivePing();
         multiplayer.onHeartbeatPong = (peerId) => heartbeatManager.receivePong(peerId);
+        multiplayer.onPlayerLeft    = handleDisconnect;
         heartbeatManager.start();
     }
 }
