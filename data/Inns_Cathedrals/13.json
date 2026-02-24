@@ -1,0 +1,39 @@
+{
+  "id": "13",
+  "quantity": 1,
+  "extension": "Inns_Cathedrals",
+  "image": "./assets/Inns_Cathedrals/C2/13.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west", "north"],
+      "features": ["shield"],
+      "meeplePosition": "7"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["east-top", "south-left"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "22"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["south", "east"],
+      "features": ["inn"],
+      "meeplePosition": "18"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["east-bottom", "south-right"],
+      "features": [],
+      "meeplePosition": "20"
+    }
+  ]
+
+}

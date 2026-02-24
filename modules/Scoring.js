@@ -2,8 +2,9 @@
  * Gère le calcul des scores
  */
 export class Scoring {
-    constructor(zoneMerger) {
+    constructor(zoneMerger, config = {}) {
         this.zoneMerger = zoneMerger;
+        this.config = config; // { extensions: { cathedrals, inns } }
     }
 
     /**
@@ -80,20 +81,25 @@ export class Scoring {
 
     /**
      * Calculer les points d'une ville fermée
-     * 2 points par tuile + 2 points par blason
+     * Normal : 2 pts/tuile + 2 pts/blason
+     * Cathedral : 3 pts/tuile + 3 pts/blason
      */
     _scoreClosedCity(mergedZone) {
         const uniqueTiles = this._countUniqueTiles(mergedZone);
-        return (uniqueTiles * 2) + (mergedZone.shields * 2);
+        const hasCathedral = this.config?.extensions?.cathedrals && mergedZone.hasCathedral;
+        const ptsPerUnit = hasCathedral ? 3 : 2;
+        return (uniqueTiles * ptsPerUnit) + (mergedZone.shields * ptsPerUnit);
     }
 
     /**
      * Calculer les points d'une route fermée
-     * 1 point par tuile
+     * Normal : 1 pt/tuile
+     * Inn : 2 pts/tuile
      */
     _scoreClosedRoad(mergedZone) {
         const uniqueTiles = this._countUniqueTiles(mergedZone);
-        return uniqueTiles;
+        const hasInn = this.config?.extensions?.inns && mergedZone.hasInn;
+        return uniqueTiles * (hasInn ? 2 : 1);
     }
 
     /**
@@ -124,7 +130,9 @@ export class Scoring {
         const counts = {};
         
         meeples.forEach(meeple => {
-            counts[meeple.playerId] = (counts[meeple.playerId] || 0) + 1;
+            // Grand meeple compte comme 2
+            const weight = (meeple.type === 'Large' || meeple.type === 'Large-Farmer') ? 2 : 1;
+            counts[meeple.playerId] = (counts[meeple.playerId] || 0) + weight;
         });
 
         const maxCount = Math.max(...Object.values(counts));
@@ -142,12 +150,15 @@ export class Scoring {
         const finalScores = [];
         const allZones = this.zoneMerger.getAllZones();
 
-        // 1. Villes incomplètes : 1 pt/tuile + 1 pt/blason
+        // 1. Villes incomplètes : 1 pt/tuile + 1 pt/blason (0 si cathedral)
         allZones.forEach(mergedZone => {
             if (mergedZone.type !== 'city' || mergedZone.isComplete) return;
 
             const meeples = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
             if (meeples.length === 0) return;
+
+            // Cathedral non fermée → 0 pts
+            if (this.config?.extensions?.cathedrals && mergedZone.hasCathedral) return;
 
             const owners = this._getZoneOwners(meeples);
             const points = this._countUniqueTiles(mergedZone) + mergedZone.shields;
@@ -161,12 +172,15 @@ export class Scoring {
             });
         });
 
-        // 2. Routes incomplètes : 1 pt/tuile
+        // 2. Routes incomplètes : 1 pt/tuile (0 si inn)
         allZones.forEach(mergedZone => {
             if (mergedZone.type !== 'road' || mergedZone.isComplete) return;
 
             const meeples = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
             if (meeples.length === 0) return;
+
+            // Inn non fermée → 0 pts
+            if (this.config?.extensions?.inns && mergedZone.hasInn) return;
 
             const owners = this._getZoneOwners(meeples);
             const points = this._countUniqueTiles(mergedZone);

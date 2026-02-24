@@ -20,7 +20,8 @@ export class GameState {
             color: color,
             score: 0,
             meeples: 7,
-            hasAbbot: false, // Initialisé à false, mis à true si extension Abbé activée
+            hasAbbot:     false, // Initialisé à false, mis à true si extension Abbé activée
+            hasLargeMeeple: false, // Grand meeple (Auberges & Cathédrales)
             scoreDetail: {
                 cities: 0,
                 roads: 0,
@@ -81,7 +82,8 @@ export class GameState {
             color: p.color,
             score: p.score || 0,
             meeples: p.meeples ?? 7,
-            hasAbbot: p.hasAbbot ?? false,
+            hasAbbot:       p.hasAbbot       ?? false,
+            hasLargeMeeple: p.hasLargeMeeple ?? false,
             scoreDetail: p.scoreDetail || {
                 cities: 0,
                 roads: 0,

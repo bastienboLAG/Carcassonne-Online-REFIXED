@@ -20,6 +20,8 @@ export class ZoneRegistry {
             tiles: [],           // [{x, y, zoneIndex}]
             isComplete: false,
             shields: 0,
+            hasCathedral: false, // Extension Auberges & Cathédrales
+            hasInn: false,       // Extension Auberges & Cathédrales
             adjacentCities: []   // Pour les fields (scoring farmers)
         };
         this.zones.set(id, zone);

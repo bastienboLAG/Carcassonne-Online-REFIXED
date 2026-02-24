@@ -1,0 +1,44 @@
+{
+  "id": "05",
+  "quantity": 1,
+  "extension": "Inns_Cathedrals",
+  "image": "./assets/Inns_Cathedrals/C2/05.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["west-top", "north-left"],
+      "features": [],
+      "meeplePosition": "1"
+    },
+    {
+      "id": 2,
+      "type": "road",
+      "edges": ["west", "north"],
+      "features": [],
+      "meeplePosition": "7"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["west-bottom", "south-left", "north-right", "east-top"],
+      "features": [],
+      "meeplePosition": "17"
+    },
+    {
+      "id": 4,
+      "type": "road",
+      "edges": ["east", "south"],
+      "features": [],
+      "meeplePosition": "15"
+    },
+    {
+      "id": 5,
+      "type": "field",
+      "edges": ["east-bottom", "south-right"],
+      "features": [],
+      "meeplePosition": "25"
+    }
+  ]
+
+}

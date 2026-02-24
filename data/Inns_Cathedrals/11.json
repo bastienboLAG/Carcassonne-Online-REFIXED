@@ -1,0 +1,16 @@
+{
+  "id": "11",
+  "quantity": 1,
+  "extension": "Inns_Cathedrals",
+  "image": "./assets/Inns_Cathedrals/C2/11.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west", "north", "east", "south"],
+      "features": ["cathedral"],
+      "meeplePosition": "13"
+    }
+  ]
+
+}

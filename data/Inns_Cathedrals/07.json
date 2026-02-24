@@ -1,0 +1,34 @@
+{
+  "id": "07",
+  "quantity": 1,
+  "extension": "Inns_Cathedrals",
+  "image": "./assets/Inns_Cathedrals/C2/07.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west"],
+      "features": [],
+      "meeplePosition": "7"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["north"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "3"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["south", "east"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "19"
+    }
+  ]
+
+}

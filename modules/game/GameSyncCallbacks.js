@@ -130,12 +130,13 @@ export class GameSyncCallbacks {
         };
 
         // ── Mise à jour du compteur de meeples ───────────────────────────────
-        gs.onMeepleCountUpdate = (playerId, meeples, hasAbbot) => {
-            console.log('🎭 [SYNC] Mise à jour compteur reçue:', playerId, meeples, 'hasAbbot:', hasAbbot);
+        gs.onMeepleCountUpdate = (playerId, meeples, hasAbbot, hasLargeMeeple) => {
+            console.log('🎭 [SYNC] Mise à jour compteur reçue:', playerId, meeples, 'hasAbbot:', hasAbbot, 'hasLarge:', hasLargeMeeple);
             const player = this.gameState.players.find(p => p.id === playerId);
             if (player) {
                 player.meeples = meeples;
-                if (hasAbbot !== undefined) player.hasAbbot = hasAbbot;
+                if (hasAbbot       !== undefined) player.hasAbbot       = hasAbbot;
+                if (hasLargeMeeple !== undefined) player.hasLargeMeeple = hasLargeMeeple;
                 this.eventBus.emit('meeple-count-updated', { playerId, meeples });
             }
         };

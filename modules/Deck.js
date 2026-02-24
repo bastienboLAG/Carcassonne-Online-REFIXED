@@ -58,6 +58,20 @@ export class Deck {
             }
         }
 
+        // ── Groupe Inns & Cathedrals (optionnel) ────────────────────────
+        if (tileGroups.inns_cathedrals) {
+            const innIds = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18'];
+            for (const id of innIds) {
+                try {
+                    const res  = await fetch(`./data/Inns_Cathedrals/${id}.json`);
+                    const data = await res.json();
+                    normalTiles.push(data);
+                } catch (e) {
+                    console.error(`Erreur tuile Inns_Cathedrals/${id}:`, e);
+                }
+            }
+        }
+
         // ── Calcul du total ─────────────────────────────────────────────
         const allTileData = [...riverTiles, ...normalTiles];
         if (testMode) {

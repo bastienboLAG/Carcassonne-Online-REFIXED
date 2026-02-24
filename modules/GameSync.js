@@ -314,7 +314,7 @@ export class GameSync {
             case 'meeple-count-update':
                 if (this.onMeepleCountUpdate) {
                     console.log('🎭 [SYNC] Mise à jour compteur meeples:', data.playerId, data.meeples);
-                    this.onMeepleCountUpdate(data.playerId, data.meeples, data.hasAbbot);
+                    this.onMeepleCountUpdate(data.playerId, data.meeples, data.hasAbbot, data.hasLargeMeeple);
                 }
                 break;
             case 'score-update':

@@ -48,43 +48,51 @@ export class MeepleSelectorUI {
         
         // ✅ Proposer les meeples selon le type de zone
         let meepleTypes = [];
-        
+        const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
+        const hasLarge = player?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
+
         if (zoneType === 'field') {
-            // Field → Farmer uniquement
-            meepleTypes = [
-                { type: 'Farmer', image: `./assets/Meeples/${this.getPlayerColor()}/Farmer.png` }
-            ];
+            // Field → Farmer (+ Large-Farmer si grand meeple dispo)
+            if (player?.meeples > 0) {
+                meepleTypes.push({ type: 'Farmer', image: `./assets/Meeples/${this.getPlayerColor()}/Farmer.png` });
+            }
+            if (hasLarge) {
+                meepleTypes.push({ type: 'Large-Farmer', image: `./assets/Meeples/${this.getPlayerColor()}/Large-Farmer.png` });
+            }
         } else if (zoneType === 'road' || zoneType === 'city') {
-            // Road ou City → Normal uniquement
-            meepleTypes = [
-                { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
-            ];
+            // Road ou City → Normal (+ Large si grand meeple dispo)
+            if (player?.meeples > 0) {
+                meepleTypes.push({ type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` });
+            }
+            if (hasLarge) {
+                meepleTypes.push({ type: 'Large', image: `./assets/Meeples/${this.getPlayerColor()}/Large.png` });
+            }
         } else if (zoneType === 'garden') {
             // Garden → Abbé uniquement (si disponible)
-            const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
             if (player?.hasAbbot) {
                 meepleTypes = [
                     { type: 'Abbot', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png` }
                 ];
             }
         } else if (zoneType === 'abbey') {
-            // Abbey → Normal (si dispo) + Abbé (si dispo)
-            const player = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
+            // Abbey → Normal (si dispo) + Abbé (si dispo) + Large (si dispo)
             if (player?.meeples > 0) {
-                meepleTypes.push(
-                    { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
-                );
+                meepleTypes.push({ type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` });
             }
             if (player?.hasAbbot) {
-                meepleTypes.push(
-                    { type: 'Abbot', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png` }
-                );
+                meepleTypes.push({ type: 'Abbot', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png` });
+            }
+            if (hasLarge) {
+                meepleTypes.push({ type: 'Large', image: `./assets/Meeples/${this.getPlayerColor()}/Large.png` });
             }
         } else {
             // Par défaut → Normal
-            meepleTypes = [
-                { type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` }
-            ];
+            if (player?.meeples > 0) {
+                meepleTypes.push({ type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` });
+            }
+            if (hasLarge) {
+                meepleTypes.push({ type: 'Large', image: `./assets/Meeples/${this.getPlayerColor()}/Large.png` });
+            }
         }
         
         meepleTypes.forEach(meeple => {

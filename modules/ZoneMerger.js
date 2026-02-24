@@ -306,6 +306,12 @@ export class ZoneMerger {
             if (features.includes('shield')) {
                 mergedZone.shields++;
             }
+            if (features.includes('cathedral')) {
+                mergedZone.hasCathedral = true;
+            }
+            if (features.includes('inn')) {
+                mergedZone.hasInn = true;
+            }
             
             // ✅ Stocker temporairement les IDs locaux avec la position de la tuile
             if (typeof localZone.features === 'object' && localZone.features.adjacentCities) {
