@@ -804,6 +804,7 @@ function attachGameSyncCallbacks() {
         },
         updateTurnDisplay,
         poserTuileSync,
+        afficherMessage,
     }).attach(isHost);
 }
 
@@ -918,9 +919,14 @@ function _postStartSetup() {
         heartbeatManager = new HeartbeatManager({
             multiplayer,
             onPeerTimeout: (peerId) => {
-                const player = players.find(p => p.id === peerId);
-                const name   = player?.name || peerId;
-                afficherMessage(`💔 ${name} ne répond plus (connexion perdue).`);
+                if (!isHost) return; // Seul l'hôte gère la déco
+                if (turnManager) {
+                    turnManager.handlePlayerDisconnected(peerId, {
+                        tuileEnMain,
+                        gameSync,
+                        afficherMessage
+                    });
+                }
             }
         });
         multiplayer.onHeartbeatPing = () => heartbeatManager.receivePing();

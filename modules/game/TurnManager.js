@@ -171,6 +171,70 @@ export class TurnManager {
     /**
      * Recevoir une fin de tour depuis le réseau (multijoueur)
      */
+    /**
+     * Gérer la déconnexion d'un invité (hôte uniquement)
+     * @param {string} peerId - ID du joueur déconnecté
+     * @param {Object} options - { tuileEnMain, gameSync, afficherMessage }
+     */
+    handlePlayerDisconnected(peerId, { tuileEnMain, gameSync, afficherMessage } = {}) {
+        if (!this.gameState) return;
+
+        const playerIndex = this.gameState.players.findIndex(p => p.id === peerId);
+        if (playerIndex === -1) return;
+
+        const playerName     = this.gameState.players[playerIndex].name;
+        const wasCurrentTurn = playerIndex === this.gameState.currentPlayerIndex;
+
+        console.log(`👋 Joueur déconnecté: ${playerName} (index ${playerIndex}), son tour: ${wasCurrentTurn}`);
+
+        // Retirer le joueur
+        this.gameState.players.splice(playerIndex, 1);
+        if (this.gameState.players.length === 0) return;
+
+        // Ajuster currentPlayerIndex
+        if (playerIndex < this.gameState.currentPlayerIndex) {
+            // Le joueur était avant le joueur actuel → décaler d'un cran
+            this.gameState.currentPlayerIndex--;
+        } else if (wasCurrentTurn) {
+            // C'était son tour → currentPlayerIndex pointe maintenant sur le joueur suivant
+            // (le splice a décalé les indices)
+            this.gameState.currentPlayerIndex = playerIndex % this.gameState.players.length;
+        }
+
+        // Broadcaster la déco aux invités
+        if (gameSync) gameSync.syncPlayerDisconnected(peerId, playerName, this.gameState.currentPlayerIndex);
+
+        afficherMessage?.(`💔 ${playerName} s'est déconnecté.`);
+
+        // Si c'était son tour et qu'il n'avait pas encore posé sa tuile → donner la tuile au suivant
+        if (wasCurrentTurn && tuileEnMain) {
+            console.log(`🃏 Transmission de la tuile ${tuileEnMain.id} au joueur suivant`);
+            this.updateTurnState();
+            this.eventBus.emit('turn-changed', {
+                isMyTurn: this.isMyTurn,
+                currentPlayer: this.getCurrentPlayer()
+            });
+            // La tuile reste en main — le joueur suivant la joue directement
+            this.eventBus.emit('tile-drawn', {
+                tileData: { id: tuileEnMain.id, zones: tuileEnMain.zones, imagePath: tuileEnMain.imagePath, rotation: tuileEnMain.rotation },
+                fromDisconnect: true
+            });
+            return;
+        }
+
+        // Sinon mettre à jour le tour normalement
+        this.updateTurnState();
+        this.eventBus.emit('turn-changed', {
+            isMyTurn: this.isMyTurn,
+            currentPlayer: this.getCurrentPlayer()
+        });
+
+        // Si c'est maintenant notre tour et qu'on n'a pas de tuile → piocher
+        if (this.isMyTurn && !tuileEnMain) {
+            this.drawTile();
+        }
+    }
+
     receiveTurnEnded(nextPlayerIndex, gameStateData) {
         console.log('⏭️ [SYNC] Fin de tour reçue');
         

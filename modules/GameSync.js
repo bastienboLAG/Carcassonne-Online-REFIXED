@@ -19,6 +19,7 @@ export class GameSync {
         this.onScoreUpdate = null;
         this.onTurnUndo = null;
         this.onGameEnded = null;
+        this.onPlayerDisconnected = null;
         this.onTileDestroyed = null;
         this.onDeckReshuffled = null;
     }
@@ -48,7 +49,7 @@ export class GameSync {
         const gameMessages = [
             'game-start', 'tile-rotated', 'tile-placed', 'turn-ended',
             'tile-drawn', 'meeple-placed', 'meeple-count-update', 'score-update',
-            'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled',
+            'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
             'abbe-recalled', 'abbe-recalled-undo'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
@@ -225,6 +226,17 @@ export class GameSync {
     /**
      * Synchroniser la fin de partie
      */
+    syncPlayerDisconnected(peerId, playerName, nextPlayerIndex) {
+        console.log('👋 Sync player disconnected:', playerName);
+        this.multiplayer.broadcast({
+            type: 'player-disconnected',
+            peerId,
+            playerName,
+            nextPlayerIndex,
+            playerId: this.multiplayer.playerId
+        });
+    }
+
     syncGameEnded(detailedScores, destroyedTilesCount = 0) {
         console.log('🏁 Sync game ended:', detailedScores);
         this.multiplayer.broadcast({
@@ -326,6 +338,13 @@ export class GameSync {
                 }
                 break;
             
+            case 'player-disconnected':
+                if (this.onPlayerDisconnected && data.playerId !== this.multiplayer.playerId) {
+                    console.log('👋 [SYNC] Joueur déconnecté reçu:', data.playerName);
+                    this.onPlayerDisconnected(data.peerId, data.playerName, data.nextPlayerIndex);
+                }
+                break;
+
             case 'tile-destroyed':
                 if (this.onTileDestroyed && data.playerId !== this.multiplayer.playerId) {
                     console.log('🗑️ [SYNC] Tuile détruite reçue:', data.tileId);
