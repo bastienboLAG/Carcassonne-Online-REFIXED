@@ -179,8 +179,13 @@ export class TurnManager {
     handlePlayerDisconnected(peerId, { tuileEnMain, gameSync, afficherMessage } = {}) {
         if (!this.gameState) return;
 
+        console.log('🔍 [DECO] peerId reçu:', peerId);
+        console.log('🔍 [DECO] gameState.players ids:', this.gameState.players.map(p => p.id));
         const playerIndex = this.gameState.players.findIndex(p => p.id === peerId);
-        if (playerIndex === -1) return;
+        if (playerIndex === -1) {
+            console.warn('🔍 [DECO] Joueur non trouvé dans gameState.players');
+            return;
+        }
 
         const playerName     = this.gameState.players[playerIndex].name;
         const wasCurrentTurn = playerIndex === this.gameState.currentPlayerIndex;
