@@ -920,7 +920,7 @@ function _postStartSetup() {
             onPeerTimeout: (peerId) => {
                 const player = players.find(p => p.id === peerId);
                 const name   = player?.name || peerId;
-                alert(`⚠️ ${name} ne répond plus (connexion perdue).`);
+                afficherMessage(`💔 ${name} ne répond plus (connexion perdue).`);
             }
         });
         multiplayer.onHeartbeatPing = () => heartbeatManager.receivePing();

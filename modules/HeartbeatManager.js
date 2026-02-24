@@ -1,6 +1,6 @@
 /**
  * HeartbeatManager - Détecte les pertes de connexion silencieuses
- * Envoie un ping toutes les 5s, alerte après 30s sans réponse
+ * Envoie un ping toutes les 3s, alerte après 10s sans réponse
  */
 export class HeartbeatManager {
     constructor({ multiplayer, onPeerTimeout }) {
@@ -8,8 +8,9 @@ export class HeartbeatManager {
         this.onPeerTimeout  = onPeerTimeout; // (peerId) => void
         this._interval      = null;
         this._lastPong      = {}; // { peerId: timestamp }
-        this._PING_INTERVAL = 5000;  // 5s
-        this._TIMEOUT       = 30000; // 30s
+        this._timedOut      = new Set(); // peers déjà signalés
+        this._PING_INTERVAL = 3000;  // 3s
+        this._TIMEOUT       = 10000; // 10s
     }
 
     start() {
@@ -25,12 +26,13 @@ export class HeartbeatManager {
             // Vérifier les timeouts
             for (const peerId of this.multiplayer._connectedPeers) {
                 const last = this._lastPong[peerId];
-                if (last && now - last > this._TIMEOUT) {
-                    console.warn(`💔 Timeout détecté pour ${peerId}`);
-                    if (this.onPeerTimeout) this.onPeerTimeout(peerId);
-                } else if (!last) {
+                if (!last) {
                     // Initialiser au démarrage
                     this._lastPong[peerId] = now;
+                } else if (now - last > this._TIMEOUT && !this._timedOut.has(peerId)) {
+                    this._timedOut.add(peerId);
+                    console.warn(`💔 Timeout détecté pour ${peerId}`);
+                    if (this.onPeerTimeout) this.onPeerTimeout(peerId);
                 }
             }
         }, this._PING_INTERVAL);
