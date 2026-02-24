@@ -11,6 +11,7 @@ import { EventBus }               from './modules/core/EventBus.js';
 import { RuleRegistry }           from './modules/core/RuleRegistry.js';
 import { BaseRules }              from './modules/rules/BaseRules.js';
 import { AbbeRules }              from './modules/rules/AbbeRules.js';
+import { InnsRules }              from './modules/rules/InnsRules.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -936,6 +937,10 @@ function _postStartSetup() {
         ruleRegistry.register('abbot', AbbeRules, gameConfig);
         ruleRegistry.enable('abbot');
     }
+    if (gameConfig.extensions?.largeMeeple || gameConfig.extensions?.cathedrals || gameConfig.extensions?.inns) {
+        ruleRegistry.register('inns', InnsRules, gameConfig);
+        ruleRegistry.enable('inns');
+    }
 
     document.getElementById('remaining-tiles-btn').style.display =
         gameConfig.showRemainingTiles ? 'block' : 'none';
@@ -1810,6 +1815,7 @@ function returnToLobby() {
 
     ruleRegistry.disable('base');
     ruleRegistry.disable('abbot'); // no-op si non enregistré
+    ruleRegistry.disable('inns');  // no-op si non enregistré
 
     deck.tiles = []; deck.currentIndex = 0; deck.totalTiles = 0;
     plateau.reset();

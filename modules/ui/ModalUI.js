@@ -294,6 +294,54 @@ export class ModalUI {
             extensionsSection.appendChild(abbotContainer);
         }
 
+        // Extension Auberges & Cathédrales
+        const hasInnsExt = config.extensions?.largeMeeple || config.extensions?.cathedrals || config.extensions?.inns;
+        if (hasInnsExt) {
+            const innsContainer = document.createElement('div');
+            innsContainer.style.cssText = `
+                font-family: 'Courier New', monospace;
+                color: #e0e0e0;
+                line-height: 1.6;
+                margin-top: 8px;
+            `;
+
+            const innsLine = document.createElement('div');
+            innsLine.textContent = '└─ ✓ Auberges & Cathédrales';
+            innsLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
+            innsContainer.appendChild(innsLine);
+
+            const makeSubLine = (text, active) => {
+                const el = document.createElement('div');
+                el.textContent = `   └─ ${active ? '✓' : '✗'} ${text}`;
+                el.style.cssText = `
+                    margin-left: 5px;
+                    font-size: 14px;
+                    padding-left: 20px;
+                    color: ${active ? '#a8d8a8' : '#888'};
+                    ${active ? '' : 'font-style: italic;'}
+                `;
+                return el;
+            };
+
+            innsContainer.appendChild(makeSubLine('Grand Meeple (compte ×2 pour la majorité)', config.extensions?.largeMeeple));
+
+            if (config.extensions?.cathedrals) {
+                const catLine = makeSubLine('Cathédrales (ville fermée : ×3 pts/tuile+blason ; ouverte : 0 pt)', true);
+                innsContainer.appendChild(catLine);
+            } else {
+                innsContainer.appendChild(makeSubLine('Cathédrales (scoring normal)', false));
+            }
+
+            if (config.extensions?.inns) {
+                const innLine = makeSubLine('Auberges (route fermée : ×2 pts/tuile ; ouverte : 0 pt)', true);
+                innsContainer.appendChild(innLine);
+            } else {
+                innsContainer.appendChild(makeSubLine('Auberges (scoring normal)', false));
+            }
+
+            extensionsSection.appendChild(innsContainer);
+        }
+
         content.appendChild(extensionsSection);
 
         // Section Tuiles
@@ -307,6 +355,9 @@ export class ModalUI {
             }
             if (config.tileGroups?.abbot) {
                 list.push("L'Abbé : +8 tuiles");
+            }
+            if (config.tileGroups?.inns_cathedrals) {
+                list.push('Auberges & Cathédrales : +18 tuiles');
             }
             return list;
         })());

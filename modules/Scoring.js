@@ -1,3 +1,5 @@
+import { InnsRules } from './rules/InnsRules.js';
+
 /**
  * Gère le calcul des scores
  */
@@ -86,9 +88,8 @@ export class Scoring {
      */
     _scoreClosedCity(mergedZone) {
         const uniqueTiles = this._countUniqueTiles(mergedZone);
-        const hasCathedral = this.config?.extensions?.cathedrals && mergedZone.hasCathedral;
-        const ptsPerUnit = hasCathedral ? 3 : 2;
-        return (uniqueTiles * ptsPerUnit) + (mergedZone.shields * ptsPerUnit);
+        const coeff = InnsRules.getCityCoefficient(mergedZone, this.config);
+        return (uniqueTiles + mergedZone.shields) * coeff;
     }
 
     /**
@@ -98,8 +99,7 @@ export class Scoring {
      */
     _scoreClosedRoad(mergedZone) {
         const uniqueTiles = this._countUniqueTiles(mergedZone);
-        const hasInn = this.config?.extensions?.inns && mergedZone.hasInn;
-        return uniqueTiles * (hasInn ? 2 : 1);
+        return uniqueTiles * InnsRules.getRoadCoefficient(mergedZone, this.config);
     }
 
     /**
@@ -130,8 +130,7 @@ export class Scoring {
         const counts = {};
         
         meeples.forEach(meeple => {
-            // Grand meeple compte comme 2
-            const weight = (meeple.type === 'Large' || meeple.type === 'Large-Farmer') ? 2 : 1;
+            const weight = InnsRules.getMeepleWeight(meeple);
             counts[meeple.playerId] = (counts[meeple.playerId] || 0) + weight;
         });
 
@@ -158,7 +157,7 @@ export class Scoring {
             if (meeples.length === 0) return;
 
             // Cathedral non fermée → 0 pts
-            if (this.config?.extensions?.cathedrals && mergedZone.hasCathedral) return;
+            if (InnsRules.cityOpenPenalty(mergedZone, this.config)) return;
 
             const owners = this._getZoneOwners(meeples);
             const points = this._countUniqueTiles(mergedZone) + mergedZone.shields;
@@ -180,7 +179,7 @@ export class Scoring {
             if (meeples.length === 0) return;
 
             // Inn non fermée → 0 pts
-            if (this.config?.extensions?.inns && mergedZone.hasInn) return;
+            if (InnsRules.roadOpenPenalty(mergedZone, this.config)) return;
 
             const owners = this._getZoneOwners(meeples);
             const points = this._countUniqueTiles(mergedZone);
