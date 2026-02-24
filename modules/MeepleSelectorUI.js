@@ -41,6 +41,7 @@ export class MeepleSelectorUI {
         selector.style.transform = 'translateX(-50%)';
         selector.style.zIndex = '1000';
         selector.style.display = 'flex';
+        selector.style.alignItems = 'flex-end';
         selector.style.gap = '0px';
         selector.style.padding = '2px';
         selector.style.background = 'rgba(44, 62, 80, 0.5)';
