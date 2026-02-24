@@ -804,7 +804,7 @@ function attachGameSyncCallbacks() {
         },
         updateTurnDisplay,
         poserTuileSync,
-        afficherMessage,
+        afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); },
     }).attach(isHost);
 }
 
@@ -922,7 +922,7 @@ function _postStartSetup() {
                 turnManager.handlePlayerDisconnected(peerId, {
                     tuileEnMain,
                     gameSync,
-                    afficherMessage
+                    afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); }
                 });
             }
             // Retirer du heartbeat pour éviter un double déclenchement
@@ -1097,6 +1097,39 @@ function updateTurnDisplay() {
 function afficherMessage(msg) {
     document.getElementById('tile-preview').innerHTML =
         `<p style="text-align: center; color: white;">${msg}</p>`;
+}
+
+function afficherToast(msg, duration = 5000) {
+    let toast = document.getElementById('disconnect-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'disconnect-toast';
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30,30,30,0.92);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            border-left: 4px solid #e74c3c;
+            font-size: 15px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transition: opacity 0.4s;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    toast.style.display = 'block';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 400);
+    }, duration);
 }
 
 /**
