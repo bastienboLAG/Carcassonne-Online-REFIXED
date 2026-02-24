@@ -78,7 +78,20 @@ export class ModalUI {
             margin-bottom: 20px;
         `;
         
-        tiles.forEach(tile => {
+        const prefixOrder = ['base', 'river', 'abbot'];
+        const prefixRank = id => {
+            const prefix = prefixOrder.findIndex(p => id.startsWith(p));
+            return prefix === -1 ? prefixOrder.length : prefix;
+        };
+        const sortedTiles = [...tiles].sort((a, b) => {
+            const rankA = prefixRank(a.id), rankB = prefixRank(b.id);
+            if (rankA !== rankB) return rankA - rankB;
+            const numA = parseInt(a.id.replace(/[^0-9]/g, '')) || 0;
+            const numB = parseInt(b.id.replace(/[^0-9]/g, '')) || 0;
+            return numA - numB;
+        });
+
+        sortedTiles.forEach(tile => {
             const tileCard = document.createElement('div');
             tileCard.style.cssText = `
                 position: relative;
