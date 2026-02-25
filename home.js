@@ -12,6 +12,7 @@ import { RuleRegistry }           from './modules/core/RuleRegistry.js';
 import { BaseRules }              from './modules/rules/BaseRules.js';
 import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { InnsRules }              from './modules/rules/InnsRules.js';
+import { getMeepleSize }          from './modules/MeepleConfig.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -150,6 +151,7 @@ eventBus.on('tile-drawn', (data) => {
 
     // Snapshot début de tour (sauf lors d'une annulation)
     if (undoManager && !data.fromNetwork && !data.fromUndo) {
+        undoManager.setLastPlacedTileBeforeTurn(lastPlacedTile);
         undoManager.saveTurnStart(placedMeeples);
     }
 
@@ -626,8 +628,13 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 // Démarrer le heartbeat côté invité (détecte si l'hôte disparaît)
                 _startHeartbeat((peerId) => {
                     console.warn(`💔 Hôte ${peerId} injoignable — retour au lobby`);
-                    afficherToast("L'hôte ne répond plus. Retour au lobby.", 'error');
-                    returnToLobby();
+                    afficherToast("L'hôte ne répond plus.", 'error');
+                    // Déconnexion propre côté invité sans passer par returnToLobby (modules jeu absents)
+                    if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
+                    if (multiplayer.peer) { setTimeout(() => multiplayer.peer.destroy(), 100); }
+                    players = [];
+                    lobbyUI.reset();
+                    lobbyUI.show();
                 });
             }
             if (data.type === 'players-update') {
@@ -1032,9 +1039,16 @@ function updateMobilePlayers() {
 
         const meeplesDiv = document.createElement('div');
         meeplesDiv.className = 'mobile-player-meeples';
+        const mobileScale = 0.35;
+        const applyMeepleSize = (el, type) => {
+            const { width, height } = getMeepleSize(type, mobileScale);
+            el.style.width  = width;
+            el.style.height = height;
+        };
         for (let i = 0; i < 7; i++) {
             const img = document.createElement('img');
             img.src = `./assets/Meeples/${colorCap}/Normal.png`;
+            applyMeepleSize(img, 'Normal');
             if (i >= player.meeples) img.classList.add('unavailable');
             meeplesDiv.appendChild(img);
         }
@@ -1044,8 +1058,19 @@ function updateMobilePlayers() {
             abbot.src = `./assets/Meeples/${colorCap}/Abbot.png`;
             abbot.alt = 'Abbé';
             abbot.style.marginLeft = '6px';
+            applyMeepleSize(abbot, 'Abbot');
             if (!player.hasAbbot) abbot.classList.add('unavailable');
             meeplesDiv.appendChild(abbot);
+        }
+        // Grand meeple (si extension activée)
+        if (gameConfig?.extensions?.largeMeeple) {
+            const large = document.createElement('img');
+            large.src = `./assets/Meeples/${colorCap}/Large.png`;
+            large.alt = 'Grand Meeple';
+            large.style.marginLeft = '6px';
+            applyMeepleSize(large, 'Large');
+            if (!player.hasLargeMeeple) large.classList.add('unavailable');
+            meeplesDiv.appendChild(large);
         }
         card.appendChild(meeplesDiv);
         container.appendChild(card);
@@ -1648,6 +1673,8 @@ function setupEventListeners() {
             }
 
         } else if (undoneAction.type === 'tile') {
+            // Restaurer l'épingle vers la tuile posée avant ce tour
+            lastPlacedTile = undoneAction.restoredLastPlacedTile ?? null;
             const { x, y } = undoneAction.tile;
             let tileEl = document.querySelector(`.tile[data-pos="${x},${y}"]`);
             if (!tileEl) {
