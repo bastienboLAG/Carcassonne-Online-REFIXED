@@ -103,10 +103,12 @@ export class MeepleCursorsUI {
         
         // ✅ Vérifier si le joueur a des ressources disponibles (meeples ou abbé)
         const activePlayer = gameState.players.find(p => p.id === this.multiplayer.playerId);
-        const hasMeeples = activePlayer && activePlayer.meeples > 0;
-        const hasAbbot   = activePlayer?.hasAbbot === true;
-        if (!hasMeeples && !hasAbbot) {
-            console.log('❌ Pas de meeples ni d\'abbé disponibles, pas d\'affichage de curseurs');
+        const hasMeeples  = activePlayer && activePlayer.meeples > 0;
+        const hasAbbot    = activePlayer?.hasAbbot       === true;
+        const hasLarge    = activePlayer?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
+        console.log('🔍 [CURSEURS] hasMeeples:', hasMeeples, '— hasAbbot:', hasAbbot, '— hasLarge:', hasLarge, '— hasLargeMeeple:', activePlayer?.hasLargeMeeple, '— ext.largeMeeple:', this.config?.extensions?.largeMeeple);
+        if (!hasMeeples && !hasAbbot && !hasLarge) {
+            console.log('❌ Pas de meeples ni d\'abbé ni grand meeple disponibles, pas d\'affichage de curseurs');
             return;
         }
         
@@ -140,8 +142,8 @@ export class MeepleCursorsUI {
                 console.log('🚫 Champs désactivés, pas de curseur field à position', position);
                 return;
             }
-            // Filtrer les zones normales si pas de meeples
-            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples) {
+            // Filtrer les zones normales si pas de meeples ni grand meeple
+            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples && !hasLarge) {
                 return;
             }
             // Filtrer les jardins si pas d'abbé
@@ -149,7 +151,7 @@ export class MeepleCursorsUI {
                 return;
             }
             // Filtrer les abbayes si ni meeple normal ni abbé disponible
-            if (zoneType === 'abbey' && !hasMeeples && !hasAbbot) {
+            if (zoneType === 'abbey' && !hasMeeples && !hasAbbot && !hasLarge) {
                 return;
             }
             

@@ -323,20 +323,20 @@ export class ModalUI {
                 return el;
             };
 
-            innsContainer.appendChild(makeSubLine('Grand Meeple (compte ×2 pour la majorité)', config.extensions?.largeMeeple));
+            innsContainer.appendChild(makeSubLine('Grand Meeple', config.extensions?.largeMeeple));
 
             if (config.extensions?.cathedrals) {
-                const catLine = makeSubLine('Cathédrales (ville fermée : ×3 pts/tuile+blason ; ouverte : 0 pt)', true);
+                const catLine = makeSubLine('Cathédrales', true);
                 innsContainer.appendChild(catLine);
             } else {
-                innsContainer.appendChild(makeSubLine('Cathédrales (scoring normal)', false));
+                innsContainer.appendChild(makeSubLine('Cathédrales', false));
             }
 
             if (config.extensions?.inns) {
-                const innLine = makeSubLine('Auberges (route fermée : ×2 pts/tuile ; ouverte : 0 pt)', true);
+                const innLine = makeSubLine('Auberges', true);
                 innsContainer.appendChild(innLine);
             } else {
-                innsContainer.appendChild(makeSubLine('Auberges (scoring normal)', false));
+                innsContainer.appendChild(makeSubLine('Auberges', false));
             }
 
             extensionsSection.appendChild(innsContainer);
