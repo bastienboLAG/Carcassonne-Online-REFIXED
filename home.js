@@ -232,6 +232,8 @@ eventBus.on('meeple-count-updated', (data) => {
             hasLargeMeeple: player ? player.hasLargeMeeple : undefined
         });
     }
+    // Mettre à jour le panel mobile en temps réel pour tous les joueurs
+    updateMobilePlayers();
 });
 
 // ═══════════════════════════════════════════════════════
