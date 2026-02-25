@@ -42,6 +42,17 @@ const multiplayer = new Multiplayer();
 // Callbacks heartbeat assignés dès le départ — heartbeatManager peut être null avant le démarrage
 multiplayer.onHeartbeatPing = () => heartbeatManager?.receivePing();
 multiplayer.onHeartbeatPong = (peerId) => heartbeatManager?.receivePong(peerId);
+
+/**
+ * Démarrer (ou redémarrer) le heartbeat avec le bon handler selon le contexte
+ * @param {Function} onTimeout - callback(peerId) en cas de timeout
+ */
+function _startHeartbeat(onTimeout) {
+    if (!multiplayer?.peer) return;
+    if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
+    heartbeatManager = new HeartbeatManager({ multiplayer, onPeerTimeout: onTimeout });
+    heartbeatManager.start();
+}
 const lobbyUI     = new LobbyUI(multiplayer);
 const modalUI     = new ModalUI();
 let gameCode      = null;
@@ -492,6 +503,13 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
 
         multiplayer.onPlayerJoined = (playerId) => {
             console.log('👤 Nouveau joueur connecté:', playerId);
+            // Démarrer/redémarrer le heartbeat avec handler lobby (kick de la liste)
+            _startHeartbeat((peerId) => {
+                players = players.filter(p => p.id !== peerId);
+                lobbyUI.setPlayers(players);
+                multiplayer.broadcast({ type: 'players-update', players });
+                console.warn(`💔 Joueur ${peerId} retiré du lobby (timeout heartbeat)`);
+            });
         };
 
         multiplayer.onDataReceived = (data, from) => {
@@ -605,6 +623,12 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 // Afficher le code d'invitation côté invité
                 document.getElementById('game-code-container').style.display = 'block';
                 document.getElementById('game-code-text').textContent = `Code: ${code}`;
+                // Démarrer le heartbeat côté invité (détecte si l'hôte disparaît)
+                _startHeartbeat((peerId) => {
+                    console.warn(`💔 Hôte ${peerId} injoignable — retour au lobby`);
+                    afficherToast("L'hôte ne répond plus. Retour au lobby.", 'error');
+                    returnToLobby();
+                });
             }
             if (data.type === 'players-update') {
                 players = data.players;
@@ -951,11 +975,10 @@ function _postStartSetup() {
         gameConfig.enableDebug ? 'block' : 'none';
     document.getElementById('back-to-lobby-btn').style.display = isHost ? 'block' : 'none';
 
-    // Démarrer le heartbeat si partie multijoueur
+    // Redémarrer le heartbeat avec le handler de jeu (gestion déconnexion en cours de partie)
     if (multiplayer?.peer) {
         const handleDisconnect = (peerId) => {
             if (!isHost) return;
-            // Retirer aussi du tableau lobby
             players = players.filter(p => p.id !== peerId);
             if (turnManager) {
                 turnManager.handlePlayerDisconnected(peerId, {
@@ -968,16 +991,10 @@ function _postStartSetup() {
                     }
                 });
             }
-            // Retirer du heartbeat pour éviter un double déclenchement
             if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
         };
-
-        heartbeatManager = new HeartbeatManager({
-            multiplayer,
-            onPeerTimeout: handleDisconnect
-        });
-        multiplayer.onPlayerLeft    = handleDisconnect;
-        heartbeatManager.start();
+        multiplayer.onPlayerLeft = handleDisconnect;
+        _startHeartbeat(handleDisconnect);
     }
 }
 
