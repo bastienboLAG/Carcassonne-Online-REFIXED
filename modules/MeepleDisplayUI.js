@@ -49,7 +49,7 @@ export class MeepleDisplayUI {
         meeple.style.position = 'absolute';
         meeple.style.left = `${offsetX}px`;
         meeple.style.top = `${offsetY}px`;
-        const { width, height } = getMeepleSize(meepleType);
+        const { width, height } = getMeepleSize(meepleType, 'plate');
         meeple.style.width  = width;
         meeple.style.height = height;
         meeple.style.transform = 'translate(-50%, -50%)';

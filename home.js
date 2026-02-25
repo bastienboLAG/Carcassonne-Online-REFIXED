@@ -627,14 +627,7 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 document.getElementById('game-code-text').textContent = `Code: ${code}`;
                 // Démarrer le heartbeat côté invité (détecte si l'hôte disparaît)
                 _startHeartbeat((peerId) => {
-                    console.warn(`💔 Hôte ${peerId} injoignable — retour au lobby`);
-                    afficherToast("L'hôte ne répond plus.", 'error');
-                    // Déconnexion propre côté invité sans passer par returnToLobby (modules jeu absents)
-                    if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
-                    if (multiplayer.peer) { setTimeout(() => multiplayer.peer.destroy(), 100); }
-                    players = [];
-                    lobbyUI.reset();
-                    lobbyUI.show();
+                    returnToInitialLobby("L'hote ne repond plus.");
                 });
             }
             if (data.type === 'players-update') {
@@ -1039,9 +1032,9 @@ function updateMobilePlayers() {
 
         const meeplesDiv = document.createElement('div');
         meeplesDiv.className = 'mobile-player-meeples';
-        const mobileScale = 0.35;
+        meeplesDiv.style.alignItems = 'flex-end';
         const applyMeepleSize = (el, type) => {
-            const { width, height } = getMeepleSize(type, mobileScale);
+            const { width, height } = getMeepleSize(type, 'panelMobile');
             el.style.width  = width;
             el.style.height = height;
         };
@@ -1717,6 +1710,9 @@ function setupEventListeners() {
         gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
         eventBus.emit('score-updated');
         updateTurnDisplay();
+        updateMobileTilePreview();
+        updateMobilePlayers();
+        updateMobileButtons();
     });
 
     // Tuiles restantes
@@ -1750,7 +1746,15 @@ function setupEventListeners() {
         const mobileBtn = (id, fn) => {
             const el = document.getElementById(id);
             if (!el) return;
-            el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+            // touchstart vide nécessaire pour que :active CSS fonctionne sur iOS
+            el.addEventListener('touchstart', () => {}, { passive: true });
+            el.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fn();
+                // Forcer le retrait de l'état actif après l'action
+                el.blur();
+            }, { passive: false });
         };
 
         mobileBtn('mobile-end-turn-btn', () => {

@@ -65,9 +65,8 @@ export class ScorePanelUI {
             meeplesDisplay.className = 'player-meeples-display';
             const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
 
-            const panelScale = 0.35;
             const applySize = (el, type) => {
-                const { width, height } = getMeepleSize(type, panelScale);
+                const { width, height } = getMeepleSize(type, 'panel');
                 el.style.width  = width;
                 el.style.height = height;
             };

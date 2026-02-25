@@ -106,7 +106,7 @@ export class MeepleSelectorUI {
             
             const img = document.createElement('img');
             img.src = meeple.image;
-            const { width, height } = getMeepleSize(meeple.type, 0.5);
+            const { width, height } = getMeepleSize(meeple.type, 'selector');
             img.style.width  = width;
             img.style.height = height;
             img.style.display = 'block';
