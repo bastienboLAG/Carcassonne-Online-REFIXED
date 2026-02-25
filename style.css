@@ -1109,13 +1109,14 @@ button:disabled {
 
     .mobile-player-meeples {
         display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
         gap: 2px;
         margin-top: 2px;
     }
 
     .mobile-player-meeples img {
-        width: 12px;
-        height: 12px;
+        width: auto;
     }
 
     .mobile-player-meeples img.unavailable {

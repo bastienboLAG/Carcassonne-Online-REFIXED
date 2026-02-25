@@ -1032,7 +1032,6 @@ function updateMobilePlayers() {
 
         const meeplesDiv = document.createElement('div');
         meeplesDiv.className = 'mobile-player-meeples';
-        meeplesDiv.style.alignItems = 'flex-end';
         const applyMeepleSize = (el, type) => {
             const { width, height } = getMeepleSize(type, 'panelMobile');
             el.style.width  = width;
