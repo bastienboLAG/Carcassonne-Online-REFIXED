@@ -5,7 +5,11 @@
   "show_remaining": true,
   "unplaceable": "reshuffle",
   "abbot_extension": true,
+  "large_meeple": true,
+  "cathedrals_extension": true,
+  "inns_extension": true,
   "abbot_tiles": true,
+  "inns_cathedrals_tiles": true,
   "test_deck": false,
   "debug": false
 }

@@ -39,6 +39,9 @@ const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 // VARIABLES LOBBY
 // ═══════════════════════════════════════════════════════
 const multiplayer = new Multiplayer();
+// Callbacks heartbeat assignés dès le départ — heartbeatManager peut être null avant le démarrage
+multiplayer.onHeartbeatPing = () => heartbeatManager?.receivePing();
+multiplayer.onHeartbeatPong = (peerId) => heartbeatManager?.receivePong(peerId);
 const lobbyUI     = new LobbyUI(multiplayer);
 const modalUI     = new ModalUI();
 let gameCode      = null;
@@ -973,8 +976,6 @@ function _postStartSetup() {
             multiplayer,
             onPeerTimeout: handleDisconnect
         });
-        multiplayer.onHeartbeatPing = () => heartbeatManager.receivePing();
-        multiplayer.onHeartbeatPong = (peerId) => heartbeatManager.receivePong(peerId);
         multiplayer.onPlayerLeft    = handleDisconnect;
         heartbeatManager.start();
     }
