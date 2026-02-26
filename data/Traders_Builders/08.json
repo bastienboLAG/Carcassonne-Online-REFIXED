@@ -1,0 +1,25 @@
+{
+  "id": "08",
+  "quantity": 1,
+  "extension": "Traders_Builders",
+  "image": "./assets/Traders_Builders/C2/08.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west", "north", "east"],
+      "features": ["wheat"],
+      "meeplePosition": "8"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["south"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "23"
+    }
+  ]
+
+}

@@ -45,6 +45,13 @@ export const MEEPLE_CONFIG = {
         panelMobile: 0.28,
         selector:    0.44,
     },
+    'Builder': {
+        w: 60, h: 80,
+        plate:       0.87,
+        panel:       0.35,
+        panelMobile: 0.28,
+        selector:    0.44,
+    },
 };
 
 /**

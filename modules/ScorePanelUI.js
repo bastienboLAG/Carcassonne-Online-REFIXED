@@ -18,13 +18,15 @@ export class ScorePanelUI {
         this.eventBus.on('score-updated',        this._onScoreUpdated);
         this.eventBus.on('turn-changed',         this._onTurnChanged);
         this.eventBus.on('meeple-count-updated', this._onMeepleCountUpdated);
+
+        this._isBonusTurn = false;
     }
 
-    onScoreUpdated()       { this.update(); }
-    onTurnChanged()        { this.update(); }
-    onMeepleCountUpdated() { this.update(); }
+    onScoreUpdated()              { this.update(this._isBonusTurn); }
+    onTurnChanged(isBonusTurn)    { this._isBonusTurn = isBonusTurn ?? false; this.update(this._isBonusTurn); }
+    onMeepleCountUpdated()        { this.update(this._isBonusTurn); }
 
-    update() {
+    update(isBonusTurn = false) {
         const playersScoresDiv = document.getElementById('players-scores');
         if (!playersScoresDiv || !this.gameState) return;
 
@@ -36,16 +38,22 @@ export class ScorePanelUI {
 
             const card = document.createElement('div');
             card.className = 'player-score-card';
-            if (isCurrentPlayer) card.classList.add('active');
+            if (isCurrentPlayer) card.classList.add(isBonusTurn ? 'active-bonus' : 'active');
 
             const header = document.createElement('div');
             header.className = 'player-score-header';
 
             if (isCurrentPlayer) {
                 const indicator = document.createElement('span');
-                indicator.className = 'turn-indicator';
+                indicator.className = isBonusTurn ? 'turn-indicator bonus' : 'turn-indicator';
                 indicator.textContent = '▶';
                 header.appendChild(indicator);
+                if (isBonusTurn) {
+                    const star = document.createElement('span');
+                    star.className   = 'bonus-star';
+                    star.textContent = '⭐';
+                    header.appendChild(star);
+                }
             }
 
             const name = document.createElement('span');
@@ -102,6 +110,17 @@ export class ScorePanelUI {
                 large.style.objectFit = 'contain';
                 if (!player.hasLargeMeeple) large.classList.add('unavailable');
                 meeplesDisplay.appendChild(large);
+            }
+
+            if (this.config?.extensions?.tradersBuilders) {
+                const builder = document.createElement('img');
+                builder.src = `./assets/Meeples/${colorCap}/Builder.png`;
+                builder.alt = 'Bâtisseur';
+                builder.style.marginLeft = '6px';
+                applySize(builder, 'Builder');
+                builder.style.objectFit = 'contain';
+                if (!player.hasBuilder) builder.classList.add('unavailable');
+                meeplesDisplay.appendChild(builder);
             }
 
             card.appendChild(meeplesDisplay);

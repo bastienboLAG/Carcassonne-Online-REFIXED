@@ -72,6 +72,19 @@ export class Deck {
             }
         }
 
+        if (tileGroups.traders_builders) {
+            const traderIds = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24'];
+            for (const id of traderIds) {
+                try {
+                    const res  = await fetch(`./data/Traders_Builders/${id}.json`);
+                    const data = await res.json();
+                    normalTiles.push(data);
+                } catch (e) {
+                    console.error(`Erreur tuile Traders_Builders/${id}:`, e);
+                }
+            }
+        }
+
         // ── Calcul du total ─────────────────────────────────────────────
         const allTileData = [...riverTiles, ...normalTiles];
         if (testMode) {

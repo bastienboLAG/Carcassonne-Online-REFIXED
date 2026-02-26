@@ -12,6 +12,7 @@ import { RuleRegistry }           from './modules/core/RuleRegistry.js';
 import { BaseRules }              from './modules/rules/BaseRules.js';
 import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { InnsRules }              from './modules/rules/InnsRules.js';
+import { BuilderRules }          from './modules/rules/BuilderRules.js';
 import { getMeepleSize }          from './modules/MeepleConfig.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
@@ -853,6 +854,12 @@ function attachGameSyncCallbacks() {
             eventBus.emit('score-updated');
             updateTurnDisplay();
         },
+        onBonusTurnStarted: (playerId) => {
+            // Un autre joueur démarre son tour bonus — on met juste à jour l'UI
+            updateTurnDisplay();
+            const player = gameState.players.find(p => p.id === playerId);
+            if (player) afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'info');
+        },
         updateTurnDisplay,
         poserTuileSync,
         afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); },
@@ -882,6 +889,10 @@ async function startGame() {
     if (gameConfig.extensions?.largeMeeple) {
         gameState.players.forEach(p => { p.hasLargeMeeple = true; });
         console.log('✅ [HOST] hasLargeMeeple initialisé');
+    }
+    if (gameConfig.extensions?.tradersBuilders) {
+        gameState.players.forEach(p => { p.hasBuilder = true; });
+        console.log('✅ [HOST] hasBuilder initialisé');
     }
 
     gameSync = new GameSync(multiplayer, gameState, null);
@@ -932,6 +943,10 @@ async function startGameForInvite() {
         gameState.players.forEach(p => { p.hasLargeMeeple = true; });
         console.log('✅ [INVITÉ] hasLargeMeeple initialisé');
     }
+    if (gameConfig.extensions?.tradersBuilders) {
+        gameState.players.forEach(p => { p.hasBuilder = true; });
+        console.log('✅ [INVITÉ] hasBuilder initialisé');
+    }
 
     gameSync = new GameSync(multiplayer, gameState, originalLobbyHandler);
     gameSync.init();
@@ -970,6 +985,14 @@ function _postStartSetup() {
         ruleRegistry.register('inns', InnsRules, gameConfig);
         ruleRegistry.enable('inns');
     }
+    if (gameConfig.extensions?.tradersBuilders) {
+        const builderRulesInst = new BuilderRules(eventBus, gameState, zoneMerger, gameConfig);
+        builderRulesInst.setPlacedMeeples(placedMeeples);
+        ruleRegistry.register('builders', builderRulesInst, gameConfig);
+        ruleRegistry.enable('builders');
+        // Injecter dans TurnManager pour la détection du tour bonus
+        if (turnManager) turnManager.builderRules = builderRulesInst;
+    }
 
     document.getElementById('remaining-tiles-btn').style.display =
         gameConfig.showRemainingTiles ? 'block' : 'none';
@@ -1007,6 +1030,21 @@ function _postStartSetup() {
 /**
  * Met à jour la barre joueurs mobile
  */
+/**
+ * Met à jour le style de la carte mobile du joueur actif selon le tour bonus
+ */
+function _updateMobileActiveBonusStyle(isBonusTurn) {
+    if (!isMobile()) return;
+    const currentPlayer = gameState?.getCurrentPlayer();
+    if (!currentPlayer) return;
+    document.querySelectorAll('.mobile-player-card').forEach(card => {
+        card.classList.remove('active-bonus');
+        if (isBonusTurn && card.dataset.playerId === currentPlayer.id) {
+            card.classList.add('active-bonus');
+        }
+    });
+}
+
 function updateMobilePlayers() {
     if (!isMobile() || !gameState) return;
     const container = document.getElementById('mobile-players-scores');
@@ -1021,6 +1059,7 @@ function updateMobilePlayers() {
 
         const card = document.createElement('div');
         card.className = 'mobile-player-card' + (isActive ? ' active' : '');
+        card.dataset.playerId = player.id;
 
         const name = document.createElement('div');
         name.className = 'mobile-player-name';
@@ -1065,6 +1104,16 @@ function updateMobilePlayers() {
             applyMeepleSize(large, 'Large');
             if (!player.hasLargeMeeple) large.classList.add('unavailable');
             meeplesDiv.appendChild(large);
+        }
+        // Bâtisseur (si extension activée)
+        if (gameConfig?.extensions?.tradersBuilders) {
+            const builder = document.createElement('img');
+            builder.src = `./assets/Meeples/${colorCap}/Builder.png`;
+            builder.alt = 'Bâtisseur';
+            builder.style.marginLeft = '6px';
+            applyMeepleSize(builder, 'Builder');
+            if (!player.hasBuilder) builder.classList.add('unavailable');
+            meeplesDiv.appendChild(builder);
         }
         card.appendChild(meeplesDiv);
         container.appendChild(card);
@@ -1168,7 +1217,12 @@ function updateTurnDisplay() {
 
     updateMobilePlayers();
     updateMobileButtons();
-        eventBus.emit('score-updated');
+    eventBus.emit('score-updated');
+
+    // Mettre à jour le contour doré si tour bonus
+    const isBonusTurn = turnManager?.isBonusTurn ?? false;
+    if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn);
+    _updateMobileActiveBonusStyle(isBonusTurn);
 }
 
 function afficherMessage(msg) {
@@ -1418,6 +1472,12 @@ function placerMeeple(x, y, position, meepleType) {
         if (player) player.hasLargeMeeple = false;
         eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
     }
+    // Si le bâtisseur est posé, il n'est plus disponible
+    if (meepleType === 'Builder') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasBuilder = false;
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    }
 
     if (undoManager && isMyTurn) {
         undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);
@@ -1525,6 +1585,12 @@ function setupEventListeners() {
                                 player.hasLargeMeeple = true;
                                 eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
                             }
+                        } else if (meeple.type === 'Builder') {
+                            const player = gameState.players.find(p => p.id === meeple.playerId);
+                            if (player) {
+                                player.hasBuilder = true;
+                                eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
+                            }
                         } else {
                             incrementPlayerMeeples(meeple.playerId);
                         }
@@ -1555,10 +1621,18 @@ function setupEventListeners() {
             return;
         }
 
-        // ✅ nextPlayer() : passage au joueur suivant + drawTile() si solo
-        // Ensuite syncTurnEnd() broadcaste un gameState déjà à jour pour les invités
+        // endTurn() gère le tour bonus (bâtisseur) puis passe au joueur suivant si pas de bonus
         if (turnManager) {
-            turnManager.nextPlayer();
+            const result = turnManager.endTurn();
+            if (result?.bonusTurnStarted) {
+                // Tour bonus déclenché — syncBonusTurnStarted + drawTile pour le joueur actuel
+                if (gameSync) gameSync.syncBonusTurnStarted(multiplayer.playerId);
+                if (gameSync) gameSync.syncTurnEnd();
+                turnManager.drawTile();
+                updateTurnDisplay();
+                afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'success');
+                return;
+            }
         }
 
         if (gameSync) {
@@ -1864,7 +1938,9 @@ function returnToLobby() {
     pendingAbbePoints = null;
 
     ruleRegistry.disable('base');
-    ruleRegistry.disable('abbot'); // no-op si non enregistré
+    ruleRegistry.disable('abbot');   // no-op si non enregistré
+    ruleRegistry.disable('inns');    // no-op si non enregistré
+    ruleRegistry.disable('builders'); // no-op si non enregistré
     ruleRegistry.disable('inns');  // no-op si non enregistré
 
     deck.tiles = []; deck.currentIndex = 0; deck.totalTiles = 0;

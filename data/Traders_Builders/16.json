@@ -1,0 +1,41 @@
+{
+  "id": "16",
+  "quantity": 1,
+  "extension": "Traders_Builders",
+  "image": "./assets/Traders_Builders/C2/16.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west", "east"],
+      "features": ["wine"],
+      "meeplePosition": "13"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["north"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "3"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": [],
+      "features": {
+   	 "adjacentCities": [1,4]
+		  },
+      "meeplePosition": "18"
+    },
+    {
+      "id": 4,
+      "type": "city",
+      "edges": ["south"],
+      "features": [],
+      "meeplePosition": "23"
+    }
+  ]
+
+}

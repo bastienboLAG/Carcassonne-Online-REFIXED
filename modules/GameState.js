@@ -22,6 +22,7 @@ export class GameState {
             meeples: 7,
             hasAbbot:     false, // Initialisé à false, mis à true si extension Abbé activée
             hasLargeMeeple: false, // Grand meeple (Auberges & Cathédrales)
+            hasBuilder:     false, // Bâtisseur (Marchands & Bâtisseurs)
             scoreDetail: {
                 cities: 0,
                 roads: 0,
@@ -84,6 +85,7 @@ export class GameState {
             meeples: p.meeples ?? 7,
             hasAbbot:       p.hasAbbot       ?? false,
             hasLargeMeeple: p.hasLargeMeeple ?? false,
+            hasBuilder:     p.hasBuilder     ?? false,
             scoreDetail: p.scoreDetail || {
                 cities: 0,
                 roads: 0,

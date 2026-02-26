@@ -24,6 +24,7 @@ export class GameSyncCallbacks {
         onDeckReshuffled,
         onAbbeRecalled,
         onAbbeRecalledUndo,
+        onBonusTurnStarted,
         updateTurnDisplay,
         poserTuileSync,
         afficherMessage,
@@ -47,7 +48,8 @@ export class GameSyncCallbacks {
         this.onTileDestroyed   = onTileDestroyed;     // (id, name, action) => void
         this.onDeckReshuffled  = onDeckReshuffled;    // (tiles, idx) => void
         this.onAbbeRecalled    = onAbbeRecalled;      // (x, y, key, playerId, points) => void
-        this.onAbbeRecalledUndo = onAbbeRecalledUndo; // (x, y, key, playerId) => void
+        this.onAbbeRecalledUndo  = onAbbeRecalledUndo;  // (x, y, key, playerId) => void
+        this.onBonusTurnStarted  = onBonusTurnStarted ?? null; // (playerId) => void
         this.updateTurnDisplay = updateTurnDisplay;   // () => void
         this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
         this.afficherMessage   = afficherMessage;     // (msg) => void
@@ -208,6 +210,10 @@ export class GameSyncCallbacks {
 
         gs.onAbbeRecalledUndo = (x, y, key, playerId) => {
             if (this.onAbbeRecalledUndo) this.onAbbeRecalledUndo(x, y, key, playerId);
+        };
+
+        gs.onBonusTurnStarted = (playerId) => {
+            if (this.onBonusTurnStarted) this.onBonusTurnStarted(playerId);
         };
 
         gs.onDeckReshuffled = (tiles, currentIndex) => {

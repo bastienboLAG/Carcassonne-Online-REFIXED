@@ -38,8 +38,9 @@ export class MeeplePlacement {
         // 2. Vérifier que le joueur a des meeples disponibles
         const player = this.gameState.players.find(p => p.id === playerId);
         if (!player) return false;
-        const isAbbot = meepleType === 'Abbot';
-        const isLarge = meepleType === 'Large' || meepleType === 'Large-Farmer';
+        const isAbbot   = meepleType === 'Abbot';
+        const isLarge   = meepleType === 'Large' || meepleType === 'Large-Farmer';
+        const isBuilder = meepleType === 'Builder';
         if (isAbbot && !player.hasAbbot) {
             console.log('❌ Abbé non disponible');
             return false;
@@ -48,7 +49,11 @@ export class MeeplePlacement {
             console.log('❌ Grand meeple non disponible');
             return false;
         }
-        if (!isAbbot && !isLarge && player.meeples <= 0) {
+        if (isBuilder && !player.hasBuilder) {
+            console.log('❌ Bâtisseur non disponible');
+            return false;
+        }
+        if (!isAbbot && !isLarge && !isBuilder && player.meeples <= 0) {
             console.log('❌ Plus de meeples disponibles');
             return false;
         }
@@ -105,6 +110,8 @@ export class MeeplePlacement {
             // Abbé géré via hasAbbot dans home.js
         } else if (meepleType === 'Large' || meepleType === 'Large-Farmer') {
             // Grand meeple géré via hasLargeMeeple dans home.js
+        } else if (meepleType === 'Builder') {
+            // Bâtisseur géré via hasBuilder dans home.js
         } else {
             this.decrementMeeples(playerId);
         }

@@ -12,7 +12,8 @@ export class GameSync {
         this.onDeckReceived = null;
         this.onTileRotated = null;
         this.onTilePlaced = null;
-        this.onTurnEnded = null;
+        this.onTurnEnded        = null;
+        this.onBonusTurnStarted = null;
         this.onGameStarted = null;
         this.onTileDrawn = null;
         this.onMeeplePlaced = null;
@@ -121,10 +122,21 @@ export class GameSync {
             type: 'turn-ended',
             playerId: this.multiplayer.playerId,
             nextPlayerIndex: this.gameState.currentPlayerIndex,
-            gameState: this.gameState.serialize()
+            gameState: this.gameState.serialize(),
+            isBonusTurn: false
         });
         
         return true;
+    }
+
+    /**
+     * Synchroniser le démarrage d'un tour bonus
+     */
+    syncBonusTurnStarted(playerId) {
+        this.multiplayer.broadcast({
+            type: 'bonus-turn-started',
+            playerId
+        });
     }
 
     /**
@@ -292,7 +304,14 @@ export class GameSync {
             case 'turn-ended':
                 if (this.onTurnEnded && data.playerId !== this.multiplayer.playerId) {
                     console.log('⏭️ [SYNC] Fin de tour reçue');
-                    this.onTurnEnded(data.nextPlayerIndex, data.gameState);
+                    this.onTurnEnded(data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false);
+                }
+                break;
+
+            case 'bonus-turn-started':
+                if (this.onBonusTurnStarted && data.playerId !== this.multiplayer.playerId) {
+                    console.log('⭐ [SYNC] Tour bonus reçu pour', data.playerId);
+                    this.onBonusTurnStarted(data.playerId);
                 }
                 break;
 

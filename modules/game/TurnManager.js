@@ -14,9 +14,14 @@ export class TurnManager {
         this.multiplayer = multiplayer;
         
         // État du tour
-        this.isMyTurn = false;
+        this.isMyTurn   = false;
         this.tilePlaced = false;
         this.currentTile = null;
+
+        // Tour bonus (bâtisseur)
+        this.isBonusTurn            = false; // true pendant le tour bonus
+        this.bonusAlreadyUsedThisTurn = false; // empêche le cumul
+        this.builderRules           = null;  // injecté depuis home.js
         
         // S'abonner aux événements
         this.eventBus.on('tile-placed', (data) => this.onTilePlaced(data));
@@ -126,17 +131,32 @@ export class TurnManager {
             return { success: false, error: 'tile_not_placed' };
         }
 
-        console.log('⏭️ Fin de tour - passage au joueur suivant');
-        
-        // Émettre événement pour calcul des scores (Scoring écoute cet événement)
-        this.eventBus.emit('turn-ending', { 
-            playerId: this.multiplayer.playerId 
+        console.log('⏭️ Fin de tour');
+
+        // Émettre événement pour calcul des scores
+        this.eventBus.emit('turn-ending', {
+            playerId: this.multiplayer.playerId
         });
-        
-        // Passer au joueur suivant
-        this.nextPlayer();
-        
-        return { success: true };
+
+        // Vérifier si un tour bonus est déclenché (bâtisseur)
+        const bonusTriggered = !this.bonusAlreadyUsedThisTurn &&
+                               !this.isBonusTurn &&
+                               this.builderRules?.checkAndConsumeBonusTrigger();
+
+        if (bonusTriggered) {
+            console.log('⭐ Déclenchement du tour bonus bâtisseur');
+            this.isBonusTurn = true;
+            this.bonusAlreadyUsedThisTurn = true;
+            this.tilePlaced = false;
+            return { success: true, bonusTurnStarted: true };
+        } else {
+            // Fin du tour bonus ou tour normal sans bonus
+            this.isBonusTurn = false;
+            this.bonusAlreadyUsedThisTurn = false;
+            if (this.builderRules) this.builderRules.resetBonusFlag();
+            this.nextPlayer();
+            return { success: true, bonusTurnStarted: false };
+        }
     }
 
     /**
@@ -302,8 +322,10 @@ export class TurnManager {
      * Réinitialiser pour une nouvelle partie
      */
     reset() {
-        this.isMyTurn = false;
+        this.isMyTurn   = false;
         this.tilePlaced = false;
         this.currentTile = null;
+        this.isBonusTurn = false;
+        this.bonusAlreadyUsedThisTurn = false;
     }
 }

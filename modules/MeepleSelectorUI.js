@@ -51,7 +51,8 @@ export class MeepleSelectorUI {
         
         // ✅ Proposer les meeples selon le type de zone
         let meepleTypes = [];
-        const hasLarge = player?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
+        const hasLarge   = player?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
+        const hasBuilder = player?.hasBuilder === true && this.config?.extensions?.tradersBuilders;
 
         if (zoneType === 'field') {
             // Field → Farmer (+ Large-Farmer si grand meeple dispo)
@@ -62,12 +63,17 @@ export class MeepleSelectorUI {
                 meepleTypes.push({ type: 'Large-Farmer', image: `./assets/Meeples/${this.getPlayerColor()}/Large-Farmer.png` });
             }
         } else if (zoneType === 'road' || zoneType === 'city') {
-            // Road ou City → Normal (+ Large si grand meeple dispo)
+            // Road ou City → Normal (+ Large si grand meeple dispo + Builder si dispo)
             if (player?.meeples > 0) {
                 meepleTypes.push({ type: 'Normal', image: `./assets/Meeples/${this.getPlayerColor()}/Normal.png` });
             }
             if (hasLarge) {
                 meepleTypes.push({ type: 'Large', image: `./assets/Meeples/${this.getPlayerColor()}/Large.png` });
+            }
+            // Builder proposé uniquement si le joueur a déjà un meeple dans cette zone
+            // (la validation finale est dans BuilderRules via meeple-placement-check)
+            if (hasBuilder) {
+                meepleTypes.push({ type: 'Builder', image: `./assets/Meeples/${this.getPlayerColor()}/Builder.png` });
             }
         } else if (zoneType === 'garden') {
             // Garden → Abbé uniquement (si disponible)

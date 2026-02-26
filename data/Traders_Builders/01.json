@@ -1,0 +1,41 @@
+{
+  "id": "01",
+  "quantity": 1,
+  "extension": "Traders_Builders",
+  "image": "./assets/Traders_Builders/C2/01.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north"],
+      "features": [],
+      "meeplePosition": "3"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["west", "south", "east-bottom"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "17"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["east"],
+      "features": [],
+      "meeplePosition": "13"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["east-top"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "10"
+    }
+  ]
+
+}
