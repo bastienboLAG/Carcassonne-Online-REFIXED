@@ -113,8 +113,8 @@ export class GameSyncCallbacks {
         };
 
         // ── Fin de tour ───────────────────────────────────────────────────────
-        gs.onTurnEnded = (nextPlayerIndex, gameStateData) => {
-            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData);
+        gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false) => {
+            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn);
         };
 
         // ── Pioche d'une tuile ────────────────────────────────────────────────

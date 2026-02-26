@@ -181,7 +181,11 @@ eventBus.on('deck-updated', (data) => {
 
 eventBus.on('turn-changed', (data) => {
     isMyTurn = data.isMyTurn;
-    console.log('🔄 Sync isMyTurn global:', isMyTurn);
+    console.log('🔄 Sync isMyTurn global:', isMyTurn, '— isBonusTurn:', data.isBonusTurn ?? false);
+    // Synchroniser isBonusTurn sur turnManager si transmis par receiveTurnEnded
+    if (turnManager && data.isBonusTurn !== undefined) {
+        turnManager.isBonusTurn = data.isBonusTurn;
+    }
     updateTurnDisplay();
 });
 
@@ -867,7 +871,8 @@ function attachGameSyncCallbacks() {
             updateTurnDisplay();
         },
         onBonusTurnStarted: (playerId) => {
-            // Un autre joueur démarre son tour bonus — on met juste à jour l'UI
+            // Un autre joueur démarre son tour bonus — flaguer localement pour le UI
+            if (turnManager) turnManager.isBonusTurn = true;
             updateTurnDisplay();
             const player = gameState.players.find(p => p.id === playerId);
             if (player) afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'info');
@@ -1639,7 +1644,7 @@ function setupEventListeners() {
             if (result?.bonusTurnStarted) {
                 // Tour bonus déclenché — syncBonusTurnStarted + drawTile pour le joueur actuel
                 if (gameSync) gameSync.syncBonusTurnStarted(multiplayer.playerId);
-                if (gameSync) gameSync.syncTurnEnd();
+                if (gameSync) gameSync.syncTurnEnd(true); // isBonusTurn=true → les autres joueurs gardent le contour doré
                 turnManager.drawTile();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'success');

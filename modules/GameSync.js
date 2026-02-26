@@ -111,19 +111,15 @@ export class GameSync {
     /**
      * Synchroniser la fin du tour
      */
-    syncTurnEnd() {
-        console.log('⏭️ Sync fin de tour');
+    syncTurnEnd(isBonusTurn = false) {
+        console.log('⏭️ Sync fin de tour — isBonusTurn:', isBonusTurn);
 
-        // ✅ turnManager.nextPlayer() est appelé dans home.js AVANT syncTurnEnd(),
-        // donc currentPlayerIndex est déjà à jour ici.
-        // On broadcaste le gameState déjà mis à jour pour que les invités
-        // aient le bon état via receiveTurnEnded().
         this.multiplayer.broadcast({
             type: 'turn-ended',
             playerId: this.multiplayer.playerId,
             nextPlayerIndex: this.gameState.currentPlayerIndex,
             gameState: this.gameState.serialize(),
-            isBonusTurn: false
+            isBonusTurn: isBonusTurn
         });
         
         return true;

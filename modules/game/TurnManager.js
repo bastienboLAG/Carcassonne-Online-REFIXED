@@ -261,26 +261,34 @@ export class TurnManager {
         }
     }
 
-    receiveTurnEnded(nextPlayerIndex, gameStateData) {
-        console.log('⏭️ [SYNC] Fin de tour reçue');
+    receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false) {
+        console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn);
         
         // Restaurer le GameState
         if (gameStateData) {
             this.gameState.deserialize(gameStateData);
         }
         
-        // Mettre à jour l'état
-        this.updateTurnState();
-        
-        // Piocher si c'est notre tour
-        if (this.isMyTurn) {
-            this.drawTile();
+        // Propager l'état de tour bonus
+        this.isBonusTurn = isBonusTurn;
+        if (isBonusTurn) {
+            // Tour bonus : on ne change pas de joueur, pas de pioche pour nous
+            this.updateTurnState();
+        } else {
+            // Tour normal : remettre à zéro les flags bonus
+            this.bonusAlreadyUsedThisTurn = false;
+            this.updateTurnState();
+            // Piocher si c'est notre tour
+            if (this.isMyTurn) {
+                this.drawTile();
+            }
         }
         
         // ✅ Un seul emit turn-changed pour rafraîchir TOUS les joueurs
         this.eventBus.emit('turn-changed', {
             isMyTurn: this.isMyTurn,
-            currentPlayer: this.getCurrentPlayer()
+            currentPlayer: this.getCurrentPlayer(),
+            isBonusTurn: this.isBonusTurn
         });
     }
 

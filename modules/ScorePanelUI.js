@@ -16,7 +16,7 @@ export class ScorePanelUI {
         this._onMeepleCountUpdated = this.onMeepleCountUpdated.bind(this);
 
         this.eventBus.on('score-updated',        this._onScoreUpdated);
-        this.eventBus.on('turn-changed',         this._onTurnChanged);
+        // turn-changed géré par updateTurnDisplay() via onTurnChanged(isBonusTurn) direct
         this.eventBus.on('meeple-count-updated', this._onMeepleCountUpdated);
 
         this._isBonusTurn = false;
@@ -135,7 +135,6 @@ export class ScorePanelUI {
 
         // ✅ Même référence → désabonnement effectif
         this.eventBus.off('score-updated',        this._onScoreUpdated);
-        this.eventBus.off('turn-changed',         this._onTurnChanged);
         this.eventBus.off('meeple-count-updated', this._onMeepleCountUpdated);
     }
 }
