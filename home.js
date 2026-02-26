@@ -797,6 +797,8 @@ function initializeGameModules() {
     meepleCursorsUI  = new MeepleCursorsUI(multiplayer, zoneMerger, plateau, gameConfig);
     meepleCursorsUI.init();
     meepleSelectorUI = new MeepleSelectorUI(multiplayer, gameState, gameConfig);
+    meepleSelectorUI.zoneMerger    = zoneMerger;
+    meepleSelectorUI.placedMeeples = placedMeeples;
     meepleDisplayUI  = new MeepleDisplayUI();
     meepleDisplayUI.init();
 
