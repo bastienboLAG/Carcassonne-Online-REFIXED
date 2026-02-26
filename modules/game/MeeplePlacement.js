@@ -58,18 +58,43 @@ export class MeeplePlacement {
             return false;
         }
         
-        // 3. Vérifier que la zone n'a pas déjà un meeple
+        // 3. Vérifier occupation de la zone
         if (this.zoneMerger) {
             const mergedZone = this.zoneMerger.findMergedZoneForPosition(x, y, position);
             if (mergedZone) {
                 const meeplesInZone = this.zoneMerger.getZoneMeeples(mergedZone, this.placedMeeples);
-                if (meeplesInZone.length > 0) {
-                    console.log('❌ Zone déjà occupée par un meeple');
-                    return false;
+                // Les bâtisseurs ne bloquent pas la zone pour les autres meeples
+                const blockingMeeples = meeplesInZone.filter(m => m.type !== 'Builder');
+
+                if (isBuilder) {
+                    // Le bâtisseur nécessite : zone city/road + meeple normal/grand du joueur dans la zone
+                    const zoneType = mergedZone.type;
+                    if (zoneType !== 'city' && zoneType !== 'road') {
+                        console.log('❌ Bâtisseur uniquement sur city ou road');
+                        return false;
+                    }
+                    const hasOwnMeeple = blockingMeeples.some(m =>
+                        m.playerId === playerId &&
+                        m.type !== 'Farmer' && m.type !== 'Large-Farmer'
+                    );
+                    if (!hasOwnMeeple) {
+                        console.log('❌ Bâtisseur : pas de meeple du joueur dans cette zone');
+                        return false;
+                    }
+                } else {
+                    // Meeple normal : zone ne doit pas contenir d'autres meeples non-bâtisseurs
+                    if (blockingMeeples.length > 0) {
+                        console.log('❌ Zone déjà occupée par un meeple');
+                        return false;
+                    }
                 }
+            } else if (isBuilder) {
+                // Pas de zone fusionnée → zone non connectée → pas de meeple du joueur possible
+                console.log('❌ Bâtisseur : aucune zone fusionnée trouvée');
+                return false;
             }
         }
-        
+
         return true;
     }
 

@@ -28,6 +28,20 @@ export class RuleRegistry {
     }
 
     /**
+     * Enregistrer une instance déjà construite (pour les règles nécessitant des dépendances supplémentaires)
+     * @param {string} name - Nom unique de la règle
+     * @param {Object} ruleInstance - Instance déjà créée
+     */
+    registerInstance(name, ruleInstance) {
+        if (this.rules.has(name)) {
+            console.warn(`⚠️ Règle "${name}" déjà enregistrée, écrasement`);
+        }
+        this.rules.set(name, ruleInstance);
+        console.log(`📝 Règle "${name}" enregistrée (instance)`);
+        return this;
+    }
+
+    /**
      * Activer une règle
      * @param {string} name - Nom de la règle à activer
      */

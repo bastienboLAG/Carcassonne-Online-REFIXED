@@ -78,7 +78,7 @@ export class ModalUI {
             margin-bottom: 20px;
         `;
         
-        const prefixOrder = ['base', 'river', 'abbot'];
+        const prefixOrder = ['base', 'river', 'abbot', 'inns_cathedrals', 'traders_builders'];
         const prefixRank = id => {
             const prefix = prefixOrder.findIndex(p => id.startsWith(p));
             return prefix === -1 ? prefixOrder.length : prefix;

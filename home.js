@@ -998,7 +998,7 @@ function _postStartSetup() {
     if (gameConfig.extensions?.tradersBuilders) {
         const builderRulesInst = new BuilderRules(eventBus, gameState, zoneMerger, gameConfig);
         builderRulesInst.setPlacedMeeples(placedMeeples);
-        ruleRegistry.register('builders', builderRulesInst, gameConfig);
+        ruleRegistry.registerInstance('builders', builderRulesInst);
         ruleRegistry.enable('builders');
         // Injecter dans TurnManager pour la détection du tour bonus
         if (turnManager) turnManager.builderRules = builderRulesInst;
@@ -1949,9 +1949,8 @@ function returnToLobby() {
 
     ruleRegistry.disable('base');
     ruleRegistry.disable('abbot');   // no-op si non enregistré
-    ruleRegistry.disable('inns');    // no-op si non enregistré
+    ruleRegistry.disable('inns');     // no-op si non enregistré
     ruleRegistry.disable('builders'); // no-op si non enregistré
-    ruleRegistry.disable('inns');  // no-op si non enregistré
 
     deck.tiles = []; deck.currentIndex = 0; deck.totalTiles = 0;
     plateau.reset();

@@ -106,9 +106,10 @@ export class MeepleCursorsUI {
         const hasMeeples  = activePlayer && activePlayer.meeples > 0;
         const hasAbbot    = activePlayer?.hasAbbot       === true;
         const hasLarge    = activePlayer?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
-        console.log('🔍 [CURSEURS] hasMeeples:', hasMeeples, '— hasAbbot:', hasAbbot, '— hasLarge:', hasLarge, '— hasLargeMeeple:', activePlayer?.hasLargeMeeple, '— ext.largeMeeple:', this.config?.extensions?.largeMeeple);
-        if (!hasMeeples && !hasAbbot && !hasLarge) {
-            console.log('❌ Pas de meeples ni d\'abbé ni grand meeple disponibles, pas d\'affichage de curseurs');
+        const hasBuilder  = activePlayer?.hasBuilder     === true && this.config?.extensions?.tradersBuilders;
+        console.log('🔍 [CURSEURS] hasMeeples:', hasMeeples, '— hasAbbot:', hasAbbot, '— hasLarge:', hasLarge, '— hasBuilder:', hasBuilder);
+        if (!hasMeeples && !hasAbbot && !hasLarge && !hasBuilder) {
+            console.log('❌ Pas de meeples disponibles, pas d\'affichage de curseurs');
             return;
         }
         
@@ -142,8 +143,8 @@ export class MeepleCursorsUI {
                 console.log('🚫 Champs désactivés, pas de curseur field à position', position);
                 return;
             }
-            // Filtrer les zones normales si pas de meeples ni grand meeple
-            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples && !hasLarge) {
+            // Filtrer les zones normales si pas de meeples, grand meeple, ni bâtisseur
+            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples && !hasLarge && !hasBuilder) {
                 return;
             }
             // Filtrer les jardins si pas d'abbé
@@ -167,18 +168,36 @@ export class MeepleCursorsUI {
                 return;
             }
             
-            // ✅ Vérifier si la zone mergée contient déjà un meeple
+            // ✅ Vérifier l'occupation de la zone
             if (this.zoneMerger) {
-                console.log('🔎 Recherche zone mergée pour position', position);
                 const mergedZone = this.zoneMerger.findMergedZoneForPosition(x, y, position);
-                console.log('📍 Zone mergée trouvée:', mergedZone);
                 if (mergedZone) {
                     const meeplesInZone = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
-                    console.log('🎭 Meeples dans cette zone:', meeplesInZone);
-                    if (meeplesInZone.length > 0) {
-                        console.log('⏭️ Position', position, 'dans une zone avec meeple(s), pas de curseur');
-                        return;
+                    // Les bâtisseurs ne bloquent pas la zone
+                    const blockingMeeples = meeplesInZone.filter(m => m.type !== 'Builder');
+
+                    if (blockingMeeples.length > 0) {
+                        // Zone occupée : seul le bâtisseur peut encore y aller,
+                        // et uniquement si le joueur possède déjà un meeple dans cette zone
+                        const zoneIsCityOrRoad = zoneType === 'city' || zoneType === 'road';
+                        const playerHasMeepleHere = blockingMeeples.some(
+                            m => m.playerId === activePlayer.id &&
+                                 m.type !== 'Farmer' && m.type !== 'Large-Farmer'
+                        );
+                        if (hasBuilder && zoneIsCityOrRoad && playerHasMeepleHere) {
+                            // Curseur bâtisseur uniquement — on laisse passer
+                        } else {
+                            return; // Zone occupée, pas de curseur
+                        }
+                    } else if (hasBuilder && !hasMeeples && !hasLarge) {
+                        // Le joueur n'a QUE le bâtisseur : il faut un meeple dans la zone,
+                        // mais la zone est vide → pas de curseur
+                        const zoneIsCityOrRoad = zoneType === 'city' || zoneType === 'road';
+                        if (zoneIsCityOrRoad) return;
                     }
+                } else if (hasBuilder && !hasMeeples && !hasLarge) {
+                    // Aucune zone fusionnée et uniquement bâtisseur dispo : impossible
+                    return;
                 }
             }
             
