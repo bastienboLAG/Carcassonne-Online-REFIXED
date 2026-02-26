@@ -94,12 +94,7 @@ export class BuilderRules {
             return;
         }
 
-        // Pas déjà un bâtisseur dans cette zone
-        const hasBuilderInZone = zoneMeeples.some(m => m.type === 'Builder');
-        if (hasBuilderInZone) {
-            result.allowed = false;
-            result.reason  = 'builder_already_in_zone';
-        }
+        // Plusieurs bâtisseurs peuvent coexister dans la même zone
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -182,9 +177,9 @@ export class BuilderRules {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Le bâtisseur compte comme poids 1 pour la majorité (comme un meeple normal)
+     * Le bâtisseur compte comme poids 0 pour la majorité — il ne sert qu'au tour bonus
      */
     static getMeepleWeight(meeple) {
-        return 1;
+        return 0;
     }
 }

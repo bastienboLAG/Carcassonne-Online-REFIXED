@@ -314,6 +314,8 @@ function applyPreset(preset) {
         'cathedrals_extension':  'ext-cathedrals',
         'inns_extension':        'ext-inns',
         'inns_cathedrals_tiles': 'tiles-inns-cathedrals',
+        'traders_builders_tiles': 'tiles-traders-builders',
+        'ext_builder':           'ext-builder',
     };
     for (const [key, id] of Object.entries(map)) {
         if (preset[key] !== undefined) {
@@ -343,7 +345,9 @@ function saveLobbyOptions() {
         large_meeple:            document.getElementById('ext-large-meeple')?.checked       ?? false,
         cathedrals_extension:    document.getElementById('ext-cathedrals')?.checked         ?? true,
         inns_extension:          document.getElementById('ext-inns')?.checked               ?? true,
-        inns_cathedrals_tiles:   document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
+        inns_cathedrals_tiles:    document.getElementById('tiles-inns-cathedrals')?.checked   ?? false,
+        traders_builders_tiles:   document.getElementById('tiles-traders-builders')?.checked  ?? false,
+        ext_builder:              document.getElementById('ext-builder')?.checked             ?? false,
         unplaceable:     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
     };
     localStorage.setItem(LS_KEY, JSON.stringify(state));
@@ -414,9 +418,11 @@ function syncAllOptions() {
         'ext-abbot':               document.getElementById('ext-abbot')?.checked              ?? false,
         'tiles-abbot':             document.getElementById('tiles-abbot')?.checked            ?? false,
         'ext-large-meeple':        document.getElementById('ext-large-meeple')?.checked       ?? false,
-        'ext-cathedrals':          document.getElementById('ext-cathedrals')?.checked         ?? true,
-        'ext-inns':                document.getElementById('ext-inns')?.checked               ?? true,
-        'tiles-inns-cathedrals':   document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
+        'ext-cathedrals':            document.getElementById('ext-cathedrals')?.checked           ?? true,
+        'ext-inns':                  document.getElementById('ext-inns')?.checked               ?? true,
+        'tiles-inns-cathedrals':     document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
+        'tiles-traders-builders':    document.getElementById('tiles-traders-builders')?.checked ?? false,
+        'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
         'unplaceable':    document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
         'start':          document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
     };
@@ -425,7 +431,7 @@ function syncAllOptions() {
 
 // Sauvegarder les options à chaque changement manuel
 document.querySelectorAll(
-    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals'
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder'
 ).forEach(el => el.addEventListener('change', saveLobbyOptions));
 document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
     .forEach(el => el.addEventListener('change', saveLobbyOptions));
@@ -488,7 +494,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
-        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals'].forEach(id => {
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
@@ -542,9 +548,11 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                     'ext-abbot':               document.getElementById('ext-abbot')?.checked              ?? false,
                     'tiles-abbot':             document.getElementById('tiles-abbot')?.checked            ?? false,
                     'ext-large-meeple':        document.getElementById('ext-large-meeple')?.checked       ?? false,
-                    'ext-cathedrals':          document.getElementById('ext-cathedrals')?.checked         ?? true,
-                    'ext-inns':                document.getElementById('ext-inns')?.checked               ?? true,
-                    'tiles-inns-cathedrals':   document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
+                    'ext-cathedrals':            document.getElementById('ext-cathedrals')?.checked           ?? true,
+                    'ext-inns':                  document.getElementById('ext-inns')?.checked               ?? true,
+                    'tiles-inns-cathedrals':     document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
+                    'tiles-traders-builders':    document.getElementById('tiles-traders-builders')?.checked ?? false,
+                    'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
                     'start':           document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
                 };
                 multiplayer.sendTo(from, { type: 'options-sync', options: currentOptions });
@@ -739,15 +747,17 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
         startType: document.querySelector('input[name="start"]:checked')?.value || 'unique',
         extensions: {
             base:  true,
-            abbot:       document.getElementById('ext-abbot')?.checked        ?? false,
-            largeMeeple: document.getElementById('ext-large-meeple')?.checked  ?? false,
-            cathedrals:  document.getElementById('ext-cathedrals')?.checked    ?? true,
-            inns:        document.getElementById('ext-inns')?.checked          ?? true
+            abbot:           document.getElementById('ext-abbot')?.checked          ?? false,
+            largeMeeple:     document.getElementById('ext-large-meeple')?.checked    ?? false,
+            cathedrals:      document.getElementById('ext-cathedrals')?.checked      ?? true,
+            inns:            document.getElementById('ext-inns')?.checked            ?? true,
+            tradersBuilders: document.getElementById('ext-builder')?.checked         ?? false
         },
         tileGroups: {
             base:  true,
-            abbot:            document.getElementById('tiles-abbot')?.checked           ?? false,
-            inns_cathedrals:  document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
+            abbot:            document.getElementById('tiles-abbot')?.checked             ?? false,
+            inns_cathedrals:  document.getElementById('tiles-inns-cathedrals')?.checked   ?? false,
+            traders_builders: document.getElementById('tiles-traders-builders')?.checked  ?? false,
             river: document.querySelector('input[name="start"]:checked')?.value === 'river'
         }
     };
