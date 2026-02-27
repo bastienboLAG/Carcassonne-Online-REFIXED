@@ -99,7 +99,7 @@ export class ZoneMerger {
                 });
                 
                 // Fusionner
-                this.registry.mergeZones(primaryZone.id, adjacentZones[i]);
+                this.registry.mergeZones(primaryZone.id, adjacentZones[i], this.tileToZone);
             }
         }
         
@@ -124,7 +124,7 @@ export class ZoneMerger {
                             this.tileToZone.set(tKey, currentZoneId);
                         });
                         
-                        this.registry.mergeZones(currentZoneId, connectedZoneId);
+                        this.registry.mergeZones(currentZoneId, connectedZoneId, this.tileToZone);
                     }
                 }
             });
@@ -589,20 +589,40 @@ export class ZoneMerger {
             
             positions.forEach(originalPos => {
                 const rotatedPos = this._rotatePosition(originalPos, tile.rotation);
-                
                 if (rotatedPos === position) {
                     targetZoneIndex = index;
                 }
             });
         });
 
-        if (targetZoneIndex === null) return null;
+        if (targetZoneIndex === null) {
+            console.warn(`⚠️ [ZoneMerger] findMergedZoneForPosition(${x},${y},${position}) : aucun zoneIndex trouvé — tile.rotation=${tile.rotation} — positions dispo: ${tile.zones.map((z,i)=>`[${i}:${JSON.stringify(z.meeplePosition)}]`).join(' ')}`);
+            return null;
+        }
 
         // Trouver la zone mergée via tileToZone
         const key = `${x},${y},${targetZoneIndex}`;
         const zoneId = this.tileToZone.get(key);
         
-        return zoneId ? this.registry.getZone(zoneId) : null;
+        if (!zoneId) {
+            console.warn(`⚠️ [ZoneMerger] findMergedZoneForPosition(${x},${y},${position}) : clé "${key}" absente de tileToZone`);
+            return null;
+        }
+
+        const zone = this.registry.getZone(zoneId);
+        if (!zone) {
+            // Tiletozzone pointe vers une zone supprimée — bug de cohérence
+            // Fallback : chercher dans le registry par scan
+            const fallback = this.registry.findZoneContaining(x, y, targetZoneIndex);
+            console.warn(`⚠️ [ZoneMerger] findMergedZoneForPosition(${x},${y},${position}) : zoneId "${zoneId}" supprimé du registry ! tileToZone stale. Fallback → ${fallback?.id ?? 'null'}`);
+            if (fallback) {
+                // Corriger tileToZone pour éviter la prochaine erreur
+                this.tileToZone.set(key, fallback.id);
+            }
+            return fallback ?? null;
+        }
+        
+        return zone;
     }
 
     /**
