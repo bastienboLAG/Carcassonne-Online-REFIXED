@@ -41,6 +41,7 @@ export class MeeplePlacement {
         const isAbbot   = meepleType === 'Abbot';
         const isLarge   = meepleType === 'Large' || meepleType === 'Large-Farmer';
         const isBuilder = meepleType === 'Builder';
+        const isPig     = meepleType === 'Pig';
         if (isAbbot && !player.hasAbbot) {
             console.log('❌ Abbé non disponible');
             return false;
@@ -53,7 +54,11 @@ export class MeeplePlacement {
             console.log('❌ Bâtisseur non disponible');
             return false;
         }
-        if (!isAbbot && !isLarge && !isBuilder && player.meeples <= 0) {
+        if (isPig && !player.hasPig) {
+            console.log('❌ Cochon non disponible');
+            return false;
+        }
+        if (!isAbbot && !isLarge && !isBuilder && !isPig && player.meeples <= 0) {
             console.log('❌ Plus de meeples disponibles');
             return false;
         }
@@ -137,6 +142,8 @@ export class MeeplePlacement {
             // Grand meeple géré via hasLargeMeeple dans home.js
         } else if (meepleType === 'Builder') {
             // Bâtisseur géré via hasBuilder dans home.js
+        } else if (meepleType === 'Pig') {
+            // Cochon géré via hasPig dans home.js
         } else {
             this.decrementMeeples(playerId);
         }

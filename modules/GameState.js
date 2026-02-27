@@ -23,6 +23,7 @@ export class GameState {
             hasAbbot:       false, // Initialisé à false, mis à true si extension Abbé activée
             hasLargeMeeple: false, // Grand meeple (Auberges & Cathédrales)
             hasBuilder:     false, // Bâtisseur (Marchands & Bâtisseurs)
+            hasPig:         false, // Cochon (Marchands & Bâtisseurs)
             goods: { cloth: 0, wheat: 0, wine: 0 }, // Jetons marchandises
             scoreDetail: {
                 cities: 0,
@@ -88,6 +89,7 @@ export class GameState {
             hasAbbot:       p.hasAbbot       ?? false,
             hasLargeMeeple: p.hasLargeMeeple ?? false,
             hasBuilder:     p.hasBuilder     ?? false,
+            hasPig:         p.hasPig         ?? false,
             goods: p.goods ?? { cloth: 0, wheat: 0, wine: 0 },
             scoreDetail: p.scoreDetail || {
                 cities: 0,

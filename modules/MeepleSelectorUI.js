@@ -55,14 +55,30 @@ export class MeepleSelectorUI {
         let meepleTypes = [];
         const hasLarge   = player?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
         const hasBuilder = player?.hasBuilder === true && this.config?.extensions?.tradersBuilders;
+        const hasPig     = player?.hasPig     === true && this.config?.extensions?.pig;
 
         if (zoneType === 'field') {
-            // Field → Farmer (+ Large-Farmer si grand meeple dispo)
+            // Field → Farmer (+ Large-Farmer si grand meeple dispo, + Cochon si dispo et meeple du joueur déjà présent)
             if (player?.meeples > 0) {
                 meepleTypes.push({ type: 'Farmer', image: `./assets/Meeples/${this.getPlayerColor()}/Farmer.png` });
             }
             if (hasLarge) {
                 meepleTypes.push({ type: 'Large-Farmer', image: `./assets/Meeples/${this.getPlayerColor()}/Large-Farmer.png` });
+            }
+            // Cochon : uniquement si le joueur a déjà un meeple normal/grand dans ce field
+            if (hasPig && this.zoneMerger) {
+                const mergedZone = this.zoneMerger.findMergedZoneForPosition(x, y, position);
+                if (mergedZone) {
+                    const meeplesInZone = this.zoneMerger.getZoneMeeples(mergedZone, this.placedMeeples);
+                    const hasOwnFarmer = meeplesInZone.some(m =>
+                        m.playerId === player?.id &&
+                        (m.type === 'Normal' || m.type === 'Farmer' ||
+                         m.type === 'Large'  || m.type === 'Large-Farmer')
+                    );
+                    if (hasOwnFarmer) {
+                        meepleTypes.push({ type: 'Pig', image: `./assets/Meeples/${this.getPlayerColor()}/Pig.png` });
+                    }
+                }
             }
         } else if (zoneType === 'road' || zoneType === 'city') {
             // Vérifier si la zone contient déjà un meeple (non-bâtisseur)

@@ -123,6 +123,18 @@ export class ScorePanelUI {
                 meeplesDisplay.appendChild(builder);
             }
 
+            // Cochon (si extension activée)
+            if (this.config?.extensions?.pig) {
+                const pig = document.createElement('img');
+                pig.src = `./assets/Meeples/${colorCap}/Pig.png`;
+                pig.alt = 'Cochon';
+                pig.style.marginLeft = '6px';
+                applySize(pig, 'Pig');
+                pig.style.objectFit = 'contain';
+                if (!player.hasPig) pig.classList.add('unavailable');
+                meeplesDisplay.appendChild(pig);
+            }
+
             // Jetons marchands (si extension activée)
             if (this.config?.extensions?.merchants) {
                 const goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };

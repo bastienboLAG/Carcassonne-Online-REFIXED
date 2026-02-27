@@ -30,27 +30,11 @@ export class Scoring {
 
             console.log(`✅ Zone ${mergedZone.type} fermée détectée`);
 
-            // ── Marchandises : toujours distribuées au joueur actif, même ville vide ──
-            if (mergedZone.type === 'city' && mergedZone.goods && currentPlayerId && gameState) {
-                const { cloth = 0, wheat = 0, wine = 0 } = mergedZone.goods;
-                if (cloth || wheat || wine) {
-                    const player = gameState.players.find(p => p.id === currentPlayerId);
-                    if (player) {
-                        player.goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
-                        player.goods.cloth += cloth;
-                        player.goods.wheat += wheat;
-                        player.goods.wine  += wine;
-                        goodsResults.push({ playerId: currentPlayerId, cloth, wheat, wine });
-                        console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
-                    }
-                }
-            }
-
             // Récupérer les meeples dans cette zone
             const meeples = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
             
             if (meeples.length === 0) {
-                console.log('  Aucun meeple dans cette zone, pas de points');
+                console.log('  Aucun meeple dans cette zone');
                 return;
             }
 
@@ -88,6 +72,12 @@ export class Scoring {
                 });
                 console.log(`  ${playerId} gagne ${points} points pour ${reason}`);
             });
+
+            // Marchandises : délégué à BuilderRules
+            if (this._builderRules) {
+                const goodsResult = this._builderRules.distributeGoods(mergedZone, currentPlayerId, gameState);
+                if (goodsResult) goodsResults.push(goodsResult);
+            }
 
             // Marquer les meeples pour retour
             meeples.forEach(meeple => {
@@ -160,7 +150,7 @@ export class Scoring {
     /**
      * Calculer les scores finaux (fin de partie)
      */
-    calculateFinalScores(placedMeeples, gameState) {
+    calculateFinalScores(placedMeeples, gameState, pigRules = null) {
         console.log('🏁 Calcul des scores finaux...');
         
         const finalScores = [];
@@ -230,11 +220,14 @@ export class Scoring {
             });
         });
 
-        // 4. Champs (farmers) : 3 pts par ville complète adjacente
+        // 4. Champs (farmers) : 3 pts par ville complète adjacente (4 si cochon du joueur sur ce champ)
         const closedCities = this.zoneMerger.getClosedCities();
+        // Récupérer les zones où un cochon est posé : Map<zoneId, playerId>
+        const pigZones = pigRules ? pigRules.getPigZones() : new Map();
         
         console.log('🌾 === CALCUL DES CHAMPS ===');
         console.log(`  Villes fermées disponibles: ${closedCities.map(c => c.id).join(', ')}`);
+        if (pigZones.size) console.log(`  🐷 Cochons sur zones: ${[...pigZones.entries()].map(([z,p]) => z+'->'+p).join(', ')}`);
         
         allZones.forEach(mergedZone => {
             if (mergedZone.type !== 'field') return;
@@ -250,16 +243,20 @@ export class Scoring {
             if (adjacentClosedCities === 0) return;
 
             const owners = this._getZoneOwners(meeples);
-            const points = adjacentClosedCities * 3;
+            // Le cochon du joueur sur ce champ lui donne 4 pts/ville au lieu de 3
+            const pigOwner = pigZones.get(mergedZone.id) ?? null;
             
-            console.log(`    Propriétaires: ${owners.join(', ')}`);
-            console.log(`    Points attribués: ${points} (${adjacentClosedCities} villes × 3)`);
+            console.log(`    Propriétaires: ${owners.join(', ')}${pigOwner ? ' 🐷 cochon de ' + pigOwner : ''}`);
 
             owners.forEach(playerId => {
+                // Bonus cochon : seulement si CE joueur est majoritaire ET a son cochon sur ce champ
+                const hasPigBonus = pigOwner === playerId;
+                const pts = adjacentClosedCities * (hasPigBonus ? 4 : 3);
+                console.log(`    Points pour ${playerId}: ${pts} (${adjacentClosedCities} villes × ${hasPigBonus ? 4 : 3}${hasPigBonus ? ' 🐷' : ''})`);
                 finalScores.push({
                     playerId,
-                    points,
-                    reason: `Champ (${adjacentClosedCities} villes complètes)`
+                    points: pts,
+                    reason: `Champ (${adjacentClosedCities} villes complètes${hasPigBonus ? ', bonus cochon' : ''})`
                 });
             });
         });
@@ -274,7 +271,7 @@ export class Scoring {
      * @returns {Array} Tableau des scores détaillés, trié par score décroissant
      */
     applyAndGetFinalScores(placedMeeples, gameState) {
-        const finalScores = this.calculateFinalScores(placedMeeples, gameState);
+        const finalScores = this.calculateFinalScores(placedMeeples, gameState, this._builderRules ?? null);
         
         console.log('📊 Application des scores finaux...');
         
@@ -299,19 +296,9 @@ export class Scoring {
             }
         });
         
-        // ── Marchandises : 10 pts par catégorie où le joueur est majoritaire ──
-        if (this.config?.extensions?.merchants) {
-            ['cloth', 'wheat', 'wine'].forEach(good => {
-                const max = Math.max(...gameState.players.map(p => p.goods?.[good] ?? 0));
-                if (max === 0) return;
-                gameState.players
-                    .filter(p => (p.goods?.[good] ?? 0) === max)
-                    .forEach(p => {
-                        p.score += 10;
-                        p.scoreDetail.goods = (p.scoreDetail.goods || 0) + 10;
-                        console.log(`🏅 ${p.name} +10 pts (majorité ${good}: ${max} jetons)`);
-                    });
-            });
+        // ── Marchandises : délégué à BuilderRules ──
+        if (this._builderRules) {
+            this._builderRules.applyMerchandiseFinalScores(gameState);
         }
 
         // Créer le détail complet pour chaque joueur, trié par score décroissant

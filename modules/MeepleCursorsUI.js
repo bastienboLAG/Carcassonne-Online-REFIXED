@@ -109,8 +109,9 @@ export class MeepleCursorsUI {
         const hasAbbot    = activePlayer?.hasAbbot       === true;
         const hasLarge    = activePlayer?.hasLargeMeeple === true && this.config?.extensions?.largeMeeple;
         const hasBuilder  = activePlayer?.hasBuilder     === true && this.config?.extensions?.tradersBuilders;
-        console.log('🔍 [CURSEURS] hasMeeples:', hasMeeples, '— hasAbbot:', hasAbbot, '— hasLarge:', hasLarge, '— hasBuilder:', hasBuilder);
-        if (!hasMeeples && !hasAbbot && !hasLarge && !hasBuilder) {
+        const hasPig      = activePlayer?.hasPig         === true && this.config?.extensions?.pig;
+        console.log('🔍 [CURSEURS] hasMeeples:', hasMeeples, '— hasAbbot:', hasAbbot, '— hasLarge:', hasLarge, '— hasBuilder:', hasBuilder, '— hasPig:', hasPig);
+        if (!hasMeeples && !hasAbbot && !hasLarge && !hasBuilder && !hasPig) {
             console.log('❌ Pas de meeples disponibles, pas d\'affichage de curseurs');
             return;
         }
@@ -146,7 +147,7 @@ export class MeepleCursorsUI {
                 return;
             }
             // Filtrer les zones normales si pas de meeples, grand meeple, ni bâtisseur
-            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples && !hasLarge && !hasBuilder) {
+            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples && !hasLarge && !hasBuilder && !hasPig) {
                 return;
             }
             // Filtrer les jardins si pas d'abbé
@@ -176,28 +177,33 @@ export class MeepleCursorsUI {
                 if (mergedZone) {
                     const meeplesInZone = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
                     // Les bâtisseurs ne bloquent pas la zone
-                    const blockingMeeples = meeplesInZone.filter(m => m.type !== 'Builder');
+                    // Bâtisseurs et cochons ne bloquent pas
+                    const blockingMeeples = meeplesInZone.filter(m => m.type !== 'Builder' && m.type !== 'Pig');
 
                     if (blockingMeeples.length > 0) {
-                        // Zone occupée : seul le bâtisseur peut encore y aller,
-                        // et uniquement si le joueur possède déjà un meeple dans cette zone
+                        // Zone occupée
                         const zoneIsCityOrRoad = zoneType === 'city' || zoneType === 'road';
-                        const playerHasMeepleHere = blockingMeeples.some(
+                        const zoneIsField      = zoneType === 'field';
+                        const playerHasMeepleHereCity = blockingMeeples.some(
                             m => m.playerId === activePlayer.id &&
                                  m.type !== 'Farmer' && m.type !== 'Large-Farmer'
                         );
-                        if (hasBuilder && zoneIsCityOrRoad && playerHasMeepleHere) {
+                        const playerHasMeepleHereField = blockingMeeples.some(
+                            m => m.playerId === activePlayer.id
+                        );
+                        if (hasBuilder && zoneIsCityOrRoad && playerHasMeepleHereCity) {
                             // Curseur bâtisseur uniquement — on laisse passer
+                        } else if (hasPig && zoneIsField && playerHasMeepleHereField) {
+                            // Curseur cochon sur field avec meeple du joueur — on laisse passer
                         } else {
                             return; // Zone occupée, pas de curseur
                         }
-                    } else if (hasBuilder && !hasMeeples && !hasLarge) {
-                        // Le joueur n'a QUE le bâtisseur : il faut un meeple dans la zone,
-                        // mais la zone est vide → pas de curseur
+                    } else if ((hasBuilder && !hasMeeples && !hasLarge) && !(hasPig && zoneType === 'field')) {
+                        // Le joueur n'a QUE le bâtisseur : zone vide → pas de curseur city/road
                         const zoneIsCityOrRoad = zoneType === 'city' || zoneType === 'road';
                         if (zoneIsCityOrRoad) return;
                     }
-                } else if (hasBuilder && !hasMeeples && !hasLarge) {
+                } else if ((hasBuilder && !hasMeeples && !hasLarge) && !(hasPig)) {
                     // Aucune zone fusionnée et uniquement bâtisseur dispo : impossible
                     return;
                 }

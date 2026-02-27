@@ -13,7 +13,7 @@ import { BaseRules }              from './modules/rules/BaseRules.js';
 import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { InnsRules }              from './modules/rules/InnsRules.js';
 import { BuilderRules }          from './modules/rules/BuilderRules.js';
-import { getMeepleSize, getGoodsSize } from './modules/MeepleConfig.js';
+import { getMeepleSize }          from './modules/MeepleConfig.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -239,7 +239,8 @@ eventBus.on('meeple-count-updated', (data) => {
             playerId:       data.playerId,
             meeples:        player ? player.meeples        : data.meeples,
             hasAbbot:       player ? player.hasAbbot       : undefined,
-            hasLargeMeeple: player ? player.hasLargeMeeple : undefined
+            hasLargeMeeple: player ? player.hasLargeMeeple : undefined,
+            hasPig:         player ? player.hasPig         : undefined
         });
     }
     // Mettre à jour le panel mobile en temps réel pour tous les joueurs
@@ -326,6 +327,7 @@ function applyPreset(preset) {
         'traders_builders_tiles': 'tiles-traders-builders',
         'ext_builder':           'ext-builder',
         'ext_merchants':         'ext-merchants',
+        'ext_pig':               'ext-pig',
     };
     for (const [key, id] of Object.entries(map)) {
         if (preset[key] !== undefined) {
@@ -359,6 +361,7 @@ function saveLobbyOptions() {
         traders_builders_tiles:   document.getElementById('tiles-traders-builders')?.checked  ?? false,
         ext_builder:              document.getElementById('ext-builder')?.checked             ?? false,
         ext_merchants:            document.getElementById('ext-merchants')?.checked           ?? false,
+        ext_pig:                  document.getElementById('ext-pig')?.checked               ?? false,
         unplaceable:     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
     };
     localStorage.setItem(LS_KEY, JSON.stringify(state));
@@ -435,6 +438,7 @@ function syncAllOptions() {
         'tiles-traders-builders':    document.getElementById('tiles-traders-builders')?.checked ?? false,
         'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
         'ext-merchants':             document.getElementById('ext-merchants')?.checked          ?? false,
+        'ext-pig':                   document.getElementById('ext-pig')?.checked              ?? false,
         'unplaceable':    document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
         'start':          document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
     };
@@ -443,7 +447,7 @@ function syncAllOptions() {
 
 // Sauvegarder les options à chaque changement manuel
 document.querySelectorAll(
-    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants'
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig'
 ).forEach(el => el.addEventListener('change', saveLobbyOptions));
 document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
     .forEach(el => el.addEventListener('change', saveLobbyOptions));
@@ -451,6 +455,25 @@ document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
 // Charger presets et options sauvegardées au démarrage
 loadLobbyOptions();
 loadPresets();
+
+// Liaison base-fields <-> ext-pig : si champs désactivés, cochon désactivé et grisé
+function _updatePigAvailability() {
+    const fieldsOn = document.getElementById('base-fields')?.checked ?? true;
+    const pigLabel = document.getElementById('ext-pig-label');
+    const pigCb    = document.getElementById('ext-pig');
+    if (!pigLabel || !pigCb) return;
+    if (!fieldsOn) {
+        pigCb.checked = false;
+        pigLabel.style.opacity       = '0.4';
+        pigLabel.style.pointerEvents = 'none';
+    } else {
+        pigLabel.style.opacity       = '';
+        pigLabel.style.pointerEvents = '';
+    }
+    saveLobbyOptions();
+}
+document.getElementById('base-fields')?.addEventListener('change', _updatePigAvailability);
+_updatePigAvailability(); // état initial
 
 // ✅ Bouton retour Android — interception pendant la partie
 let _handlingPopstate = false;
@@ -506,7 +529,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
-        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants'].forEach(id => {
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
@@ -566,6 +589,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                     'tiles-traders-builders':    document.getElementById('tiles-traders-builders')?.checked ?? false,
                     'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
                     'ext-merchants':             document.getElementById('ext-merchants')?.checked          ?? false,
+                    'ext-pig':                   document.getElementById('ext-pig')?.checked              ?? false,
                     'start':           document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
                 };
                 multiplayer.sendTo(from, { type: 'options-sync', options: currentOptions });
@@ -689,7 +713,7 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
                 const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants'].forEach(id => {
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
@@ -766,7 +790,8 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
             cathedrals:      document.getElementById('ext-cathedrals')?.checked      ?? true,
             inns:            document.getElementById('ext-inns')?.checked            ?? true,
             tradersBuilders: document.getElementById('ext-builder')?.checked         ?? false,
-            merchants:       document.getElementById('ext-merchants')?.checked       ?? false
+            merchants:       document.getElementById('ext-merchants')?.checked       ?? false,
+            pig:             document.getElementById('ext-pig')?.checked             ?? false
         },
         tileGroups: {
             base:  true,
@@ -930,6 +955,10 @@ async function startGame() {
         gameState.players.forEach(p => { p.hasBuilder = true; });
         console.log('✅ [HOST] hasBuilder initialisé');
     }
+    if (gameConfig.extensions?.pig) {
+        gameState.players.forEach(p => { p.hasPig = true; });
+        console.log('✅ [HOST] hasPig initialisé');
+    }
 
     gameSync = new GameSync(multiplayer, gameState, null);
     gameSync.init();
@@ -983,6 +1012,10 @@ async function startGameForInvite() {
         gameState.players.forEach(p => { p.hasBuilder = true; });
         console.log('✅ [INVITÉ] hasBuilder initialisé');
     }
+    if (gameConfig.extensions?.pig) {
+        gameState.players.forEach(p => { p.hasPig = true; });
+        console.log('✅ [INVITÉ] hasPig initialisé');
+    }
 
     gameSync = new GameSync(multiplayer, gameState, originalLobbyHandler);
     gameSync.init();
@@ -1021,13 +1054,16 @@ function _postStartSetup() {
         ruleRegistry.register('inns', InnsRules, gameConfig);
         ruleRegistry.enable('inns');
     }
-    if (gameConfig.extensions?.tradersBuilders) {
+    if (gameConfig.extensions?.tradersBuilders || gameConfig.extensions?.pig) {
+        // BuilderRules gère à la fois le bâtisseur et le cochon (extension Marchands & Bâtisseurs)
         const builderRulesInst = new BuilderRules(eventBus, gameState, zoneMerger, gameConfig);
         builderRulesInst.setPlacedMeeples(placedMeeples);
         ruleRegistry.registerInstance('builders', builderRulesInst);
         ruleRegistry.enable('builders');
-        // Injecter dans TurnManager pour la détection du tour bonus
+        // Tour bonus bâtisseur
         if (turnManager) turnManager.builderRules = builderRulesInst;
+        // Marchandises et cochon en fin de partie
+        if (scoring) scoring._builderRules = builderRulesInst;
     }
 
     document.getElementById('remaining-tiles-btn').style.display =
@@ -1151,32 +1187,15 @@ function updateMobilePlayers() {
             if (!player.hasBuilder) builder.classList.add('unavailable');
             meeplesDiv.appendChild(builder);
         }
-        // Marchandises (si extension activée)
-        if (gameConfig?.extensions?.merchants) {
-            const goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
-            const goodsSize = getGoodsSize('panelMobile');
-            const sep = document.createElement('span');
-            sep.style.cssText = 'display:inline-block;width:1px;background:rgba(255,255,255,0.2);height:14px;margin:0 4px;vertical-align:middle;';
-            meeplesDiv.appendChild(sep);
-            [
-                { key: 'cloth', src: './assets/Misc/C2/Cloth.png' },
-                { key: 'wheat', src: './assets/Misc/C2/Wheat.png' },
-                { key: 'wine',  src: './assets/Misc/C2/Wine.png'  },
-            ].forEach(({ key, src }) => {
-                const wrap = document.createElement('span');
-                wrap.style.cssText = 'display:inline-flex;align-items:center;margin-left:2px;gap:1px;';
-                const img = document.createElement('img');
-                img.src = src;
-                img.style.width  = goodsSize.width;
-                img.style.height = goodsSize.height;
-                img.style.objectFit = 'contain';
-                wrap.appendChild(img);
-                const count = document.createElement('span');
-                count.textContent = goods[key] ?? 0;
-                count.style.cssText = 'color:white;font-size:10px;font-weight:bold;min-width:8px;';
-                wrap.appendChild(count);
-                meeplesDiv.appendChild(wrap);
-            });
+        // Cochon (si extension activée)
+        if (gameConfig?.extensions?.pig) {
+            const pig = document.createElement('img');
+            pig.src = `./assets/Meeples/${colorCap}/Pig.png`;
+            pig.alt = 'Cochon';
+            pig.style.marginLeft = '6px';
+            applyMeepleSize(pig, 'Pig');
+            if (!player.hasPig) pig.classList.add('unavailable');
+            meeplesDiv.appendChild(pig);
         }
         card.appendChild(meeplesDiv);
         container.appendChild(card);
@@ -1566,6 +1585,12 @@ function placerMeeple(x, y, position, meepleType) {
     if (meepleType === 'Builder') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasBuilder = false;
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    }
+    // Si le cochon est posé, il n'est plus disponible
+    if (meepleType === 'Pig') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasPig = false;
         eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
     }
 
