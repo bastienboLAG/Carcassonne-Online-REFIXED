@@ -149,7 +149,7 @@ export class GameSyncCallbacks {
         };
 
         // ── Mise à jour des scores ────────────────────────────────────────────
-        gs.onScoreUpdate = (scoringResults, meeplesToReturn) => {
+        gs.onScoreUpdate = (scoringResults, meeplesToReturn, goodsResults = []) => {
             console.log('💰 [SYNC] Mise à jour des scores reçue');
             const placedMeeples = this.getPlacedMeeples();
 
@@ -160,6 +160,17 @@ export class GameSyncCallbacks {
                     if (zoneType === 'city')       player.scoreDetail.cities      += points;
                     else if (zoneType === 'road')  player.scoreDetail.roads       += points;
                     else if (zoneType === 'abbey') player.scoreDetail.monasteries += points;
+                }
+            });
+
+            // Appliquer les jetons de marchandises
+            goodsResults.forEach(({ playerId, cloth, wheat, wine }) => {
+                const player = this.gameState.players.find(p => p.id === playerId);
+                if (player) {
+                    player.goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
+                    player.goods.cloth += cloth;
+                    player.goods.wheat += wheat;
+                    player.goods.wine  += wine;
                 }
             });
 

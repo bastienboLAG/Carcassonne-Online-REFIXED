@@ -343,7 +343,7 @@ export class ModalUI {
         }
 
         // Extension Marchands & Bâtisseurs
-        if (config.extensions?.tradersBuilders) {
+        if (config.extensions?.tradersBuilders || config.extensions?.merchants) {
             const tbContainer = document.createElement('div');
             tbContainer.style.cssText = `
                 font-family: 'Courier New', monospace;
@@ -369,7 +369,8 @@ export class ModalUI {
                 `;
                 return el;
             };
-            tbContainer.appendChild(makeSubLine('Bâtisseur', true));
+            tbContainer.appendChild(makeSubLine('Bâtisseur',    config.extensions?.tradersBuilders ?? false));
+            tbContainer.appendChild(makeSubLine('Marchandises', config.extensions?.merchants        ?? false));
 
             extensionsSection.appendChild(tbContainer);
         }

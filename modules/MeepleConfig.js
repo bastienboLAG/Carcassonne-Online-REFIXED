@@ -76,3 +76,25 @@ export function getMeepleSize(type, context) {
         height: `${Math.round(cfg.h * scale)}px`,
     };
 }
+
+/**
+ * GOODS_CONFIG - Dimensions des icônes de marchandise (cloth, wheat, wine)
+ * Les images font environ 64×64px (icônes carrées).
+ * Contextes : panel (desktop score panel), panelMobile (mobile score bar)
+ */
+export const GOODS_CONFIG = {
+    size: { w: 64, h: 64 },
+    panel:       0.38,   // ~24px
+    panelMobile: 0.28,   // ~18px
+};
+
+/**
+ * Retourne les dimensions CSS pour une icône de marchandise selon le contexte.
+ * @param {string} context - 'panel' | 'panelMobile'
+ * @returns {{ width: string, height: string }}
+ */
+export function getGoodsSize(context) {
+    const scale = GOODS_CONFIG[context] ?? GOODS_CONFIG.panel;
+    const px = Math.round(GOODS_CONFIG.size.w * scale);
+    return { width: `${px}px`, height: `${px}px` };
+}

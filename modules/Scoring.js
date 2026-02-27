@@ -14,11 +14,12 @@ export class Scoring {
      * Appelé à la fin de chaque tour
      * @returns {scoringResults: [{playerId, points, reason}], meeplesToReturn: [keys]}
      */
-    scoreClosedZones(placedMeeples) {
+    scoreClosedZones(placedMeeples, currentPlayerId = null, gameState = null) {
         console.log('💰 Calcul des scores pour zones fermées...');
         
         const scoringResults = [];
         const meeplesToReturn = [];
+        const goodsResults = []; // { playerId, cloth, wheat, wine }
 
         // ✅ Récupérer toutes les zones du registry
         const allZones = this.zoneMerger.getAllZones();
@@ -67,10 +68,26 @@ export class Scoring {
                     playerId, 
                     points, 
                     reason,
-                    zoneType: mergedZone.type // ← Ajout du type de zone
+                    zoneType: mergedZone.type
                 });
                 console.log(`  ${playerId} gagne ${points} points pour ${reason}`);
             });
+
+            // Marchandises : le joueur actif reçoit les jetons si la zone est une ville avec des marchandises
+            if (mergedZone.type === 'city' && mergedZone.goods && currentPlayerId && gameState) {
+                const { cloth = 0, wheat = 0, wine = 0 } = mergedZone.goods;
+                if (cloth || wheat || wine) {
+                    const player = gameState.players.find(p => p.id === currentPlayerId);
+                    if (player) {
+                        player.goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
+                        player.goods.cloth += cloth;
+                        player.goods.wheat += wheat;
+                        player.goods.wine  += wine;
+                        goodsResults.push({ playerId: currentPlayerId, cloth, wheat, wine });
+                        console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
+                    }
+                }
+            }
 
             // Marquer les meeples pour retour
             meeples.forEach(meeple => {
@@ -78,7 +95,7 @@ export class Scoring {
             });
         });
 
-        return { scoringResults, meeplesToReturn };
+        return { scoringResults, meeplesToReturn, goodsResults };
     }
 
     /**
@@ -282,19 +299,36 @@ export class Scoring {
             }
         });
         
+        // ── Marchandises : 10 pts par catégorie où le joueur est majoritaire ──
+        if (this.config?.extensions?.merchants) {
+            ['cloth', 'wheat', 'wine'].forEach(good => {
+                const max = Math.max(...gameState.players.map(p => p.goods?.[good] ?? 0));
+                if (max === 0) return;
+                gameState.players
+                    .filter(p => (p.goods?.[good] ?? 0) === max)
+                    .forEach(p => {
+                        p.score += 10;
+                        p.scoreDetail.goods = (p.scoreDetail.goods || 0) + 10;
+                        console.log(`🏅 ${p.name} +10 pts (majorité ${good}: ${max} jetons)`);
+                    });
+            });
+        }
+
         // Créer le détail complet pour chaque joueur, trié par score décroissant
         const detailedScores = gameState.players
             .map(p => ({
                 id: p.id,
                 name: p.name,
                 color: p.color,
-                cities: p.scoreDetail.cities,
-                roads: p.scoreDetail.roads,
+                cities:      p.scoreDetail.cities,
+                roads:       p.scoreDetail.roads,
                 monasteries: p.scoreDetail.monasteries,
-                fields: p.scoreDetail.fields,
-                total: p.score
+                fields:      p.scoreDetail.fields,
+                goods:       p.scoreDetail.goods || 0,
+                goodsTokens: { ...(p.goods || { cloth: 0, wheat: 0, wine: 0 }) },
+                total:       p.score
             }))
-            .sort((a, b) => b.total - a.total); // Tri décroissant
+            .sort((a, b) => b.total - a.total);
         
         console.log('✅ Scores finaux appliqués et triés');
         

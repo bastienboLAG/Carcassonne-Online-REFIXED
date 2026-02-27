@@ -325,6 +325,7 @@ function applyPreset(preset) {
         'inns_cathedrals_tiles': 'tiles-inns-cathedrals',
         'traders_builders_tiles': 'tiles-traders-builders',
         'ext_builder':           'ext-builder',
+        'ext_merchants':         'ext-merchants',
     };
     for (const [key, id] of Object.entries(map)) {
         if (preset[key] !== undefined) {
@@ -357,6 +358,7 @@ function saveLobbyOptions() {
         inns_cathedrals_tiles:    document.getElementById('tiles-inns-cathedrals')?.checked   ?? false,
         traders_builders_tiles:   document.getElementById('tiles-traders-builders')?.checked  ?? false,
         ext_builder:              document.getElementById('ext-builder')?.checked             ?? false,
+        ext_merchants:            document.getElementById('ext-merchants')?.checked           ?? false,
         unplaceable:     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
     };
     localStorage.setItem(LS_KEY, JSON.stringify(state));
@@ -432,6 +434,7 @@ function syncAllOptions() {
         'tiles-inns-cathedrals':     document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
         'tiles-traders-builders':    document.getElementById('tiles-traders-builders')?.checked ?? false,
         'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
+        'ext-merchants':             document.getElementById('ext-merchants')?.checked          ?? false,
         'unplaceable':    document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
         'start':          document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
     };
@@ -440,7 +443,7 @@ function syncAllOptions() {
 
 // Sauvegarder les options à chaque changement manuel
 document.querySelectorAll(
-    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder'
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants'
 ).forEach(el => el.addEventListener('change', saveLobbyOptions));
 document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
     .forEach(el => el.addEventListener('change', saveLobbyOptions));
@@ -503,7 +506,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
-        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder'].forEach(id => {
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
@@ -562,6 +565,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                     'tiles-inns-cathedrals':     document.getElementById('tiles-inns-cathedrals')?.checked  ?? false,
                     'tiles-traders-builders':    document.getElementById('tiles-traders-builders')?.checked ?? false,
                     'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
+                    'ext-merchants':             document.getElementById('ext-merchants')?.checked          ?? false,
                     'start':           document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
                 };
                 multiplayer.sendTo(from, { type: 'options-sync', options: currentOptions });
@@ -685,7 +689,7 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
                 const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals'].forEach(id => {
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
@@ -761,7 +765,8 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
             largeMeeple:     document.getElementById('ext-large-meeple')?.checked    ?? false,
             cathedrals:      document.getElementById('ext-cathedrals')?.checked      ?? true,
             inns:            document.getElementById('ext-inns')?.checked            ?? true,
-            tradersBuilders: document.getElementById('ext-builder')?.checked         ?? false
+            tradersBuilders: document.getElementById('ext-builder')?.checked         ?? false,
+            merchants:       document.getElementById('ext-merchants')?.checked       ?? false
         },
         tileGroups: {
             base:  true,
@@ -827,8 +832,11 @@ function initializeGameModules() {
     });
 
     finalScoresManager = new FinalScoresManager({
-        gameState, scoring, zoneMerger, gameSync, eventBus, updateTurnDisplay
+        gameState, scoring, zoneMerger, gameSync, eventBus, updateTurnDisplay, gameConfig
     });
+    // Afficher la colonne Marchands si l'extension est active
+    const thMerchants = document.getElementById('th-merchants');
+    if (thMerchants) thMerchants.style.display = gameConfig?.extensions?.merchants ? '' : 'none';
 
     console.log('✅ Tous les modules initialisés');
 }
@@ -882,7 +890,7 @@ function attachGameSyncCallbacks() {
             updateTurnDisplay();
             const player = gameState.players.find(p => p.id === playerId);
             if (player) {
-                afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'info');
+                afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'bonus');
                 // Marquer le toast pour fermeture automatique à la fin du tour bonus
                 const _bonusToast = document.getElementById('disconnect-toast');
                 if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
@@ -1282,7 +1290,8 @@ function afficherMessage(msg) {
 }
 
 function afficherToast(msg, type = 'error') {
-    const borderColor = type === 'success' ? '#2ecc71'
+    const borderColor = type === 'bonus' ? 'gold'
+                      : type === 'success' ? '#2ecc71'
                       : type === 'info'    ? '#3498db'
                       :                      '#e74c3c'; // 'error' par défaut
     let toast = document.getElementById('disconnect-toast');
@@ -1620,7 +1629,7 @@ function setupEventListeners() {
 
         // Calcul des scores des zones fermées
         if (scoring && zoneMerger) {
-            const { scoringResults, meeplesToReturn } = scoring.scoreClosedZones(placedMeeples);
+            const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, multiplayer.playerId, gameState);
 
             if (scoringResults.length > 0) {
                 scoringResults.forEach(({ playerId, points, zoneType }) => {
@@ -1663,7 +1672,7 @@ function setupEventListeners() {
                     }
                 });
 
-                if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn);
+                if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults);
                 updateTurnDisplay();
             }
         }
@@ -1696,7 +1705,7 @@ function setupEventListeners() {
                 ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
                 turnManager.drawTile();
                 updateTurnDisplay();
-                afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'success');
+                afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
                 // Marquer le toast pour pouvoir le fermer automatiquement à la fin du tour bonus
                 const _bonusToast = document.getElementById('disconnect-toast');
                 if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';

@@ -3,13 +3,14 @@
  * Extrait de home.js pour alléger le fichier principal
  */
 export class FinalScoresManager {
-    constructor({ gameState, scoring, zoneMerger, gameSync, eventBus, updateTurnDisplay }) {
+    constructor({ gameState, scoring, zoneMerger, gameSync, eventBus, updateTurnDisplay, gameConfig = null }) {
         this.gameState       = gameState;
         this.scoring         = scoring;
         this.zoneMerger      = zoneMerger;
         this.gameSync        = gameSync;
         this.eventBus        = eventBus;
         this.updateTurnDisplay = updateTurnDisplay;
+        this.gameConfig      = gameConfig;
 
         this.gameEnded       = false;
         this.finalScoresData = null;
@@ -53,8 +54,10 @@ export class FinalScoresManager {
                     cities:       playerScore.cities,
                     roads:        playerScore.roads,
                     monasteries:  playerScore.monasteries,
-                    fields:       playerScore.fields
+                    fields:       playerScore.fields,
+                    goods:        playerScore.goods ?? 0
                 };
+                player.goods = playerScore.goodsTokens ?? { cloth: 0, wheat: 0, wine: 0 };
             }
         });
 
@@ -98,10 +101,15 @@ export class FinalScoresManager {
                 </div>`;
             row.appendChild(nameCell);
 
-            [player.cities, player.roads, player.monasteries, player.fields, player.total].forEach((val, i) => {
+            const hasMerchants = this.gameConfig?.extensions?.merchants;
+            const vals = hasMerchants
+                ? [player.cities, player.roads, player.monasteries, player.fields, player.goods ?? 0, player.total]
+                : [player.cities, player.roads, player.monasteries, player.fields, player.total];
+            const totalIdx = vals.length - 1;
+            vals.forEach((val, i) => {
                 const td = document.createElement('td');
                 td.textContent = val;
-                if (i === 4) td.style.fontWeight = 'bold';
+                if (i === totalIdx) td.style.fontWeight = 'bold';
                 row.appendChild(td);
             });
 
@@ -145,8 +153,13 @@ export class FinalScoresManager {
             margin-bottom: 16px;
         `;
 
-        const labels = ['Villes', 'Routes', 'Abbayes', 'Champs'];
-        const keys   = ['cities', 'roads', 'monasteries', 'fields'];
+        const hasMerchantsMobile = this.gameConfig?.extensions?.merchants;
+        const labels = hasMerchantsMobile
+            ? ['Villes', 'Routes', 'Abbayes', 'Champs', 'Marchands']
+            : ['Villes', 'Routes', 'Abbayes', 'Champs'];
+        const keys = hasMerchantsMobile
+            ? ['cities', 'roads', 'monasteries', 'fields', 'goods']
+            : ['cities', 'roads', 'monasteries', 'fields'];
 
         detailedScores.forEach((player, index) => {
             const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
@@ -222,6 +235,8 @@ export class FinalScoresManager {
                     roads:       p.scoreDetail?.roads       || 0,
                     monasteries: p.scoreDetail?.monasteries || 0,
                     fields:      p.scoreDetail?.fields      || 0,
+                    goods:       p.scoreDetail?.goods       || 0,
+                    goodsTokens: p.goods || { cloth: 0, wheat: 0, wine: 0 },
                     total:       p.score
                 }))
                 .sort((a, b) => b.total - a.total);

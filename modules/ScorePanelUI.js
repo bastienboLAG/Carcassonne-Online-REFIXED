@@ -1,4 +1,4 @@
-import { getMeepleSize } from './MeepleConfig.js';
+import { getMeepleSize, getGoodsSize } from './MeepleConfig.js';
 
 /**
  * ScorePanelUI - Affichage du tableau de scores avec les meeples
@@ -121,6 +121,39 @@ export class ScorePanelUI {
                 builder.style.objectFit = 'contain';
                 if (!player.hasBuilder) builder.classList.add('unavailable');
                 meeplesDisplay.appendChild(builder);
+            }
+
+            // Jetons marchands (si extension activée)
+            if (this.config?.extensions?.merchants) {
+                const goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
+                const goodsSize = getGoodsSize('panel');
+                const separator = document.createElement('span');
+                separator.style.cssText = 'display:inline-block;width:1px;background:rgba(255,255,255,0.2);height:20px;margin:0 6px;vertical-align:middle;';
+                meeplesDisplay.appendChild(separator);
+
+                [
+                    { key: 'cloth', src: './assets/Misc/C2/Cloth.png',  alt: 'Tissu'  },
+                    { key: 'wheat', src: './assets/Misc/C2/Wheat.png',  alt: 'Blé'    },
+                    { key: 'wine',  src: './assets/Misc/C2/Wine.png',   alt: 'Vin'    },
+                ].forEach(({ key, src, alt }) => {
+                    const wrap = document.createElement('span');
+                    wrap.style.cssText = 'display:inline-flex;align-items:center;margin-left:4px;gap:2px;';
+
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.alt = alt;
+                    img.style.width  = goodsSize.width;
+                    img.style.height = goodsSize.height;
+                    img.style.objectFit = 'contain';
+                    wrap.appendChild(img);
+
+                    const count = document.createElement('span');
+                    count.textContent = goods[key] ?? 0;
+                    count.style.cssText = 'color:white;font-size:11px;font-weight:bold;min-width:10px;';
+                    wrap.appendChild(count);
+
+                    meeplesDisplay.appendChild(wrap);
+                });
             }
 
             card.appendChild(meeplesDisplay);

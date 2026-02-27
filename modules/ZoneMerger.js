@@ -312,6 +312,10 @@ export class ZoneMerger {
             if (features.includes('inn')) {
                 mergedZone.hasInn = true;
             }
+            // Marchandises (cloth, wheat, wine)
+            if (features.includes('cloth'))  { mergedZone.goods = mergedZone.goods || { cloth:0, wheat:0, wine:0 }; mergedZone.goods.cloth++; }
+            if (features.includes('wheat'))  { mergedZone.goods = mergedZone.goods || { cloth:0, wheat:0, wine:0 }; mergedZone.goods.wheat++; }
+            if (features.includes('wine'))   { mergedZone.goods = mergedZone.goods || { cloth:0, wheat:0, wine:0 }; mergedZone.goods.wine++;  }
             
             // ✅ Stocker temporairement les IDs locaux avec la position de la tuile
             if (typeof localZone.features === 'object' && localZone.features.adjacentCities) {
