@@ -643,6 +643,7 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
             if (data.type === 'welcome') {
                 console.log('🎉', data.message);
                 // Afficher le code d'invitation côté invité
+                gameCode = code; // ✅ mémoriser pour que le bouton "Copier" fonctionne
                 document.getElementById('game-code-container').style.display = 'block';
                 document.getElementById('game-code-text').textContent = `Code: ${code}`;
                 // Démarrer le heartbeat côté invité (détecte si l'hôte disparaît)
@@ -880,11 +881,16 @@ function attachGameSyncCallbacks() {
             if (turnManager) turnManager.isBonusTurn = true;
             updateTurnDisplay();
             const player = gameState.players.find(p => p.id === playerId);
-            if (player) afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'info');
+            if (player) {
+                afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'info');
+                // Marquer le toast pour fermeture automatique à la fin du tour bonus
+                const _bonusToast = document.getElementById('disconnect-toast');
+                if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
+            }
         },
         updateTurnDisplay,
         poserTuileSync,
-        afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); },
+        afficherMessage: (msg) => { afficherToast(msg); }, // ✅ ne plus écraser le tile-preview
     }).attach(isHost);
 }
 
@@ -1031,7 +1037,7 @@ function _postStartSetup() {
                 turnManager.handlePlayerDisconnected(peerId, {
                     tuileEnMain,
                     gameSync,
-                    afficherMessage: (msg) => { afficherMessage(msg); afficherToast(msg); },
+                    afficherMessage: (msg) => { afficherToast(msg); }, // ✅ ne plus écraser le tile-preview
                     onPlayerRemoved: (id) => {
                         players = players.filter(p => p.id !== id);
                         lobbyUI.setPlayers(players);
@@ -1196,7 +1202,20 @@ function updateMobileButtons() {
 // FONCTIONS JEU
 // ═══════════════════════════════════════════════════════
 function updateTurnDisplay() {
-    if (!gameState || gameState.players.length === 0) { isMyTurn = true; return; }
+    if (!gameState || gameState.players.length === 0) {
+        // Partie pas encore prête : griser le bouton plutôt que laisser le style CSS par défaut
+        isMyTurn = false;
+        const endTurnBtn = document.getElementById('end-turn-btn');
+        if (endTurnBtn) {
+            endTurnBtn.textContent = 'Terminer mon tour';
+            endTurnBtn.disabled = true;
+            endTurnBtn.style.opacity    = '0.5';
+            endTurnBtn.style.cursor     = 'not-allowed';
+            endTurnBtn.style.background = '';
+            endTurnBtn.style.color      = '';
+        }
+        return;
+    }
 
     const currentPlayer = gameState.getCurrentPlayer();
     isMyTurn = currentPlayer.id === multiplayer.playerId;
@@ -1245,6 +1264,16 @@ function updateTurnDisplay() {
     const isBonusTurn = turnManager?.isBonusTurn ?? false;
     if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn);
     _updateMobileActiveBonusStyle(isBonusTurn);
+
+    // Fermer le toast du tour bonus dès qu'il se termine
+    if (!isBonusTurn) {
+        const toast = document.getElementById('disconnect-toast');
+        if (toast && toast.dataset.isBonusToast === 'true') {
+            toast.style.opacity = '0';
+            setTimeout(() => { if (toast) toast.style.display = 'none'; }, 400);
+            delete toast.dataset.isBonusToast;
+        }
+    }
 }
 
 function afficherMessage(msg) {
@@ -1252,32 +1281,35 @@ function afficherMessage(msg) {
         `<p style="text-align: center; color: white;">${msg}</p>`;
 }
 
-function afficherToast(msg) {
+function afficherToast(msg, type = 'error') {
+    const borderColor = type === 'success' ? '#2ecc71'
+                      : type === 'info'    ? '#3498db'
+                      :                      '#e74c3c'; // 'error' par défaut
     let toast = document.getElementById('disconnect-toast');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'disconnect-toast';
-        toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(30,30,30,0.92);
-            color: white;
-            padding: 12px 20px 12px 24px;
-            border-radius: 10px;
-            border-left: 4px solid #e74c3c;
-            font-size: 15px;
-            font-weight: bold;
-            z-index: 9999;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            transition: opacity 0.4s;
-        `;
         document.body.appendChild(toast);
     }
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(30,30,30,0.92);
+        color: white;
+        padding: 12px 20px 12px 24px;
+        border-radius: 10px;
+        border-left: 4px solid ${borderColor};
+        font-size: 15px;
+        font-weight: bold;
+        z-index: 9999;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: opacity 0.4s;
+    `;
 
     toast.innerHTML = '';
 
@@ -1665,6 +1697,9 @@ function setupEventListeners() {
                 turnManager.drawTile();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'success');
+                // Marquer le toast pour pouvoir le fermer automatiquement à la fin du tour bonus
+                const _bonusToast = document.getElementById('disconnect-toast');
+                if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
                 return;
             }
         }
