@@ -156,6 +156,11 @@ eventBus.on('tile-drawn', (data) => {
         undoManager.saveTurnStart(placedMeeples);
     }
 
+    // Reset du builder au début de chaque tour local (évite faux positifs de tours précédents)
+    if (!data.fromNetwork && !data.fromUndo && gameConfig?.extensions?.tradersBuilders) {
+        ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
+    }
+
     // Synchroniser si c'est notre tour
     if (!data.fromNetwork && !data.fromUndo && turnManager && turnManager.getIsMyTurn() && gameSync) {
         gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);

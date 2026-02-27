@@ -118,34 +118,62 @@ export class BuilderRules {
      * @returns {boolean}
      */
     checkBonusTrigger(playerId) {
-        if (!this._lastPlacedTile) return false;
+        console.log('🔍 [BuilderRules] checkBonusTrigger — playerId:', playerId, '— _lastPlacedTile:', this._lastPlacedTile);
+
+        if (!this._lastPlacedTile) {
+            console.log('⭐ [BuilderRules] Pas de bonus : _lastPlacedTile est null');
+            return false;
+        }
 
         const { x, y } = this._lastPlacedTile;
 
-        // Chercher le bâtisseur du joueur
+        // Chercher le bâtisseur du joueur dans placedMeeples
+        const allBuilders = Object.entries(this.placedMeeples)
+            .filter(([, m]) => m.type === 'Builder')
+            .map(([k, m]) => `${k}(${m.playerId})`);
+        console.log('🔍 [BuilderRules] Tous les bâtisseurs en jeu:', allBuilders);
+
         const builderEntry = Object.entries(this.placedMeeples).find(([, m]) =>
             m.type === 'Builder' && m.playerId === playerId
         );
-        if (!builderEntry) return false;
+        if (!builderEntry) {
+            console.log('⭐ [BuilderRules] Pas de bonus : aucun bâtisseur trouvé pour', playerId);
+            return false;
+        }
 
         const [builderKey] = builderEntry;
         const [bx, by, bpos] = builderKey.split(',').map(Number);
+        console.log('🔍 [BuilderRules] Bâtisseur trouvé en', bx, by, bpos, '— tuile posée:', x, y);
 
-        // Zone du bâtisseur (état courant du zoneMerger — toujours à jour ici)
+        // Si le bâtisseur est sur la tuile posée CE TOUR, il vient d'être placé → pas de bonus
+        if (bx === x && by === y) {
+            console.log('⭐ [BuilderRules] Pas de bonus : bâtisseur posé sur la tuile de ce tour');
+            return false;
+        }
+
+        // Zone du bâtisseur
         const builderZone = this.zoneMerger.findMergedZoneForPosition(bx, by, bpos);
-        if (!builderZone) return false;
+        console.log('🔍 [BuilderRules] Zone du bâtisseur:', builderZone?.id, '—', builderZone?.tiles?.length, 'tuiles');
+        if (!builderZone) {
+            console.log('⭐ [BuilderRules] Pas de bonus : zone du bâtisseur introuvable');
+            return false;
+        }
 
         // La tuile posée est-elle dans cette zone ?
-        const triggered = builderZone.tiles.some(t => t.x === x && t.y === y);
-        if (triggered) console.log('⭐ [BuilderRules] Tour bonus confirmé pour', playerId);
-        return triggered;
+        const tileInZone = builderZone.tiles.some(t => t.x === x && t.y === y);
+        console.log('🔍 [BuilderRules] Tuile', x, y, 'dans la zone ?', tileInZone,
+            '— tuiles de la zone:', builderZone.tiles.map(t => `(${t.x},${t.y})`).join(' '));
+
+        if (tileInZone) console.log('⭐ [BuilderRules] Tour bonus confirmé pour', playerId);
+        return tileInZone;
     }
 
     /**
-     * Réinitialise la position de la dernière tuile posée.
-     * Appelé en début de tour (après drawTile) pour éviter les faux positifs.
+     * Réinitialise l'état en début de tour.
+     * Appelé depuis tile-drawn (tour local) et après démarrage du tour bonus.
      */
     resetLastPlacedTile() {
+        console.log('🔄 [BuilderRules] resetLastPlacedTile');
         this._lastPlacedTile = null;
     }
 
