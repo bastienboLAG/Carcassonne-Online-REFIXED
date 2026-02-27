@@ -374,6 +374,28 @@ function loadLobbyOptions() {
     } catch (e) {
         console.warn('⚠️ Impossible de restaurer les options:', e);
     }
+    // Mettre à jour les coches maîtres après restauration
+    // (MASTER_IDS peut ne pas être défini encore à ce stade, on utilise querySelectorAll)
+    document.querySelectorAll('.ext-master').forEach(master => {
+        if (master.id) _updateMasterCheckboxSafe(master.id);
+    });
+}
+
+// Version sécurisée appelable avant que MASTER_IDS soit défini
+function _updateMasterCheckboxSafe(masterId) {
+    const master   = document.getElementById(masterId);
+    if (!master) return;
+    const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+        .filter(el => !el.disabled);
+    if (children.length === 0) return;
+    const checkedCount = children.filter(c => c.checked).length;
+    if (checkedCount === 0) {
+        master.checked = false; master.indeterminate = false;
+    } else if (checkedCount === children.length) {
+        master.checked = true;  master.indeterminate = false;
+    } else {
+        master.checked = false; master.indeterminate = true;
+    }
 }
 
 async function loadPresets() {
@@ -474,6 +496,52 @@ function _updatePigAvailability() {
 }
 document.getElementById('base-fields')?.addEventListener('change', _updatePigAvailability);
 _updatePigAvailability(); // état initial
+
+// ── Coches maîtres (bidirectionnelles) ────────────────────────────────
+// Un groupe est défini par data-group="<masterId>" sur chaque coche enfant.
+// La coche maître est checked si TOUTES les enfants sont cochées,
+// indeterminate si certaines seulement, unchecked sinon.
+
+function _updateMasterCheckbox(masterId) { _updateMasterCheckboxSafe(masterId); }
+
+function _onMasterChange(masterId) {
+    const master   = document.getElementById(masterId);
+    if (!master) return;
+    const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+        .filter(el => !el.disabled);
+    children.forEach(c => { c.checked = master.checked; });
+    // Déclencher les side-effects (pig availability, saveLobbyOptions, sync)
+    children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
+    // Empêcher le double-save → on sauve une seule fois ici
+    saveLobbyOptions();
+}
+
+// IDs de toutes les coches maîtres
+const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-tiles'];
+
+// Brancher les coches maîtres
+MASTER_IDS.forEach(masterId => {
+    const master = document.getElementById(masterId);
+    if (!master) return;
+    master.addEventListener('click', (e) => {
+        // Empêcher le clic de toggle le <details> parent
+        e.stopPropagation();
+    });
+    master.addEventListener('change', (e) => {
+        e.stopPropagation();
+        _onMasterChange(masterId);
+    });
+});
+
+// Brancher les coches enfants → mise à jour de la coche maître
+document.querySelectorAll('input[data-group]').forEach(child => {
+    child.addEventListener('change', () => {
+        _updateMasterCheckbox(child.dataset.group);
+    });
+});
+
+// État initial des coches maîtres
+MASTER_IDS.forEach(_updateMasterCheckbox);
 
 // ✅ Bouton retour Android — interception pendant la partie
 let _handlingPopstate = false;

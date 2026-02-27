@@ -86,9 +86,23 @@ export class MeeplePlacement {
                         console.log('❌ Bâtisseur : pas de meeple du joueur dans cette zone');
                         return false;
                     }
+                } else if (isPig) {
+                    // Le cochon nécessite : zone field + meeple normal/farmer du joueur dans la zone
+                    // Les cochons et bâtisseurs ne bloquent pas
+                    const fieldMeeples = meeplesInZone.filter(m => m.type !== 'Builder' && m.type !== 'Pig');
+                    if (mergedZone.type !== 'field') {
+                        console.log('❌ Cochon uniquement sur field');
+                        return false;
+                    }
+                    const hasOwnFarmer = fieldMeeples.some(m => m.playerId === playerId);
+                    if (!hasOwnFarmer) {
+                        console.log('❌ Cochon : pas de meeple du joueur dans ce champ');
+                        return false;
+                    }
                 } else {
-                    // Meeple normal : zone ne doit pas contenir d'autres meeples non-bâtisseurs
-                    if (blockingMeeples.length > 0) {
+                    // Meeple normal : zone ne doit pas contenir d'autres meeples (sauf bâtisseur/cochon)
+                    const realBlocking = meeplesInZone.filter(m => m.type !== 'Builder' && m.type !== 'Pig');
+                    if (realBlocking.length > 0) {
                         console.log('❌ Zone déjà occupée par un meeple');
                         return false;
                     }

@@ -120,68 +120,83 @@
 
             <div class="config-section extensions-section">
                 <h3>Extensions</h3>
-                <details open>
-                    <summary><strong>Base</strong></summary>
+                <details>
+                    <summary>
+                        <input type="checkbox" id="all-base" class="ext-master" title="Tout activer/désactiver">
+                        <strong>Base</strong>
+                    </summary>
                     <label class="toggle-option">
-                        <input type="checkbox" id="base-fields" checked>
+                        <input type="checkbox" id="base-fields" checked data-group="all-base">
                         <span>Les champs</span>
                     </label>
                 </details>
                 <details>
-                    <summary><strong>L'Abbé</strong></summary>
+                    <summary>
+                        <input type="checkbox" id="all-abbot" class="ext-master" title="Tout activer/désactiver">
+                        <strong>L'Abbé</strong>
+                    </summary>
                     <label class="toggle-option">
-                        <input type="checkbox" id="ext-abbot">
+                        <input type="checkbox" id="ext-abbot" data-group="all-abbot">
                         <span>Meeple Abbé</span>
                     </label>
                 </details>
                 <details>
-                    <summary><strong>Auberges &amp; Cathédrales</strong></summary>
+                    <summary>
+                        <input type="checkbox" id="all-inns-cathedrals" class="ext-master" title="Tout activer/désactiver">
+                        <strong>Auberges &amp; Cathédrales</strong>
+                    </summary>
                     <label class="toggle-option">
-                        <input type="checkbox" id="ext-large-meeple">
+                        <input type="checkbox" id="ext-large-meeple" data-group="all-inns-cathedrals">
                         <span>Grand Meeple</span>
                     </label>
                     <label class="toggle-option">
-                        <input type="checkbox" id="ext-cathedrals" checked>
+                        <input type="checkbox" id="ext-cathedrals" checked data-group="all-inns-cathedrals">
                         <span>Cathédrales</span>
                     </label>
                     <label class="toggle-option">
-                        <input type="checkbox" id="ext-inns" checked>
+                        <input type="checkbox" id="ext-inns" checked data-group="all-inns-cathedrals">
                         <span>Auberges</span>
                     </label>
                 </details>
                 <details>
-                    <summary><strong>Marchands &amp; Bâtisseurs</strong></summary>
+                    <summary>
+                        <input type="checkbox" id="all-traders-builders" class="ext-master" title="Tout activer/désactiver">
+                        <strong>Marchands &amp; Bâtisseurs</strong>
+                    </summary>
                     <label class="toggle-option">
-                        <input type="checkbox" id="ext-builder">
+                        <input type="checkbox" id="ext-builder" data-group="all-traders-builders">
                         <span>Meeple Bâtisseur</span>
                     </label>
                     <label class="toggle-option">
-                        <input type="checkbox" id="ext-merchants">
+                        <input type="checkbox" id="ext-merchants" data-group="all-traders-builders">
                         <span>Marchandises</span>
                     </label>
                     <label class="toggle-option" id="ext-pig-label">
-                        <input type="checkbox" id="ext-pig">
+                        <input type="checkbox" id="ext-pig" data-group="all-traders-builders">
                         <span>Meeple Cochon</span>
                     </label>
                 </details>
             </div>
 
             <div class="config-section">
-                <h3>Tuiles</h3>
+                <h3>
+                    <input type="checkbox" id="all-tiles" class="ext-master" title="Tout activer/désactiver">
+                    Tuiles
+                </h3>
                 <label class="toggle-option">
                     <input type="checkbox" id="tiles-base" checked onclick="return false;" style="cursor:default;">
                     <span>Base (72 tuiles) <em style="color:rgba(255,255,255,0.4)">(obligatoires)</em></span>
                 </label>
                 <label class="toggle-option">
-                    <input type="checkbox" id="tiles-abbot">
+                    <input type="checkbox" id="tiles-abbot" data-group="all-tiles">
                     <span>L'Abbé (+8 tuiles)</span>
                 </label>
                 <label class="toggle-option">
-                    <input type="checkbox" id="tiles-inns-cathedrals">
+                    <input type="checkbox" id="tiles-inns-cathedrals" data-group="all-tiles">
                     <span>Auberges &amp; Cathédrales (+18 tuiles)</span>
                 </label>
                 <label class="toggle-option">
-                    <input type="checkbox" id="tiles-traders-builders">
+                    <input type="checkbox" id="tiles-traders-builders" data-group="all-tiles">
                     <span>Marchands &amp; Bâtisseurs (+24 tuiles)</span>
                 </label>
             </div>

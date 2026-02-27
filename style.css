@@ -716,10 +716,32 @@ button:disabled {
     cursor: pointer;
     padding: 5px;
     user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .extensions-section summary:hover {
     color: gold;
+}
+
+/* Coche maître dans les summary */
+.ext-master {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    cursor: pointer;
+    accent-color: gold;
+    flex-shrink: 0;
+    /* Empêche le clic sur la coche de toggle le <details> */
+    position: relative;
+    z-index: 1;
+}
+
+/* Coche maître dans le h3 Tuiles */
+h3 .ext-master {
+    vertical-align: middle;
+    margin-right: 4px;
 }
 
 .start-button {
