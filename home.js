@@ -510,9 +510,11 @@ function _onMasterChange(masterId) {
     const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
         .filter(el => !el.disabled);
     children.forEach(c => { c.checked = master.checked; });
-    // Déclencher les side-effects (pig availability, saveLobbyOptions, sync)
+    // Ré-appliquer les contraintes de dépendance AVANT de dispatcher les change
+    // (ex : ext-pig dépend de base-fields, même au sein d'une coche maître)
+    _updatePigAvailability();
+    // Déclencher les side-effects (saveLobbyOptions, sync)
     children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
-    // Empêcher le double-save → on sauve une seule fois ici
     saveLobbyOptions();
 }
 

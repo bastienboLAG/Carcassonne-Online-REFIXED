@@ -719,10 +719,17 @@ button:disabled {
     display: flex;
     align-items: center;
     gap: 8px;
+    /* La flèche native reste, on pousse la coche maître à droite */
+    justify-content: flex-start;
 }
 
 .extensions-section summary:hover {
     color: gold;
+}
+
+/* Espace entre le titre et la coche maître */
+.extensions-section summary strong {
+    flex: 1;
 }
 
 /* Coche maître dans les summary */
@@ -741,8 +748,9 @@ button:disabled {
 /* Coche maître dans le h3 Tuiles */
 h3 .ext-master {
     vertical-align: middle;
-    margin-right: 4px;
+    margin-left: 8px;
 }
+
 
 .start-button {
     display: block;
@@ -898,14 +906,12 @@ h3 .ext-master {
 
 .player-meeples-display {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 5px;
     flex-wrap: wrap;
 }
 
 .player-meeples-display img {
-    width: 25px;
-    height: 25px;
     object-fit: contain;
     opacity: 0.9;
 }
