@@ -13,7 +13,7 @@ import { BaseRules }              from './modules/rules/BaseRules.js';
 import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { InnsRules }              from './modules/rules/InnsRules.js';
 import { BuilderRules }          from './modules/rules/BuilderRules.js';
-import { getMeepleSize }          from './modules/MeepleConfig.js';
+import { getMeepleSize, getGoodsSize } from './modules/MeepleConfig.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -1150,6 +1150,33 @@ function updateMobilePlayers() {
             applyMeepleSize(builder, 'Builder');
             if (!player.hasBuilder) builder.classList.add('unavailable');
             meeplesDiv.appendChild(builder);
+        }
+        // Marchandises (si extension activée)
+        if (gameConfig?.extensions?.merchants) {
+            const goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
+            const goodsSize = getGoodsSize('panelMobile');
+            const sep = document.createElement('span');
+            sep.style.cssText = 'display:inline-block;width:1px;background:rgba(255,255,255,0.2);height:14px;margin:0 4px;vertical-align:middle;';
+            meeplesDiv.appendChild(sep);
+            [
+                { key: 'cloth', src: './assets/Misc/C2/Cloth.png' },
+                { key: 'wheat', src: './assets/Misc/C2/Wheat.png' },
+                { key: 'wine',  src: './assets/Misc/C2/Wine.png'  },
+            ].forEach(({ key, src }) => {
+                const wrap = document.createElement('span');
+                wrap.style.cssText = 'display:inline-flex;align-items:center;margin-left:2px;gap:1px;';
+                const img = document.createElement('img');
+                img.src = src;
+                img.style.width  = goodsSize.width;
+                img.style.height = goodsSize.height;
+                img.style.objectFit = 'contain';
+                wrap.appendChild(img);
+                const count = document.createElement('span');
+                count.textContent = goods[key] ?? 0;
+                count.style.cssText = 'color:white;font-size:10px;font-weight:bold;min-width:8px;';
+                wrap.appendChild(count);
+                meeplesDiv.appendChild(wrap);
+            });
         }
         card.appendChild(meeplesDiv);
         container.appendChild(card);
