@@ -20,11 +20,13 @@ export class MeepleCursorsUI {
      * Faire tourner une position de meeple - COPIE EXACTE de rotatePosition()
      */
     rotatePosition(position, rotation) {
-        if (rotation === 0) return position;
+        // Normaliser en nombre (meeplePosition JSON peut être string)
+        const pos = Number(position);
+        if (rotation === 0) return pos;
         
         // Convertir position en coordonnées (row, col)
-        const row = Math.floor((position - 1) / 5);
-        const col = (position - 1) % 5;
+        const row = Math.floor((pos - 1) / 5);
+        const col = (pos - 1) % 5;
         
         let newRow = row;
         let newCol = col;

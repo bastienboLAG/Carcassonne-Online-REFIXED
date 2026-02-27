@@ -8,7 +8,7 @@ export class ZoneMerger {
         this.board = board;
         this.registry = new ZoneRegistry();
         
-        // Map pour retrouver rapidement quelle zone contient quelle tuile.
+        // Map pour retrouver rapidement quelle zone contient quelle tuile
         // "x,y,zoneIndex" → zoneId
         this.tileToZone = new Map();
     }
@@ -579,6 +579,9 @@ export class ZoneMerger {
         const tile = this.board.placedTiles[`${x},${y}`];
         if (!tile) return null;
 
+        // Normaliser position en nombre (meeplePosition du JSON peut être string ou number)
+        const posNum = Number(position);
+
         // Trouver quelle zone locale contient cette position
         let targetZoneIndex = null;
         
@@ -588,8 +591,9 @@ export class ZoneMerger {
                 : [zone.meeplePosition];
             
             positions.forEach(originalPos => {
+                // _rotatePosition retourne un Number — comparaison Number===Number
                 const rotatedPos = this._rotatePosition(originalPos, tile.rotation);
-                if (rotatedPos === position) {
+                if (rotatedPos === posNum) {
                     targetZoneIndex = index;
                 }
             });
