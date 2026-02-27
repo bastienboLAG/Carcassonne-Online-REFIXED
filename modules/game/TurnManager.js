@@ -118,14 +118,15 @@ export class TurnManager {
      * Terminer le tour
      * @returns {Object} { success: boolean, scoringResults?, meeplesToReturn? }
      */
-    endTurn() {
-        // Vérifier que c'est notre tour
+    /**
+     * Terminer le tour
+     * @param {boolean} builderBonusTriggered - pré-calculé par home.js avant le scoring
+     */
+    endTurn(builderBonusTriggered = false) {
         if (!this.isMyTurn) {
             console.error('❌ Ce n\'est pas votre tour');
             return { success: false, error: 'not_your_turn' };
         }
-
-        // Vérifier qu'une tuile a été placée
         if (!this.tilePlaced) {
             console.error('❌ Vous devez poser la tuile avant de terminer votre tour');
             return { success: false, error: 'tile_not_placed' };
@@ -133,15 +134,12 @@ export class TurnManager {
 
         console.log('⏭️ Fin de tour');
 
-        // Émettre événement pour calcul des scores
-        this.eventBus.emit('turn-ending', {
-            playerId: this.multiplayer.playerId
-        });
+        this.eventBus.emit('turn-ending', { playerId: this.multiplayer.playerId });
 
-        // Vérifier si un tour bonus est déclenché (bâtisseur)
-        const bonusTriggered = !this.bonusAlreadyUsedThisTurn &&
-                               !this.isBonusTurn &&
-                               this.builderRules?.checkAndConsumeBonusTrigger();
+        // Le bonus est pré-calculé par home.js avant le scoring (état le plus fiable)
+        const bonusTriggered = builderBonusTriggered &&
+                               !this.bonusAlreadyUsedThisTurn &&
+                               !this.isBonusTurn;
 
         if (bonusTriggered) {
             console.log('⭐ Déclenchement du tour bonus bâtisseur');
@@ -150,10 +148,8 @@ export class TurnManager {
             this.tilePlaced = false;
             return { success: true, bonusTurnStarted: true };
         } else {
-            // Fin du tour bonus ou tour normal sans bonus
             this.isBonusTurn = false;
             this.bonusAlreadyUsedThisTurn = false;
-            if (this.builderRules) this.builderRules.resetBonusFlag();
             this.nextPlayer();
             return { success: true, bonusTurnStarted: false };
         }

@@ -1560,6 +1560,16 @@ function setupEventListeners() {
 
         console.log('⏭️ Fin de tour - calcul des scores et passage au joueur suivant');
 
+        // ⭐ Vérifier le bonus bâtisseur AVANT le scoring
+        // (après scoring le bâtisseur peut être retiré de placedMeeples si zone fermée)
+        let builderBonusTriggered = false;
+        if (gameConfig.extensions?.tradersBuilders && lastPlacedTile) {
+            const builderRulesInst = ruleRegistry.rules?.get('builders');
+            if (builderRulesInst) {
+                builderBonusTriggered = builderRulesInst.checkBonusTrigger(multiplayer.playerId);
+            }
+        }
+
         // Appliquer les points Abbé en attente
         if (pendingAbbePoints) {
             const player = gameState.players.find(p => p.id === pendingAbbePoints.playerId);
@@ -1640,11 +1650,13 @@ function setupEventListeners() {
 
         // endTurn() gère le tour bonus (bâtisseur) puis passe au joueur suivant si pas de bonus
         if (turnManager) {
-            const result = turnManager.endTurn();
+            const result = turnManager.endTurn(builderBonusTriggered);
             if (result?.bonusTurnStarted) {
                 // Tour bonus déclenché — syncBonusTurnStarted + drawTile pour le joueur actuel
                 if (gameSync) gameSync.syncBonusTurnStarted(multiplayer.playerId);
                 if (gameSync) gameSync.syncTurnEnd(true); // isBonusTurn=true → les autres joueurs gardent le contour doré
+                // Réinitialiser la dernière tuile posée pour éviter un faux positif au tour bonus
+                ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
                 turnManager.drawTile();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'success');

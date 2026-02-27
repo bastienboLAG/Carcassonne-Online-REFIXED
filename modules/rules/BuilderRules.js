@@ -103,53 +103,50 @@ export class BuilderRules {
 
     /**
      * Appelé après chaque tile-placed.
-     * Vérifie si la tuile posée étend une zone contenant le bâtisseur du joueur actuel.
+     * Stocke la position de la tuile posée pour le check synchrone dans checkBonusTrigger().
+     * N'utilise PAS de flag _bonusPending pour éviter les désynchronisations réseau.
      */
     _checkBonusTrigger(data) {
-        if (data.fromNetwork || data.fromUndo) return;
+        if (data.skipSync || data.fromUndo) return;
+        this._lastPlacedTile = { x: data.x, y: data.y };
+    }
 
-        const { x, y } = data;
-        this._lastPlacedTile = { x, y };
+    /**
+     * Vérifie en temps réel si la dernière tuile posée étend la zone du bâtisseur du joueur.
+     * Appelé depuis home.js AVANT le scoring (builders toujours présents dans placedMeeples).
+     * @param {string} playerId - Joueur dont on vérifie le bâtisseur
+     * @returns {boolean}
+     */
+    checkBonusTrigger(playerId) {
+        if (!this._lastPlacedTile) return false;
 
-        const currentPlayer = this.gameState.getCurrentPlayer();
-        if (!currentPlayer) return;
+        const { x, y } = this._lastPlacedTile;
 
-        // Chercher le bâtisseur du joueur actuel parmi les meeples placés
-        const builderEntry = Object.entries(this.placedMeeples).find(([key, m]) =>
-            m.type === 'Builder' && m.playerId === currentPlayer.id
+        // Chercher le bâtisseur du joueur
+        const builderEntry = Object.entries(this.placedMeeples).find(([, m]) =>
+            m.type === 'Builder' && m.playerId === playerId
         );
-        if (!builderEntry) return;
+        if (!builderEntry) return false;
 
         const [builderKey] = builderEntry;
         const [bx, by, bpos] = builderKey.split(',').map(Number);
 
-        // Zone du bâtisseur
+        // Zone du bâtisseur (état courant du zoneMerger — toujours à jour ici)
         const builderZone = this.zoneMerger.findMergedZoneForPosition(bx, by, bpos);
-        if (!builderZone) return;
+        if (!builderZone) return false;
 
-        // Est-ce que la tuile nouvellement posée appartient à cette même zone ?
-        const tileZones = builderZone.tiles.filter(t => t.x === x && t.y === y);
-        if (tileZones.length > 0) {
-            console.log('⭐ Tour bonus déclenché par le bâtisseur !');
-            this._bonusPending = true;
-        }
-    }
-
-    /**
-     * Consomme et retourne le flag de bonus.
-     * Appelé par TurnManager.endTurn() avant de décider si on passe au joueur suivant.
-     */
-    checkAndConsumeBonusTrigger() {
-        const triggered = this._bonusPending;
-        this._bonusPending = false;
+        // La tuile posée est-elle dans cette zone ?
+        const triggered = builderZone.tiles.some(t => t.x === x && t.y === y);
+        if (triggered) console.log('⭐ [BuilderRules] Tour bonus confirmé pour', playerId);
         return triggered;
     }
 
     /**
-     * Réinitialise le flag (ex: début de tour bonus pour éviter le cumul)
+     * Réinitialise la position de la dernière tuile posée.
+     * Appelé en début de tour (après drawTile) pour éviter les faux positifs.
      */
-    resetBonusFlag() {
-        this._bonusPending = false;
+    resetLastPlacedTile() {
+        this._lastPlacedTile = null;
     }
 
     // ─────────────────────────────────────────────────────────────
