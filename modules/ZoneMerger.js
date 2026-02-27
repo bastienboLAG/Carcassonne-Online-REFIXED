@@ -673,10 +673,12 @@ export class ZoneMerger {
      * @private
      */
     _rotatePosition(position, rotation) {
-        if (rotation === 0) return position;
+        // Normaliser en nombre pour éviter "8" === 8 → false (meeplePosition peut être une string depuis le JSON)
+        const pos = Number(position);
+        if (rotation === 0) return pos;
         
-        const row = Math.floor((position - 1) / 5);
-        const col = (position - 1) % 5;
+        const row = Math.floor((pos - 1) / 5);
+        const col = (pos - 1) % 5;
         
         let newRow = row;
         let newCol = col;
