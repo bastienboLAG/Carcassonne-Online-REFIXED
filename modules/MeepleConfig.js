@@ -54,10 +54,10 @@ export const MEEPLE_CONFIG = {
     },
     'Pig': {
         w: 117, h: 70,
-        plate:       0.87,
-        panel:       0.35,
-        panelMobile: 0.28,
-        selector:    0.44,
+        plate:       0.60,
+        panel:       0.20,
+        panelMobile: 0.18,
+        selector:    0.35,
     },
 };
 
