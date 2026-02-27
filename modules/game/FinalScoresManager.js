@@ -155,7 +155,7 @@ export class FinalScoresManager {
 
         const hasMerchantsMobile = this.gameConfig?.extensions?.merchants;
         const labels = hasMerchantsMobile
-            ? ['Villes', 'Routes', 'Abbayes', 'Champs', 'Marchands']
+            ? ['Villes', 'Routes', 'Abbayes', 'Champs', 'Marchandises']
             : ['Villes', 'Routes', 'Abbayes', 'Champs'];
         const keys = hasMerchantsMobile
             ? ['cities', 'roads', 'monasteries', 'fields', 'goods']

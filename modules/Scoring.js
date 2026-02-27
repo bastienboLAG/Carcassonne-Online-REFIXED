@@ -30,11 +30,27 @@ export class Scoring {
 
             console.log(`✅ Zone ${mergedZone.type} fermée détectée`);
 
+            // ── Marchandises : toujours distribuées au joueur actif, même ville vide ──
+            if (mergedZone.type === 'city' && mergedZone.goods && currentPlayerId && gameState) {
+                const { cloth = 0, wheat = 0, wine = 0 } = mergedZone.goods;
+                if (cloth || wheat || wine) {
+                    const player = gameState.players.find(p => p.id === currentPlayerId);
+                    if (player) {
+                        player.goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
+                        player.goods.cloth += cloth;
+                        player.goods.wheat += wheat;
+                        player.goods.wine  += wine;
+                        goodsResults.push({ playerId: currentPlayerId, cloth, wheat, wine });
+                        console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
+                    }
+                }
+            }
+
             // Récupérer les meeples dans cette zone
             const meeples = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
             
             if (meeples.length === 0) {
-                console.log('  Aucun meeple dans cette zone');
+                console.log('  Aucun meeple dans cette zone, pas de points');
                 return;
             }
 
@@ -72,22 +88,6 @@ export class Scoring {
                 });
                 console.log(`  ${playerId} gagne ${points} points pour ${reason}`);
             });
-
-            // Marchandises : le joueur actif reçoit les jetons si la zone est une ville avec des marchandises
-            if (mergedZone.type === 'city' && mergedZone.goods && currentPlayerId && gameState) {
-                const { cloth = 0, wheat = 0, wine = 0 } = mergedZone.goods;
-                if (cloth || wheat || wine) {
-                    const player = gameState.players.find(p => p.id === currentPlayerId);
-                    if (player) {
-                        player.goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
-                        player.goods.cloth += cloth;
-                        player.goods.wheat += wheat;
-                        player.goods.wine  += wine;
-                        goodsResults.push({ playerId: currentPlayerId, cloth, wheat, wine });
-                        console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
-                    }
-                }
-            }
 
             // Marquer les meeples pour retour
             meeples.forEach(meeple => {
