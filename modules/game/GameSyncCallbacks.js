@@ -115,6 +115,11 @@ export class GameSyncCallbacks {
         // ── Fin de tour ───────────────────────────────────────────────────────
         gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false) => {
             this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn);
+            // Si tour bonus : afficher le toast ici — plus besoin du message bonus-turn-started séparé
+            if (isBonusTurn && this.onBonusTurnStarted) {
+                const currentPlayer = this.gameState.getCurrentPlayer();
+                this.onBonusTurnStarted(currentPlayer?.id);
+            }
         };
 
         // ── Pioche d'une tuile ────────────────────────────────────────────────
@@ -210,10 +215,6 @@ export class GameSyncCallbacks {
 
         gs.onAbbeRecalledUndo = (x, y, key, playerId) => {
             if (this.onAbbeRecalledUndo) this.onAbbeRecalledUndo(x, y, key, playerId);
-        };
-
-        gs.onBonusTurnStarted = (playerId) => {
-            if (this.onBonusTurnStarted) this.onBonusTurnStarted(playerId);
         };
 
         gs.onDeckReshuffled = (tiles, currentIndex) => {

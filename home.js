@@ -1657,9 +1657,9 @@ function setupEventListeners() {
         if (turnManager) {
             const result = turnManager.endTurn(builderBonusTriggered);
             if (result?.bonusTurnStarted) {
-                // Tour bonus déclenché — syncBonusTurnStarted + drawTile pour le joueur actuel
-                if (gameSync) gameSync.syncBonusTurnStarted(multiplayer.playerId);
-                if (gameSync) gameSync.syncTurnEnd(true); // isBonusTurn=true → les autres joueurs gardent le contour doré
+                // Tour bonus déclenché — un seul message turn-ended avec isBonusTurn=true
+                // (syncBonusTurnStarted supprimé : le toast invité est géré dans onTurnEnded)
+                if (gameSync) gameSync.syncTurnEnd(true);
                 // Réinitialiser la dernière tuile posée pour éviter un faux positif au tour bonus
                 ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
                 turnManager.drawTile();
