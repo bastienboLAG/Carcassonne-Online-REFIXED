@@ -8,7 +8,7 @@ export class ZoneMerger {
         this.board = board;
         this.registry = new ZoneRegistry();
         
-        // Map pour retrouver rapidement quelle zone contient quelle tuile
+        // Map pour retrouver rapidement quelle zone contient quelle tuile.
         // "x,y,zoneIndex" → zoneId
         this.tileToZone = new Map();
     }
