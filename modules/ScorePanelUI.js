@@ -196,10 +196,10 @@ export class ScorePanelUI {
             container.appendChild(img);
         }
 
-        // Jetons marchandises (PC uniquement — trop petit sur mobile)
-        if (context === 'panel' && this.config?.extensions?.merchants) {
+        // Jetons marchandises (PC + mobile)
+        if (this.config?.extensions?.merchants) {
             const goods     = player.goods || { cloth: 0, wheat: 0, wine: 0 };
-            const goodsSize = getGoodsSize('panel');
+            const goodsSize = getGoodsSize(context === 'panel' ? 'panel' : 'panelMobile');
 
             const separator = document.createElement('span');
             separator.style.cssText = 'display:inline-block;width:1px;background:rgba(255,255,255,0.2);height:20px;margin:0 6px;vertical-align:middle;align-self:center;';
