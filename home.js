@@ -499,6 +499,9 @@ function _updatePigAvailability() {
         pigLabel.style.opacity       = '';
         pigLabel.style.pointerEvents = '';
     }
+    // Mettre à jour la coche maître Marchands & Bâtisseurs
+    // (ext-pig peut avoir été décoché sans passer par le listener enfant)
+    _updateMasterCheckboxSafe('all-traders-builders');
     saveLobbyOptions();
 }
 document.getElementById('base-fields')?.addEventListener('change', _updatePigAvailability);

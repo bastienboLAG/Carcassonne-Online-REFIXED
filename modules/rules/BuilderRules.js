@@ -174,6 +174,9 @@ export class BuilderRules {
         player.goods.wheat += wheat;
         player.goods.wine  += wine;
 
+        // Vider les goods de la zone pour éviter une double-distribution aux tours suivants
+        mergedZone.goods = { cloth: 0, wheat: 0, wine: 0 };
+
         console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
         return { playerId: currentPlayerId, cloth, wheat, wine };
     }
