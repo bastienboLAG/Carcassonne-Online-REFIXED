@@ -74,7 +74,9 @@ export class TilePlacement {
         
         // Merger les zones (sauf si l'état est fourni par l'hôte)
         if (this.zoneMerger && !options.skipZoneMerger) {
-            this.zoneMerger.updateZonesForNewTile(x, y);
+            this.newlyClosedZones = this.zoneMerger.updateZonesForNewTile(x, y) || [];
+        } else {
+            this.newlyClosedZones = [];
         }
         
         // Émettre événement

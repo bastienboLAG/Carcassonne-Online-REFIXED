@@ -1678,7 +1678,8 @@ function setupEventListeners() {
 
         // Calcul des scores des zones fermées
         if (scoring && zoneMerger) {
-            const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, multiplayer.playerId, gameState);
+            const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
+            const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, multiplayer.playerId, gameState, newlyClosed);
 
             if (scoringResults.length > 0) {
                 scoringResults.forEach(({ playerId, points, zoneType }) => {

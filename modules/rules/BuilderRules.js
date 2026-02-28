@@ -163,8 +163,7 @@ export class BuilderRules {
         if (mergedZone.type !== 'city') return null;
         if (!currentPlayerId || !gameState) return null;
         // Guard : goods déjà distribués pour cette ville fermée
-        console.log(`🔍 [GOODS] distributeGoods appelé — zone: ${mergedZone.id} — goodsDistributed: ${mergedZone.goodsDistributed ?? false}`);
-        if (mergedZone.goodsDistributed) { console.log(`🚫 [GOODS] Bloqué par goodsDistributed`); return null; }
+
 
         // Calculer les goods à la volée en parcourant les tuiles de la zone
         // (rien n'est stocké sur la zone, zéro risque de double-distribution)
@@ -191,9 +190,6 @@ export class BuilderRules {
         player.goods.cloth += cloth;
         player.goods.wheat += wheat;
         player.goods.wine  += wine;
-
-        // Marquer comme distribués pour éviter toute double-distribution
-        mergedZone.goodsDistributed = true;
 
         console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
         return { playerId: currentPlayerId, cloth, wheat, wine };

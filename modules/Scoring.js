@@ -14,18 +14,21 @@ export class Scoring {
      * Appelé à la fin de chaque tour
      * @returns {scoringResults: [{playerId, points, reason}], meeplesToReturn: [keys]}
      */
-    scoreClosedZones(placedMeeples, currentPlayerId = null, gameState = null) {
+    scoreClosedZones(placedMeeples, currentPlayerId = null, gameState = null, newlyClosedZones = null) {
         console.log('💰 Calcul des scores pour zones fermées...');
         
         const scoringResults = [];
         const meeplesToReturn = [];
         const goodsResults = []; // { playerId, cloth, wheat, wine }
 
-        // ✅ Récupérer toutes les zones du registry
-        const allZones = this.zoneMerger.getAllZones();
+        // N'opérer que sur les zones qui viennent de se fermer ce tour
+        // (évite toute double-distribution sur les villes fermées aux tours précédents)
+        const zonesToScore = newlyClosedZones && newlyClosedZones.length > 0
+            ? newlyClosedZones
+            : this.zoneMerger.getAllZones().filter(z => z.isComplete);
         
-        // Parcourir toutes les zones mergées
-        allZones.forEach(mergedZone => {
+        // Parcourir uniquement les zones nouvellement fermées
+        zonesToScore.forEach(mergedZone => {
             if (!mergedZone.isComplete) return;
 
             console.log(`✅ Zone ${mergedZone.type} fermée détectée`);

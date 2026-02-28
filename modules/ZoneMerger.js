@@ -34,13 +34,15 @@ export class ZoneMerger {
         this._resolveAdjacentCities(x, y);
 
         // Vérifier les fermetures et mettre à jour isComplete
-        this._updateCompletionStatus();
+        const newlyClosed = this._updateCompletionStatus();
         
         // Marquer les villes fermées dans l'historique
         this._updateClosedCitiesHistory();
 
         // Debug
         this.registry.listAll();
+
+        return newlyClosed;
     }
 
     /**
@@ -398,15 +400,18 @@ export class ZoneMerger {
      * @private
      */
     _updateCompletionStatus() {
+        const newlyClosed = [];
         for (const [id, zone] of this.registry.zones) {
+            if (zone.isComplete) continue; // déjà fermée avant ce tour
             if (zone.type === 'city') {
-                zone.isComplete = this._isCityComplete(zone);
+                if (this._isCityComplete(zone)) { zone.isComplete = true; newlyClosed.push(zone); }
             } else if (zone.type === 'road') {
-                zone.isComplete = this._isRoadComplete(zone);
+                if (this._isRoadComplete(zone)) { zone.isComplete = true; newlyClosed.push(zone); }
             } else if (zone.type === 'abbey' || zone.type === 'garden') {
-                zone.isComplete = this._isAbbeyComplete(zone);
+                if (this._isAbbeyComplete(zone)) { zone.isComplete = true; newlyClosed.push(zone); }
             }
         }
+        return newlyClosed;
     }
 
     /**
