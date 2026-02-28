@@ -1186,13 +1186,16 @@ function _postStartSetup() {
         gameConfig.enableDebug ? 'block' : 'none';
     document.getElementById('back-to-lobby-btn').style.display = isHost ? 'block' : 'none';
 
-    // Spectateur : masquer tous les contrôles d'action
+    // Spectateur : masquer les contrôles d'action mais garder la tile preview
     if (_isSpectator()) {
-        ['end-turn-btn', 'undo-btn', 'current-tile-container', 'mobile-end-turn-btn', 'mobile-undo-btn']
+        ['end-turn-btn', 'undo-btn', 'mobile-end-turn-btn', 'mobile-undo-btn']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
+        // Masquer les slots de placement mais pas le preview
+        const tileTitle = document.querySelector('#current-tile-container h3');
+        if (tileTitle) tileTitle.style.display = 'none';
     }
 
     // Redémarrer le heartbeat avec le handler de jeu (gestion déconnexion en cours de partie)

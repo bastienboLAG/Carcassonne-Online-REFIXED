@@ -207,7 +207,14 @@ export class LobbyUI {
             const color = option.dataset.color;
             const input = option.querySelector('input');
             
-            if (this.takenColors.includes(color) && color !== currentPlayerColor) {
+            // spectator peut être choisi par plusieurs joueurs
+            // mais au moins 1 non-spectateur doit exister dans le salon
+            const isTaken = this.takenColors.includes(color) && color !== currentPlayerColor;
+            const isSpectatorColor = color === 'spectator';
+            const nonSpectatorCount = this.players.filter(p => p.color !== 'spectator').length;
+            // Bloquer spectator si le joueur actuel est le seul non-spectateur
+            const wouldLeaveNoPlayer = isSpectatorColor && nonSpectatorCount <= 1 && currentPlayerColor !== 'spectator';
+            if ((isTaken && !isSpectatorColor) || wouldLeaveNoPlayer) {
                 option.classList.add('disabled');
                 input.disabled = true;
             } else {

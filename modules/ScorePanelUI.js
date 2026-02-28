@@ -48,7 +48,12 @@ export class ScorePanelUI {
         container.innerHTML = '';
         const currentPlayer = this.gameState.getCurrentPlayer();
 
-        this.gameState.players.forEach(player => {
+        const sortedPlayers = [...this.gameState.players].sort((a, b) => {
+            if (a.color === 'spectator' && b.color !== 'spectator') return 1;
+            if (a.color !== 'spectator' && b.color === 'spectator') return -1;
+            return 0;
+        });
+        sortedPlayers.forEach(player => {
             const isActive = currentPlayer && player.id === currentPlayer.id;
 
             const card = document.createElement('div');
@@ -77,10 +82,12 @@ export class ScorePanelUI {
             name.textContent = player.name;
             header.appendChild(name);
 
-            const points = document.createElement('span');
-            points.className   = 'player-score-points';
-            points.textContent = `${player.score} point${player.score > 1 ? 's' : ''}`;
-            header.appendChild(points);
+            if (player.color !== 'spectator') {
+                const points = document.createElement('span');
+                points.className   = 'player-score-points';
+                points.textContent = `${player.score} point${player.score > 1 ? 's' : ''}`;
+                header.appendChild(points);
+            }
 
             card.appendChild(header);
 
@@ -105,7 +112,12 @@ export class ScorePanelUI {
         container.innerHTML = '';
         const currentPlayer = this.gameState.getCurrentPlayer();
 
-        this.gameState.players.forEach(player => {
+        const sortedPlayersMobile = [...this.gameState.players].sort((a, b) => {
+            if (a.color === 'spectator' && b.color !== 'spectator') return 1;
+            if (a.color !== 'spectator' && b.color === 'spectator') return -1;
+            return 0;
+        });
+        sortedPlayersMobile.forEach(player => {
             const isActive = currentPlayer && player.id === currentPlayer.id;
 
             const card = document.createElement('div');
@@ -145,9 +157,11 @@ export class ScorePanelUI {
             const ghost = document.createElement('img');
             ghost.src = './assets/Meeples/Spectator.png';
             ghost.alt = 'Spectateur';
-            ghost.style.width  = '28px';
-            ghost.style.height = 'auto';
-            ghost.style.opacity = '0.6';
+            const ghostSize = getMeepleSize('Spectator', context);
+            ghost.style.width   = ghostSize.width;
+            ghost.style.height  = ghostSize.height;
+            ghost.style.opacity = '0.7';
+            ghost.style.objectFit = 'contain';
             container.appendChild(ghost);
             return;
         }

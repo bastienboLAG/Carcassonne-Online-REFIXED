@@ -161,8 +161,15 @@ export class TurnManager {
     nextPlayer() {
         if (!this.gameState) return;
 
-        // Incrémenter l'index du joueur
-        this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
+        // Incrémenter l'index du joueur en sautant les spectateurs
+        let attempts = 0;
+        do {
+            this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
+            attempts++;
+        } while (
+            this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' &&
+            attempts < this.gameState.players.length
+        );
         
         // Mettre à jour l'état
         this.updateTurnState();
