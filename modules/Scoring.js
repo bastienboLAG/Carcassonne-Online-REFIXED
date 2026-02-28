@@ -33,6 +33,13 @@ export class Scoring {
             // Récupérer les meeples dans cette zone
             const meeples = this.zoneMerger.getZoneMeeples(mergedZone, placedMeeples);
             
+            // Marchandises : distribuées au joueur qui ferme la ville,
+            // INDÉPENDAMMENT de la présence de meeples dans la zone
+            if (this._builderRules) {
+                const goodsResult = this._builderRules.distributeGoods(mergedZone, currentPlayerId, gameState);
+                if (goodsResult) goodsResults.push(goodsResult);
+            }
+
             if (meeples.length === 0) {
                 console.log('  Aucun meeple dans cette zone');
                 return;
@@ -72,12 +79,6 @@ export class Scoring {
                 });
                 console.log(`  ${playerId} gagne ${points} points pour ${reason}`);
             });
-
-            // Marchandises : délégué à BuilderRules
-            if (this._builderRules) {
-                const goodsResult = this._builderRules.distributeGoods(mergedZone, currentPlayerId, gameState);
-                if (goodsResult) goodsResults.push(goodsResult);
-            }
 
             // Marquer les meeples pour retour
             meeples.forEach(meeple => {

@@ -343,6 +343,12 @@ function applyPreset(preset) {
         if (radio) radio.checked = true;
     }
 
+    // Mettre à jour les coches maîtres selon l'état des enfants
+    document.querySelectorAll('.ext-master').forEach(m => { if (m.id) _updateMasterCheckboxSafe(m.id); });
+
+    // Appliquer les contraintes de dépendance (ex: cochon ↔ champs)
+    _updatePigAvailability();
+
     saveLobbyOptions();
 }
 
