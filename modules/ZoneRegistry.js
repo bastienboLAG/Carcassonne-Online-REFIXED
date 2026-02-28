@@ -174,9 +174,20 @@ export class ZoneRegistry {
      * Désérialiser le registry depuis une sauvegarde
      */
     deserialize(data) {
+        // Log pour tracer les écrasements du registry
+        const flagsBefore = [];
+        for (const [id, zone] of this.zones) {
+            if (zone.goodsDistributed) flagsBefore.push(id);
+        }
         this.zones = new Map(data.zones);
         this.nextId = data.nextId;
         this.closedCitiesHistory = [...data.closedCitiesHistory];
+        const flagsAfter = [];
+        for (const [id, zone] of this.zones) {
+            if (zone.goodsDistributed) flagsAfter.push(id);
+        }
+        console.log(`📦 [DESERIALIZE] ZoneRegistry écrasé — flags avant: [${flagsBefore.join(',')||'aucun'}] — flags après: [${flagsAfter.join(',')||'aucun'}]`);
+        console.trace('📦 [DESERIALIZE] Appelé depuis');
     }
     
     /**
