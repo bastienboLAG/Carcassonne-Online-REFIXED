@@ -156,13 +156,16 @@ export class GameSync {
     /**
      * Synchroniser la mise à jour des scores
      */
-    syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults = []) {
+    syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults = [], zoneMerger = null) {
         console.log('💰 Sync score update:', scoringResults);
         this.multiplayer.broadcast({
             type: 'score-update',
             scoringResults:  scoringResults,
             meeplesToReturn: meeplesToReturn,
             goodsResults:    goodsResults,
+            // Registry post-scoring : goods déjà vidés, état cohérent pour l'invité
+            zoneRegistry: zoneMerger ? zoneMerger.registry.serialize() : null,
+            tileToZone:   zoneMerger ? Array.from(zoneMerger.tileToZone.entries()) : null,
             playerId: this.multiplayer.playerId
         });
     }
@@ -318,7 +321,7 @@ export class GameSync {
             case 'score-update':
                 if (this.onScoreUpdate && data.playerId !== this.multiplayer.playerId) {
                     console.log('💰 [SYNC] Mise à jour des scores reçue');
-                    this.onScoreUpdate(data.scoringResults, data.meeplesToReturn, data.goodsResults ?? []);
+                    this.onScoreUpdate(data.scoringResults, data.meeplesToReturn, data.goodsResults ?? [], data.zoneRegistry ?? null, data.tileToZone ?? null);
                 }
                 break;
             

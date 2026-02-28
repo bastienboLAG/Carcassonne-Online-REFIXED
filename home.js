@@ -1721,7 +1721,7 @@ function setupEventListeners() {
                     }
                 });
 
-                if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults);
+                if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
                 updateTurnDisplay();
             }
         }

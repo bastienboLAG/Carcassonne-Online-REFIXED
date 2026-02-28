@@ -150,7 +150,7 @@ export class GameSyncCallbacks {
         };
 
         // ── Mise à jour des scores ────────────────────────────────────────────
-        gs.onScoreUpdate = (scoringResults, meeplesToReturn, goodsResults = []) => {
+        gs.onScoreUpdate = (scoringResults, meeplesToReturn, goodsResults = [], zoneRegistryData = null, tileToZoneData = null) => {
             console.log('💰 [SYNC] Mise à jour des scores reçue');
             const placedMeeples = this.getPlacedMeeples();
 
@@ -174,6 +174,15 @@ export class GameSyncCallbacks {
                     player.goods.wine  += wine;
                 }
             });
+
+            // Appliquer le zoneRegistry post-scoring (goods vidés) envoyé par l'hôte
+            if (zoneRegistryData) {
+                this.zoneMerger.registry.deserialize(zoneRegistryData);
+                if (tileToZoneData) {
+                    this.zoneMerger.tileToZone = new Map(tileToZoneData);
+                }
+                console.log('✅ [SYNC] ZoneRegistry post-scoring appliqué (goods mis à jour)');
+            }
 
             meeplesToReturn.forEach(key => {
                 document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
