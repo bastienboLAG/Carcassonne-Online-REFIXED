@@ -60,6 +60,18 @@ html, body {
     text-align: center;
 }
 
+#game-timer {
+    font-size: 15px;
+    font-weight: bold;
+    padding: 8px 10px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+    letter-spacing: 1px;
+}
+
 #board-container {
     flex: 1; 
     overflow: auto;

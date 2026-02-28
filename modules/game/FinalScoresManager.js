@@ -73,6 +73,11 @@ export class FinalScoresManager {
         const modal = document.getElementById('final-scores-modal');
         const isMobile = window.innerWidth < 768;
 
+        // Arrêter le timer de partie et afficher le temps final
+        if (typeof stopGameTimer === 'function') stopGameTimer();
+        const timerEl = document.getElementById('game-timer');
+        if (timerEl) timerEl.style.display = 'none';
+
         if (isMobile) {
             this._showModalMobile(detailedScores, modal);
         } else {

@@ -104,6 +104,8 @@ let meepleDisplayUI = null;
 
 let unplaceableManager = null;
 let finalScoresManager = null;
+let gameTimerInterval  = null;
+let gameTimerStart     = null;
 
 let originalLobbyHandler = null;
 
@@ -492,15 +494,16 @@ function _updatePigAvailability() {
     const pigCb    = document.getElementById('ext-pig');
     if (!pigLabel || !pigCb) return;
     if (!fieldsOn) {
-        pigCb.checked = false;
+        pigCb.checked  = false;
+        pigCb.disabled = true;
         pigLabel.style.opacity       = '0.4';
         pigLabel.style.pointerEvents = 'none';
     } else {
+        pigCb.disabled = false;
         pigLabel.style.opacity       = '';
         pigLabel.style.pointerEvents = '';
     }
-    // Mettre à jour la coche maître Marchands & Bâtisseurs
-    // (ext-pig peut avoir été décoché sans passer par le listener enfant)
+    // Mettre à jour la coche maître (pig disabled = exclu du calcul)
     _updateMasterCheckboxSafe('all-traders-builders');
     saveLobbyOptions();
 }
@@ -1010,8 +1013,32 @@ function attachGameSyncCallbacks() {
 // ═══════════════════════════════════════════════════════
 // DÉMARRAGE — HÔTE
 // ═══════════════════════════════════════════════════════
+function startGameTimer() {
+    gameTimerStart = Date.now();
+    const el = document.getElementById('game-timer');
+    if (el) el.style.display = '';
+    clearInterval(gameTimerInterval);
+    gameTimerInterval = setInterval(() => {
+        const el = document.getElementById('game-timer');
+        if (!el) return;
+        const elapsed = Math.floor((Date.now() - gameTimerStart) / 1000);
+        const h = Math.floor(elapsed / 3600);
+        const m = Math.floor((elapsed % 3600) / 60);
+        const s = elapsed % 60;
+        el.textContent = h > 0
+            ? `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }, 1000);
+}
+
+function stopGameTimer() {
+    clearInterval(gameTimerInterval);
+    gameTimerInterval = null;
+}
+
 async function startGame() {
     console.log('🎮 [HÔTE] Initialisation du jeu...');
+    startGameTimer();
 
     document.getElementById('lobby-page').style.display = 'none';
     document.getElementById('game-page').style.display  = 'flex';
@@ -1073,6 +1100,7 @@ async function startGame() {
 // ═══════════════════════════════════════════════════════
 async function startGameForInvite() {
     console.log('🎮 [INVITÉ] Initialisation du jeu...');
+    startGameTimer();
     lobbyUI.hide();
     history.pushState({ inGame: true }, '');
 
@@ -2036,6 +2064,9 @@ function returnToInitialLobby(message = null) {
 
 function returnToLobby() {
     console.log('🔙 Retour au lobby...');
+    stopGameTimer();
+    const timerEl = document.getElementById('game-timer');
+    if (timerEl) { timerEl.textContent = '⏱ 00:00'; timerEl.style.display = 'none'; }
 
     if (isHost && multiplayer.peer?.open) {
         multiplayer.broadcast({ type: 'return-to-lobby' });
