@@ -160,10 +160,27 @@ export class BuilderRules {
      */
     distributeGoods(mergedZone, currentPlayerId, gameState) {
         if (!this.config?.extensions?.merchants) return null;
-        if (mergedZone.type !== 'city' || !mergedZone.goods) return null;
+        if (mergedZone.type !== 'city') return null;
         if (!currentPlayerId || !gameState) return null;
+        // Guard : goods déjà distribués pour cette ville fermée
+        if (mergedZone.goodsDistributed) return null;
 
-        const { cloth = 0, wheat = 0, wine = 0 } = mergedZone.goods;
+        // Calculer les goods à la volée en parcourant les tuiles de la zone
+        // (rien n'est stocké sur la zone, zéro risque de double-distribution)
+        const board = this.zoneMerger.board;
+        let cloth = 0, wheat = 0, wine = 0;
+
+        for (const { x, y, zoneIndex } of mergedZone.tiles) {
+            const tile = board.placedTiles[`${x},${y}`];
+            if (!tile?.zones?.[zoneIndex]?.features) continue;
+            const features = Array.isArray(tile.zones[zoneIndex].features)
+                ? tile.zones[zoneIndex].features
+                : [tile.zones[zoneIndex].features];
+            if (features.includes('cloth')) cloth++;
+            if (features.includes('wheat')) wheat++;
+            if (features.includes('wine'))  wine++;
+        }
+
         if (!cloth && !wheat && !wine) return null;
 
         const player = gameState.players.find(p => p.id === currentPlayerId);
@@ -174,8 +191,8 @@ export class BuilderRules {
         player.goods.wheat += wheat;
         player.goods.wine  += wine;
 
-        // Vider les goods de la zone pour éviter une double-distribution aux tours suivants
-        mergedZone.goods = { cloth: 0, wheat: 0, wine: 0 };
+        // Marquer comme distribués pour éviter toute double-distribution
+        mergedZone.goodsDistributed = true;
 
         console.log(`🧺 ${player.name} reçoit marchandises : cloth=${cloth} wheat=${wheat} wine=${wine}`);
         return { playerId: currentPlayerId, cloth, wheat, wine };

@@ -71,14 +71,7 @@ export class ZoneRegistry {
         zone1.tiles.push(...zone2.tiles);
         zone1.shields += zone2.shields;
 
-        // Fusionner les marchandises (cloth/wheat/wine)
-        // Ne pas transférer si zone1 est déjà fermée (ses goods ont déjà été distribués)
-        if (zone2.goods && !zone1.isComplete) {
-            zone1.goods         = zone1.goods || { cloth: 0, wheat: 0, wine: 0 };
-            zone1.goods.cloth  += zone2.goods.cloth  || 0;
-            zone1.goods.wheat  += zone2.goods.wheat  || 0;
-            zone1.goods.wine   += zone2.goods.wine   || 0;
-        }
+        // Marchandises : calculées à la volée (cf. BuilderRules.distributeGoods), rien à fusionner ici.
 
         // ✅ Garantie : corriger TOUTES les entrées tileToZone pointant vers zoneId2
         // (même si zone2.tiles était incomplet avant l'appel)
