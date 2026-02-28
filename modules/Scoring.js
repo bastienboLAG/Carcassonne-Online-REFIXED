@@ -22,12 +22,9 @@ export class Scoring {
         const goodsResults = []; // { playerId, cloth, wheat, wine }
 
         // N'opérer que sur les zones qui viennent de se fermer ce tour
-        // (évite toute double-distribution sur les villes fermées aux tours précédents)
-        const zonesToScore = newlyClosedZones && newlyClosedZones.length > 0
-            ? newlyClosedZones
-            : this.zoneMerger.getAllZones().filter(z => z.isComplete);
+        // Si aucune zone nouvellement fermée, rien à scorer
+        const zonesToScore = newlyClosedZones ?? [];
         
-        // Parcourir uniquement les zones nouvellement fermées
         zonesToScore.forEach(mergedZone => {
             if (!mergedZone.isComplete) return;
 
