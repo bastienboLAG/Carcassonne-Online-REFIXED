@@ -5,6 +5,17 @@ export class GameState {
     constructor() {
         this.players = []; // Liste des joueurs
         this.currentPlayerIndex = 0; // Index du joueur actuel
+        // Avancer jusqu'au premier non-spectateur si nécessaire
+        if (this.players.length > 0) {
+            let attempts = 0;
+            while (
+                this.players[this.currentPlayerIndex]?.color === 'spectator' &&
+                attempts < this.players.length
+            ) {
+                this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+                attempts++;
+            }
+        }
         this.placedTiles = {}; // Tuiles posées sur le plateau
         this.deck = []; // Pioche (seulement côté hôte)
         this.destroyedTilesCount = 0; // Compteur global de tuiles détruites
@@ -53,7 +64,14 @@ export class GameState {
      * Passer au joueur suivant
      */
     nextPlayer() {
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+        let attempts = 0;
+        do {
+            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+            attempts++;
+        } while (
+            this.players[this.currentPlayerIndex]?.color === 'spectator' &&
+            attempts < this.players.length
+        );
     }
 
     /**

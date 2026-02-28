@@ -107,6 +107,12 @@ let finalScoresManager = null;
 let gameTimerInterval  = null;
 let gameTimerStart     = null;
 
+function _isSpectator() {
+    if (!gameState || !multiplayer) return false;
+    const me = gameState.players.find(p => p.id === multiplayer.playerId);
+    return me?.color === 'spectator';
+}
+
 let originalLobbyHandler = null;
 
 // ═══════════════════════════════════════════════════════
@@ -188,7 +194,7 @@ eventBus.on('deck-updated', (data) => {
 });
 
 eventBus.on('turn-changed', (data) => {
-    isMyTurn = data.isMyTurn;
+    isMyTurn = data.isMyTurn && !_isSpectator();
     console.log('🔄 Sync isMyTurn global:', isMyTurn, '— isBonusTurn:', data.isBonusTurn ?? false);
     // Synchroniser isBonusTurn sur turnManager si transmis par receiveTurnEnded
     if (turnManager && data.isBonusTurn !== undefined) {
@@ -1180,6 +1186,15 @@ function _postStartSetup() {
         gameConfig.enableDebug ? 'block' : 'none';
     document.getElementById('back-to-lobby-btn').style.display = isHost ? 'block' : 'none';
 
+    // Spectateur : masquer tous les contrôles d'action
+    if (_isSpectator()) {
+        ['end-turn-btn', 'undo-btn', 'current-tile-container', 'mobile-end-turn-btn', 'mobile-undo-btn']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+    }
+
     // Redémarrer le heartbeat avec le handler de jeu (gestion déconnexion en cours de partie)
     if (multiplayer?.peer) {
         const handleDisconnect = (peerId) => {
@@ -1297,7 +1312,7 @@ function updateTurnDisplay() {
     }
 
     const currentPlayer = gameState.getCurrentPlayer();
-    isMyTurn = currentPlayer.id === multiplayer.playerId;
+    isMyTurn = currentPlayer.id === multiplayer.playerId && !_isSpectator();
 
     const endTurnBtn = document.getElementById('end-turn-btn');
     if (endTurnBtn) {

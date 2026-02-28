@@ -527,6 +527,23 @@ button:disabled {
     gap: 15px;
 }
 
+.color-option--spectator {
+    grid-column: 1 / -1;
+    border-style: dashed;
+    border-color: rgba(255,255,255,0.2);
+    opacity: 0.75;
+}
+
+.color-option--spectator:hover {
+    opacity: 1;
+}
+
+.color-option--spectator.selected {
+    border-color: gold;
+    border-style: dashed;
+    opacity: 1;
+}
+
 .color-option {
     display: flex;
     justify-content: center;

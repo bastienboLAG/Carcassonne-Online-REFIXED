@@ -100,13 +100,17 @@ export class FinalScoresManager {
         if (cardsContainer) cardsContainer.style.display = 'none';
 
         detailedScores.forEach(player => {
+            if (player.color === 'spectator') return; // spectateur exclu du tableau
             const row      = document.createElement('tr');
             const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+            const imgSrc   = player.color === 'spectator'
+                ? 'assets/Meeples/Spectator.png'
+                : `assets/Meeples/${colorCap}/Normal.png`;
 
             const nameCell = document.createElement('td');
             nameCell.innerHTML = `
                 <div class="player-name-cell">
-                    <img src="assets/Meeples/${colorCap}/Normal.png" alt="${player.color}">
+                    <img src="${imgSrc}" alt="${player.color}">
                     <span>${player.name}</span>
                 </div>`;
             row.appendChild(nameCell);
@@ -172,6 +176,7 @@ export class FinalScoresManager {
             : ['cities', 'roads', 'monasteries', 'fields'];
 
         detailedScores.forEach((player, index) => {
+            if (player.color === 'spectator') return;
             const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
             const isWinner = index === 0;
 

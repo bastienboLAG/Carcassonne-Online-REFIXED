@@ -138,6 +138,19 @@ export class ScorePanelUI {
 
     _buildMeeplesDisplay(container, player, context) {
         const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+        const isSpectator = player.color === 'spectator';
+
+        // Spectateur : juste le fantôme, pas de meeples ni marchandises
+        if (isSpectator) {
+            const ghost = document.createElement('img');
+            ghost.src = './assets/Meeples/Spectator.png';
+            ghost.alt = 'Spectateur';
+            ghost.style.width  = '28px';
+            ghost.style.height = 'auto';
+            ghost.style.opacity = '0.6';
+            container.appendChild(ghost);
+            return;
+        }
 
         const applySize = (el, type) => {
             const { width, height } = getMeepleSize(type, context);
@@ -157,7 +170,7 @@ export class ScorePanelUI {
         }
 
         // Abbé
-        if (this.config?.extensions?.abbot) {
+        if (!isSpectator && this.config?.extensions?.abbot) {
             const img = document.createElement('img');
             img.src = `./assets/Meeples/${colorCap}/Abbot.png`;
             img.alt = 'Abbé';
@@ -167,7 +180,7 @@ export class ScorePanelUI {
         }
 
         // Grand meeple
-        if (this.config?.extensions?.largeMeeple) {
+        if (!isSpectator && this.config?.extensions?.largeMeeple) {
             const img = document.createElement('img');
             img.src = `./assets/Meeples/${colorCap}/Large.png`;
             img.alt = 'Grand Meeple';
@@ -177,7 +190,7 @@ export class ScorePanelUI {
         }
 
         // Bâtisseur
-        if (this.config?.extensions?.tradersBuilders) {
+        if (!isSpectator && this.config?.extensions?.tradersBuilders) {
             const img = document.createElement('img');
             img.src = `./assets/Meeples/${colorCap}/Builder.png`;
             img.alt = 'Bâtisseur';
@@ -187,7 +200,7 @@ export class ScorePanelUI {
         }
 
         // Cochon
-        if (this.config?.extensions?.pig) {
+        if (!isSpectator && this.config?.extensions?.pig) {
             const img = document.createElement('img');
             img.src = `./assets/Meeples/${colorCap}/Pig.png`;
             img.alt = 'Cochon';
@@ -197,7 +210,7 @@ export class ScorePanelUI {
         }
 
         // Jetons marchandises (PC + mobile)
-        if (this.config?.extensions?.merchants) {
+        if (!isSpectator && this.config?.extensions?.merchants) {
             const goods     = player.goods || { cloth: 0, wheat: 0, wine: 0 };
             const goodsSize = getGoodsSize(context === 'panel' ? 'panel' : 'panelMobile');
 

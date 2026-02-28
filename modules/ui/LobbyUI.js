@@ -27,15 +27,16 @@ export class LobbyUI {
         
         // Images des couleurs
         this.colorImages = {
-            'black': './assets/Meeples/Black/Normal.png',
-            'red': './assets/Meeples/Red/Normal.png',
-            'pink': './assets/Meeples/Pink/Normal.png',
-            'green': './assets/Meeples/Green/Normal.png',
-            'blue': './assets/Meeples/Blue/Normal.png',
-            'yellow': './assets/Meeples/Yellow/Normal.png'
+            'black':     './assets/Meeples/Black/Normal.png',
+            'red':       './assets/Meeples/Red/Normal.png',
+            'pink':      './assets/Meeples/Pink/Normal.png',
+            'green':     './assets/Meeples/Green/Normal.png',
+            'blue':      './assets/Meeples/Blue/Normal.png',
+            'yellow':    './assets/Meeples/Yellow/Normal.png',
+            'spectator': './assets/Meeples/Spectator.png'
         };
         
-        this.allColors = ['black', 'red', 'pink', 'green', 'blue', 'yellow'];
+        this.allColors = ['black', 'red', 'pink', 'green', 'blue', 'yellow', 'spectator'];
     }
 
     /**
