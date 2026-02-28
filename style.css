@@ -719,11 +719,31 @@ button:disabled {
     display: flex;
     align-items: center;
     gap: 8px;
-    /* La flèche native reste, on pousse la coche maître à droite */
-    justify-content: flex-start;
+    list-style: none; /* masque la flèche native pour en mettre une custom */
+}
+
+.extensions-section summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Flèche custom via ::before — pointe à droite (fermé), vers le bas (ouvert) */
+.extensions-section summary::before {
+    content: '▶';
+    font-size: 10px;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+    color: rgba(255,255,255,0.6);
+}
+
+.extensions-section details[open] > summary::before {
+    transform: rotate(90deg);
 }
 
 .extensions-section summary:hover {
+    color: gold;
+}
+
+.extensions-section summary:hover::before {
     color: gold;
 }
 

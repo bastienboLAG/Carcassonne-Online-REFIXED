@@ -71,6 +71,14 @@ export class ZoneRegistry {
         zone1.tiles.push(...zone2.tiles);
         zone1.shields += zone2.shields;
 
+        // Fusionner les marchandises (cloth/wheat/wine)
+        if (zone2.goods) {
+            zone1.goods         = zone1.goods || { cloth: 0, wheat: 0, wine: 0 };
+            zone1.goods.cloth  += zone2.goods.cloth  || 0;
+            zone1.goods.wheat  += zone2.goods.wheat  || 0;
+            zone1.goods.wine   += zone2.goods.wine   || 0;
+        }
+
         // ✅ Garantie : corriger TOUTES les entrées tileToZone pointant vers zoneId2
         // (même si zone2.tiles était incomplet avant l'appel)
         if (tileToZone) {

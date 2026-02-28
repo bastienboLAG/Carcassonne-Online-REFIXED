@@ -13,7 +13,7 @@ import { BaseRules }              from './modules/rules/BaseRules.js';
 import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { InnsRules }              from './modules/rules/InnsRules.js';
 import { BuilderRules }          from './modules/rules/BuilderRules.js';
-import { getMeepleSize }          from './modules/MeepleConfig.js';
+import { ZoomManager }           from './modules/game/ZoomManager.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -120,6 +120,7 @@ let lastPlacedTile = null;
 let placedMeeples  = {};
 
 let zoomLevel  = 1;
+let zoomManager = null; // instance ZoomManager
 let heartbeatManager = null;
 let _navigationSetup = false;
 let isDragging = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0;
@@ -243,8 +244,8 @@ eventBus.on('meeple-count-updated', (data) => {
             hasPig:         player ? player.hasPig         : undefined
         });
     }
-    // Mettre à jour le panel mobile en temps réel pour tous les joueurs
-    updateMobilePlayers();
+    // Panel mobile mis à jour via ScorePanelUI
+    if (scorePanelUI) scorePanelUI.updateMobile();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -1187,90 +1188,7 @@ function _updateMobileActiveBonusStyle(isBonusTurn) {
     });
 }
 
-function updateMobilePlayers() {
-    if (!isMobile() || !gameState) return;
-    const container = document.getElementById('mobile-players-scores');
-    if (!container) return;
 
-    container.innerHTML = '';
-    const currentPlayer = gameState.getCurrentPlayer();
-
-    gameState.players.forEach(player => {
-        const isActive = currentPlayer && player.id === currentPlayer.id;
-        const colorCap = player.color.charAt(0).toUpperCase() + player.color.slice(1);
-
-        const card = document.createElement('div');
-        card.className = 'mobile-player-card' + (isActive ? ' active' : '');
-        card.dataset.playerId = player.id;
-
-        const name = document.createElement('div');
-        name.className = 'mobile-player-name';
-        name.textContent = player.name;
-        card.appendChild(name);
-
-        const score = document.createElement('div');
-        score.className = 'mobile-player-score';
-        score.textContent = player.score + ' pts';
-        card.appendChild(score);
-
-        const meeplesDiv = document.createElement('div');
-        meeplesDiv.className = 'mobile-player-meeples';
-        const applyMeepleSize = (el, type) => {
-            const { width, height } = getMeepleSize(type, 'panelMobile');
-            el.style.width  = width;
-            el.style.height = height;
-        };
-        for (let i = 0; i < 7; i++) {
-            const img = document.createElement('img');
-            img.src = `./assets/Meeples/${colorCap}/Normal.png`;
-            applyMeepleSize(img, 'Normal');
-            if (i >= player.meeples) img.classList.add('unavailable');
-            meeplesDiv.appendChild(img);
-        }
-        // Abbé (si extension activée)
-        if (gameConfig?.extensions?.abbot) {
-            const abbot = document.createElement('img');
-            abbot.src = `./assets/Meeples/${colorCap}/Abbot.png`;
-            abbot.alt = 'Abbé';
-            abbot.style.marginLeft = '6px';
-            applyMeepleSize(abbot, 'Abbot');
-            if (!player.hasAbbot) abbot.classList.add('unavailable');
-            meeplesDiv.appendChild(abbot);
-        }
-        // Grand meeple (si extension activée)
-        if (gameConfig?.extensions?.largeMeeple) {
-            const large = document.createElement('img');
-            large.src = `./assets/Meeples/${colorCap}/Large.png`;
-            large.alt = 'Grand Meeple';
-            large.style.marginLeft = '6px';
-            applyMeepleSize(large, 'Large');
-            if (!player.hasLargeMeeple) large.classList.add('unavailable');
-            meeplesDiv.appendChild(large);
-        }
-        // Bâtisseur (si extension activée)
-        if (gameConfig?.extensions?.tradersBuilders) {
-            const builder = document.createElement('img');
-            builder.src = `./assets/Meeples/${colorCap}/Builder.png`;
-            builder.alt = 'Bâtisseur';
-            builder.style.marginLeft = '6px';
-            applyMeepleSize(builder, 'Builder');
-            if (!player.hasBuilder) builder.classList.add('unavailable');
-            meeplesDiv.appendChild(builder);
-        }
-        // Cochon (si extension activée)
-        if (gameConfig?.extensions?.pig) {
-            const pig = document.createElement('img');
-            pig.src = `./assets/Meeples/${colorCap}/Pig.png`;
-            pig.alt = 'Cochon';
-            pig.style.marginLeft = '6px';
-            applyMeepleSize(pig, 'Pig');
-            if (!player.hasPig) pig.classList.add('unavailable');
-            meeplesDiv.appendChild(pig);
-        }
-        card.appendChild(meeplesDiv);
-        container.appendChild(card);
-    });
-}
 
 /**
  * Met à jour la preview de tuile mobile
@@ -1380,7 +1298,7 @@ function updateTurnDisplay() {
         undoBtn.style.color      = canUndo ? '#000' : '';
     }
 
-    updateMobilePlayers();
+    scorePanelUI?.updateMobile();
     updateMobileButtons();
     eventBus.emit('score-updated');
 
@@ -1986,7 +1904,7 @@ function setupEventListeners() {
         eventBus.emit('score-updated');
         updateTurnDisplay();
         updateMobileTilePreview();
-        updateMobilePlayers();
+        scorePanelUI?.updateMobile();
         updateMobileButtons();
     });
 
@@ -2150,6 +2068,7 @@ function returnToLobby() {
     tuilePosee     = false;
     firstTilePlaced = false;
     zoomLevel      = 1;
+    if (zoomManager) { zoomManager.setZoom(1); }
     placedMeeples  = {};
     lastPlacedTile = null;
     isMyTurn       = false;
@@ -2163,6 +2082,7 @@ function returnToLobby() {
     if (boardEl) boardEl.style.transform = '';
     if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
     zoomLevel = 1;
+    if (zoomManager) { zoomManager.setZoom(1); zoomManager.destroy(); zoomManager = null; }
     _navigationSetup = false;
 
     if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
@@ -2204,12 +2124,23 @@ function returnToLobby() {
 function setupNavigation(container, board) {
     if (_navigationSetup) return;
     _navigationSetup = true;
-    // ── PC : zoom molette ─────────────────────────────────────────────────
-    container.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        zoomLevel = Math.max(0.2, Math.min(3, zoomLevel + (e.deltaY > 0 ? -0.1 : 0.1)));
-        board.style.transform = `scale(${zoomLevel})`;
-    }, { passive: false });
+
+    // ── Zoom : délégué à ZoomManager (throttle RAF, PC + Mobile) ──────────
+    if (zoomManager) zoomManager.destroy();
+    zoomManager = new ZoomManager(container, board, {
+        min:           0.2,
+        max:           3,
+        stepWheel:     0.1,
+        isMobile:      isMobile,
+        initialPC:     1,
+        initialMobile: 0.5,
+    });
+    zoomManager.init();
+    // Synchroniser la variable globale zoomLevel (utilisée ailleurs)
+    Object.defineProperty(window, '_zoomLevelProxy', {
+        get: () => zoomManager.zoomLevel,
+        configurable: true,
+    });
 
     // ── PC : drag souris ──────────────────────────────────────────────────
     container.addEventListener('mousedown', (e) => {
@@ -2234,61 +2165,37 @@ function setupNavigation(container, board) {
         container.scrollTop  = scrollTop  - (y - startY) * 2;
     });
 
-    // ── Mobile : pinch-to-zoom + drag tactile ─────────────────────────────
+    // ── Mobile : drag tactile 1 doigt ─────────────────────────────────────
+    // (le pinch est géré par ZoomManager)
     if (isMobile()) {
-        let lastTouchDist   = null;
         let lastTouchX      = null;
         let lastTouchY      = null;
         let touchScrollLeft = 0;
         let touchScrollTop  = 0;
 
         container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                // Pinch : noter la distance initiale
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                lastTouchDist = Math.hypot(dx, dy);
-            } else if (e.touches.length === 1) {
-                // Drag 1 doigt
+            if (e.touches.length === 1) {
                 lastTouchX      = e.touches[0].clientX;
                 lastTouchY      = e.touches[0].clientY;
                 touchScrollLeft = container.scrollLeft;
                 touchScrollTop  = container.scrollTop;
-                lastTouchDist   = null;
             }
         }, { passive: true });
 
         container.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && lastTouchDist !== null) {
-                // Pinch-to-zoom
-                e.preventDefault();
-                const dx   = e.touches[0].clientX - e.touches[1].clientX;
-                const dy   = e.touches[0].clientY - e.touches[1].clientY;
-                const dist = Math.hypot(dx, dy);
-                const delta = (dist - lastTouchDist) * 0.01;
-                zoomLevel = Math.max(0.2, Math.min(3, zoomLevel + delta));
-                board.style.transform = `scale(${zoomLevel})`;
-                lastTouchDist = dist;
-
-            } else if (e.touches.length === 1 && lastTouchX !== null) {
-                // Drag 1 doigt
+            if (e.touches.length === 1 && lastTouchX !== null) {
                 const dx = e.touches[0].clientX - lastTouchX;
                 const dy = e.touches[0].clientY - lastTouchY;
                 container.scrollLeft = touchScrollLeft - dx * 1.5;
                 container.scrollTop  = touchScrollTop  - dy * 1.5;
             }
-        }, { passive: false });
+        }, { passive: true });
 
         container.addEventListener('touchend', (e) => {
-            if (e.touches.length < 2) lastTouchDist = null;
             if (e.touches.length === 0) { lastTouchX = null; lastTouchY = null; }
         }, { passive: true });
     }
 
-    if (isMobile()) {
-        zoomLevel = 0.5;
-        board.style.transform = `scale(${zoomLevel})`;
-    }
     container.scrollLeft = 10400 - container.clientWidth  / 2;
     container.scrollTop  = 10400 - container.clientHeight / 2;
 }
