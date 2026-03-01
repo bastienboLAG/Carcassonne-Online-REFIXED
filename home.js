@@ -1080,7 +1080,7 @@ async function startGame() {
     gameSync = new GameSync(multiplayer, gameState, null);
     gameSync.init();
 
-    turnManager = new TurnManager(eventBus, gameState, deck, multiplayer);
+    turnManager = new TurnManager(eventBus, gameState, deck, multiplayer, isHost);
     turnManager.init();
 
     initializeGameModules();

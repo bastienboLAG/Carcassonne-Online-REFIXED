@@ -7,11 +7,12 @@
  * - Déclencher le calcul des scores en fin de tour
  */
 export class TurnManager {
-    constructor(eventBus, gameState, deck, multiplayer) {
+    constructor(eventBus, gameState, deck, multiplayer, isHost = false) {
         this.eventBus = eventBus;
         this.gameState = gameState;
         this.deck = deck;
         this.multiplayer = multiplayer;
+        this.isHost = isHost;
         
         // État du tour
         this.isMyTurn   = false;
@@ -43,7 +44,7 @@ export class TurnManager {
      */
     updateTurnState() {
         if (!this.gameState || this.gameState.players.length === 0) {
-            this.isMyTurn = true;
+            this.isMyTurn = false;
             return;
         }
         
@@ -187,8 +188,9 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer()
         });
         
-        // Piocher la tuile suivante si c'est notre tour
-        if (this.isMyTurn) {
+        // L'hôte pioche toujours (il gère la pioche pour tous)
+        // Un joueur normal pioche seulement si c'est son tour
+        if (this.isMyTurn || this.isHost) {
             this.drawTile();
         }
     }
@@ -292,8 +294,8 @@ export class TurnManager {
             // Tour normal : remettre à zéro les flags bonus
             this.bonusAlreadyUsedThisTurn = false;
             this.updateTurnState();
-            // Piocher si c'est notre tour
-            if (this.isMyTurn) {
+            // L'hôte pioche toujours, sinon seulement si c'est notre tour
+            if (this.isMyTurn || this.isHost) {
                 this.drawTile();
             }
         }
