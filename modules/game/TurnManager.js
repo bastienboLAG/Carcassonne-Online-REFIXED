@@ -48,7 +48,9 @@ export class TurnManager {
         }
         
         const currentPlayer = this.gameState.getCurrentPlayer();
-        this.isMyTurn = currentPlayer.id === this.multiplayer.playerId;
+        const mePlayer = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
+        const iAmSpectator = mePlayer?.color === 'spectator';
+        this.isMyTurn = currentPlayer.id === this.multiplayer.playerId && !iAmSpectator;
         
         console.log('🔄 Mise à jour isMyTurn:', this.isMyTurn, 'Tour de:', currentPlayer.name);
     }
@@ -270,6 +272,15 @@ export class TurnManager {
         // Restaurer le GameState
         if (gameStateData) {
             this.gameState.deserialize(gameStateData);
+            // S'assurer que currentPlayerIndex ne pointe pas sur un spectateur
+            let attempts = 0;
+            while (
+                this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' &&
+                attempts < this.gameState.players.length
+            ) {
+                this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
+                attempts++;
+            }
         }
         
         // Propager l'état de tour bonus
