@@ -129,10 +129,12 @@ export class ScorePanelUI {
             name.textContent = player.name;
             card.appendChild(name);
 
-            const score = document.createElement('div');
-            score.className   = 'mobile-player-score';
-            score.textContent = player.score + ' pts';
-            card.appendChild(score);
+            if (player.color !== 'spectator') {
+                const score = document.createElement('div');
+                score.className   = 'mobile-player-score';
+                score.textContent = player.score + ' pts';
+                card.appendChild(score);
+            }
 
             const meeplesDiv = document.createElement('div');
             meeplesDiv.className = 'mobile-player-meeples';

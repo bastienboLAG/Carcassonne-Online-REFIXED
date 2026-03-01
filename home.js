@@ -2092,6 +2092,14 @@ function returnToLobby() {
 
     document.getElementById('back-to-lobby-btn').style.display = 'none';
 
+    // Restaurer tous les boutons masqués pour le mode spectateur
+    ['end-turn-btn', 'undo-btn', 'mobile-end-turn-btn', 'mobile-undo-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
+    });
+    const tileTitle = document.querySelector('#current-tile-container h3');
+    if (tileTitle) tileTitle.style.display = '';
+
     if (unplaceableManager) unplaceableManager.hideUnplaceableBadge();
     document.getElementById('tile-destroyed-modal').style.display = 'none';
 
