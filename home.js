@@ -1052,6 +1052,10 @@ async function startGame() {
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    // S'assurer que currentPlayerIndex ne démarre pas sur un spectateur
+    { let a = 0;
+      while (gameState.players[gameState.currentPlayerIndex]?.color === 'spectator' && a++ < gameState.players.length)
+          gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length; }
     // Initialiser le flag Abbé pour chaque joueur
     console.log('🔧 startGame — gameConfig.extensions:', JSON.stringify(gameConfig.extensions));
     if (gameConfig.extensions?.abbot) {
@@ -1112,6 +1116,10 @@ async function startGameForInvite() {
 
     gameState = new GameState();
     players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    // S'assurer que currentPlayerIndex ne démarre pas sur un spectateur
+    { let a = 0;
+      while (gameState.players[gameState.currentPlayerIndex]?.color === 'spectator' && a++ < gameState.players.length)
+          gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length; }
     if (gameConfig.extensions?.abbot) {
         gameState.players.forEach(p => { p.hasAbbot = true; });
         console.log('✅ [INVITÉ] hasAbbot initialisé pour', gameState.players.map(p => p.id));
