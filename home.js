@@ -170,9 +170,11 @@ eventBus.on('tile-drawn', (data) => {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // Synchroniser si c'est notre tour
-    if (!data.fromNetwork && !data.fromUndo && turnManager && turnManager.getIsMyTurn() && gameSync) {
-        gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
+    // L'hôte synchronise toujours la pioche (même spectateur), l'invité seulement si c'est son tour
+    if (!data.fromNetwork && !data.fromUndo && turnManager && gameSync) {
+        if (isHost || turnManager.getIsMyTurn()) {
+            gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
+        }
     }
 
     // Vérifier si la tuile est plaçable
