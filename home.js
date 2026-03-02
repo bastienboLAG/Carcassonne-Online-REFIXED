@@ -1249,6 +1249,9 @@ function applyFullStateSync(data) {
         if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
     }
     firstTilePlaced = Object.keys(data.plateau).length > 0;
+    // Synchroniser le flag interne de SlotsUI et TilePlacement
+    if (slotsUI) slotsUI.firstTilePlaced = firstTilePlaced;
+    if (tilePlacement) tilePlacement.firstTilePlaced = firstTilePlaced;
 
     // Reconstruire zones
     if (zoneMerger) {
