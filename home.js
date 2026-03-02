@@ -1212,21 +1212,16 @@ function applyFullStateSync(data) {
     deck.currentIndex = data.deck.currentIndex;
     deck.totalTiles   = data.deck.totalTiles;
 
-    // Reconstruire plateau visuellement via poserTuileSync
+    // Reconstruire plateau — données + affichage visuel uniquement
     plateau.placedTiles = {};
-    // Trier par distance au centre pour que (0,0) passe en premier
-    const entries = Object.entries(data.plateau).sort(([a], [b]) => {
-        const [ax, ay] = a.split(',').map(Number);
-        const [bx, by] = b.split(',').map(Number);
-        return (Math.abs(ax) + Math.abs(ay)) - (Math.abs(bx) + Math.abs(by));
-    });
-    firstTilePlaced = false;
-    for (const [key, tileData] of entries) {
+    for (const [key, tileData] of Object.entries(data.plateau)) {
         const [tx, ty] = key.split(',').map(Number);
         const tile = new Tile(tileData);
         tile.rotation = tileData.rotation || 0;
-        poserTuileSync(tx, ty, tile, { skipZoneMerger: true, skipValidation: true });
+        plateau.placedTiles[key] = tile;
+        if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
     }
+    firstTilePlaced = Object.keys(data.plateau).length > 0;
 
     // Reconstruire zones
     if (zoneMerger) {
