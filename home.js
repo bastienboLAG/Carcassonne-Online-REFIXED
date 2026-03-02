@@ -107,6 +107,12 @@ let finalScoresManager = null;
 let gameTimerInterval  = null;
 let gameTimerStart     = null;
 
+// ── Reconnexion / Pause ──────────────────────────────────────────────────────
+const PAUSE_TIMEOUT_MS = 60_000;  // 1 min (tests) → 3 min (prod)
+let gamePaused         = false;
+let pauseTimerInterval = null;
+let pauseTimerEnd      = null;
+
 function _isSpectator() {
     if (!gameState || !multiplayer) return false;
     const me = gameState.players.find(p => p.id === multiplayer.playerId);
@@ -822,6 +828,20 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 if (data.config) { gameConfig = data.config; }
                 startGameForInvite();
             }
+            if (data.type === 'full-state-sync') {
+                // Rejoindre ou se reconnecter à une partie déjà en cours
+                console.log('🔄 [INVITÉ] Réception état complet de la partie en cours...');
+                if (data.gameConfig) gameConfig = data.gameConfig;
+                // Initialiser les structures de base si pas encore fait
+                if (!turnManager) {
+                    await startGameForInvite(data);
+                } else {
+                    applyFullStateSync(data);
+                }
+            }
+            if (data.type === 'rejoin-rejected') {
+                returnToInitialLobby(data.reason || 'Impossible de rejoindre la partie.');
+            }
             if (data.type === 'you-are-kicked') {
                 returnToInitialLobby('Vous avez été retiré du salon.');
             }
@@ -1014,8 +1034,19 @@ function attachGameSyncCallbacks() {
         },
         updateTurnDisplay,
         poserTuileSync,
-        afficherMessage: (msg) => { afficherToast(msg); }, // ✅ ne plus écraser le tile-preview
+        afficherMessage: (msg) => { afficherToast(msg); },
     }).attach(isHost);
+
+    // Callbacks reconnexion (définis après attach car gameSync callbacks obj créé)
+    if (gameSync) {
+        gameSync.onGamePaused  = (name, ms) => { _showPauseOverlay(name, ms ?? PAUSE_TIMEOUT_MS); };
+        gameSync.onGameResumed = (reason)   => {
+            _hidePauseOverlay();
+            if (reason === 'timeout') afficherToast('⏱ Partie reprise (joueur exclu).');
+            else afficherToast('✅ Partie reprise !');
+        };
+        gameSync.onFullStateSync = (data) => { applyFullStateSync(data); };
+    }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1042,6 +1073,199 @@ function startGameTimer() {
 function stopGameTimer() {
     clearInterval(gameTimerInterval);
     gameTimerInterval = null;
+}
+
+// ── Pause / Reconnexion ─────────────────────────────────────────────────────
+
+/**
+ * Déclencher la pause (hôte uniquement)
+ * Affiche l'overlay, démarre le timer, broadcaster aux invités
+ */
+function pauseGame(disconnectedName) {
+    if (!isHost || gamePaused) return;
+    gamePaused = true;
+    pauseTimerEnd = Date.now() + PAUSE_TIMEOUT_MS;
+
+    // Broadcaster aux invités
+    if (gameSync) gameSync.syncGamePaused(disconnectedName, PAUSE_TIMEOUT_MS);
+
+    // Afficher l'overlay
+    _showPauseOverlay(disconnectedName, PAUSE_TIMEOUT_MS);
+
+    // Timer de countdown
+    pauseTimerInterval = setInterval(() => {
+        const remaining = pauseTimerEnd - Date.now();
+        _updatePauseCountdown(remaining);
+        if (remaining <= 0) {
+            _onPauseTimeout(disconnectedName);
+        }
+    }, 1000);
+}
+
+/**
+ * Reprendre la partie (hôte uniquement)
+ */
+function resumeGame(reason = 'reconnected') {
+    if (!gamePaused) return;
+    gamePaused = false;
+    clearInterval(pauseTimerInterval);
+    pauseTimerInterval = null;
+    pauseTimerEnd = null;
+    _hidePauseOverlay();
+    if (isHost && gameSync) gameSync.syncGameResumed(reason);
+}
+
+/**
+ * Timer de pause expiré — marquer le joueur comme abandonné et continuer
+ */
+function _onPauseTimeout(disconnectedName) {
+    clearInterval(pauseTimerInterval);
+    pauseTimerInterval = null;
+    gamePaused = false;
+    _hidePauseOverlay();
+
+    // Trouver et supprimer le joueur déconnecté du gameState
+    if (isHost && gameState) {
+        const idx = gameState.players.findIndex(p => p.name === disconnectedName && p.disconnected);
+        if (idx !== -1) {
+            const peerId = gameState.players[idx].id;
+            gameState.players.splice(idx, 1);
+            if (gameState.currentPlayerIndex >= gameState.players.length) {
+                gameState.currentPlayerIndex = 0;
+            }
+            players = players.filter(p => p.id !== peerId);
+        }
+        if (gameSync) gameSync.syncGameResumed('timeout');
+        if (turnManager) {
+            turnManager.updateTurnState();
+            if (turnManager.isMyTurn || isHost) turnManager.drawTile();
+            eventBus.emit('turn-changed', {
+                isMyTurn: turnManager.isMyTurn,
+                currentPlayer: turnManager.getCurrentPlayer()
+            });
+        }
+    }
+    afficherToast(`⏱ ${disconnectedName} a été exclu (délai dépassé).`);
+}
+
+function _showPauseOverlay(name, timeoutMs) {
+    let overlay = document.getElementById('pause-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'pause-overlay';
+        overlay.style.cssText = `
+            position:fixed; inset:0; background:rgba(0,0,0,0.7);
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            z-index:9000; color:#fff; font-family:inherit;
+        `;
+        document.body.appendChild(overlay);
+    }
+    const secs = Math.ceil(timeoutMs / 1000);
+    overlay.innerHTML = `
+        <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="font-size:48px;margin-bottom:12px;">⏸</div>
+            <h2 style="margin:0 0 8px;font-size:22px;">Partie en pause</h2>
+            <p style="margin:0 0 16px;color:#aaa;font-size:15px;"><strong style="color:#fff">${name}</strong> s'est déconnecté(e).</p>
+            <p style="margin:0 0 4px;color:#aaa;font-size:14px;">Reprise automatique dans</p>
+            <div id="pause-countdown" style="font-size:36px;font-weight:bold;color:#f39c12;">${secs}s</div>
+        </div>
+    `;
+    overlay.style.display = 'flex';
+}
+
+function _updatePauseCountdown(remaining) {
+    const el = document.getElementById('pause-countdown');
+    if (el) el.textContent = Math.max(0, Math.ceil(remaining / 1000)) + 's';
+}
+
+function _hidePauseOverlay() {
+    const overlay = document.getElementById('pause-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+/**
+ * Construire et envoyer l'état complet à un joueur qui (re)joint
+ */
+function sendFullStateTo(targetPeerId) {
+    if (!isHost || !gameSync) return;
+    gameSync.syncFullState(targetPeerId, {
+        gameState,
+        deck,
+        plateau,
+        zoneRegistry: zoneMerger.registry,
+        tileToZone:   zoneMerger.tileToZone,
+        placedMeeples,
+        tuileEnMain,
+        gameConfig
+    });
+}
+
+/**
+ * Recevoir et appliquer un full-state-sync (côté invité/reconnecté)
+ */
+function applyFullStateSync(data) {
+    // Reconstruire gameState
+    gameState.deserialize(data.gameState);
+
+    // Reconstruire deck
+    deck.tiles        = data.deck.tiles;
+    deck.currentIndex = data.deck.currentIndex;
+    deck.totalTiles   = data.deck.totalTiles;
+
+    // Reconstruire plateau visuellement
+    plateau.placedTiles = {};
+    for (const [key, tileData] of Object.entries(data.plateau)) {
+        const [x, y] = key.split(',').map(Number);
+        const tile = new Tile(tileData);
+        tile.rotation = tileData.rotation || 0;
+        plateau.placedTiles[key] = tile;
+        // Afficher visuellement
+        const existing = document.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
+        if (!existing) {
+            const tileEl = document.createElement('img');
+            tileEl.className = 'tile';
+            tileEl.src = tile.imagePath;
+            tileEl.dataset.x = x;
+            tileEl.dataset.y = y;
+            tileEl.style.transform = `rotate(${tile.rotation * 90}deg)`;
+            if (slotsUI) slotsUI.placeTileOnBoard(x, y, tileEl);
+        }
+    }
+
+    // Reconstruire zones
+    if (zoneMerger) {
+        zoneMerger.registry.deserialize(data.zoneRegistry);
+        zoneMerger.tileToZone = new Map(data.tileToZone);
+    }
+
+    // Reconstruire meeples
+    placedMeeples = data.placedMeeples || {};
+    for (const [key, meeple] of Object.entries(placedMeeples)) {
+        const [x, y, position] = key.split(',');
+        if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
+    }
+
+    // Tuile en main si c'est notre tour
+    if (data.tuileEnMain && turnManager?.isMyTurn) {
+        const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
+        if (td) {
+            tuileEnMain = new Tile(td);
+            tuileEnMain.rotation = data.tuileEnMain.rotation || 0;
+            eventBus.emit('tile-drawn', { tileData: tuileEnMain, fromNetwork: true });
+        }
+    }
+
+    // Mettre à jour l'affichage
+    eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
+    eventBus.emit('score-updated');
+    if (turnManager) {
+        turnManager.updateTurnState();
+        eventBus.emit('turn-changed', {
+            isMyTurn: turnManager.isMyTurn,
+            currentPlayer: turnManager.getCurrentPlayer()
+        });
+    }
+    updateTurnDisplay();
 }
 
 async function startGame() {
@@ -1110,14 +1334,21 @@ async function startGame() {
 // ═══════════════════════════════════════════════════════
 // DÉMARRAGE — INVITÉ
 // ═══════════════════════════════════════════════════════
-async function startGameForInvite() {
+async function startGameForInvite(fullStateData = null) {
     console.log('🎮 [INVITÉ] Initialisation du jeu...');
     startGameTimer();
     lobbyUI.hide();
     history.pushState({ inGame: true }, '');
 
     gameState = new GameState();
-    players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    // Si on a un état complet, on le désérialisera après init des modules
+    if (!fullStateData) {
+        players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    } else {
+        // Pré-peupler depuis fullStateData pour que les modules s'initialisent correctement
+        const gs = fullStateData.gameState;
+        (gs.players || []).forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
+    }
     // S'assurer que currentPlayerIndex ne démarre pas sur un spectateur
     { let a = 0;
       while (gameState.players[gameState.currentPlayerIndex]?.color === 'spectator' && a++ < gameState.players.length)
@@ -1158,7 +1389,14 @@ async function startGameForInvite() {
     setupNavigation(document.getElementById('board-container'), document.getElementById('board'));
 
     _postStartSetup();
-    afficherMessage("En attente de l'hôte...");
+
+    // Si on rejoint une partie en cours, appliquer l'état complet maintenant
+    if (fullStateData) {
+        applyFullStateSync(fullStateData);
+        afficherMessage('');
+    } else {
+        afficherMessage("En attente de l'hôte...");
+    }
     console.log('✅ Initialisation invité terminée');
 }
 
@@ -1212,22 +1450,92 @@ function _postStartSetup() {
     if (multiplayer?.peer) {
         const handleDisconnect = (peerId) => {
             if (!isHost) return;
-            players = players.filter(p => p.id !== peerId);
-            if (turnManager) {
-                turnManager.handlePlayerDisconnected(peerId, {
-                    tuileEnMain,
-                    gameSync,
-                    afficherMessage: (msg) => { afficherToast(msg); }, // ✅ ne plus écraser le tile-preview
-                    onPlayerRemoved: (id) => {
-                        players = players.filter(p => p.id !== id);
-                        lobbyUI.setPlayers(players);
-                    }
-                });
+            if (!gameState) return;
+
+            const result = gameState.markDisconnected(peerId);
+            if (!result) return;
+
+            const { player } = result;
+            afficherToast(`💔 ${player.name} s'est déconnecté.`);
+
+            // Broadcaster aux invités (marquage + index)
+            if (gameSync) gameSync.syncPlayerDisconnected(peerId, player.name, gameState.currentPlayerIndex);
+
+            // Si c'était son tour, avancer
+            const wasCurrent = gameState.players.findIndex(p => p.id === peerId) === gameState.currentPlayerIndex
+                            || gameState.players.find(p=>p.id===peerId)?.disconnected;
+            if (wasCurrent && tuileEnMain && turnManager) {
+                turnManager.updateTurnState();
+                eventBus.emit('turn-changed', { isMyTurn: turnManager.isMyTurn, currentPlayer: turnManager.getCurrentPlayer() });
             }
+
+            // Mettre en pause
+            pauseGame(player.name);
+
             if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
         };
         multiplayer.onPlayerLeft = handleDisconnect;
         _startHeartbeat(handleDisconnect);
+
+        // ── Reconnexion / nouvelle connexion en cours de partie ──────────────
+        multiplayer.onPlayerJoined = (playerId) => {
+            console.log('👤 Nouveau joueur en cours de partie:', playerId);
+            // On attend le message player-info pour identifier
+        };
+
+        // Intercept les messages réseau non-sync pour gérer reconnexion
+        const _prevOnData = multiplayer.onDataReceived;
+        multiplayer.onDataReceived = (data, from) => {
+            // Tentative de reconnexion ou nouvelle connexion en cours de partie
+            if (data.type === 'player-info' && isHost && gameState) {
+                const name = data.name;
+                const allPlayerColors = ['black','red','pink','green','blue','yellow'];
+
+                // Chercher un joueur déconnecté avec le même pseudo
+                const disconnectedEntry = gameState.findDisconnectedByName(name);
+
+                if (disconnectedEntry) {
+                    // ── Reconnexion ──────────────────────────────────────────
+                    const [oldPeerId] = disconnectedEntry;
+                    gameState.reconnectPlayer(oldPeerId, from);
+                    players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
+
+                    // Envoyer l'état complet
+                    sendFullStateTo(from);
+
+                    // Reprendre la partie si elle était en pause pour ce joueur
+                    if (gamePaused) resumeGame('reconnected');
+
+                    afficherToast(`✅ ${name} s'est reconnecté !`);
+                    multiplayer.broadcast({ type: 'players-update', players });
+                    console.log(`🔄 Reconnexion: ${name} (${oldPeerId} → ${from})`);
+
+                } else {
+                    // ── Nouvelle connexion en cours de partie ─────────────────
+                    const takenNow = gameState.players.map(p => p.color);
+                    const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
+
+                    if (freePlaying.length === 0) {
+                        // Plus de couleurs libres → refuser
+                        multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' });
+                        return;
+                    }
+
+                    const assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
+                    const newPlayer = { id: from, name, color: assigned, isHost: false };
+                    gameState.addPlayer(from, name, assigned, false);
+                    players.push(newPlayer);
+
+                    sendFullStateTo(from);
+                    multiplayer.broadcast({ type: 'players-update', players });
+                    afficherToast(`👋 ${name} a rejoint la partie !`);
+                }
+                return;
+            }
+
+            // Tous les autres messages → handler normal
+            if (_prevOnData) _prevOnData(data, from);
+        };
     }
 }
 
@@ -2101,6 +2409,13 @@ function returnToLobby() {
     }
 
     document.getElementById('back-to-lobby-btn').style.display = 'none';
+
+    // Reset pause
+    gamePaused = false;
+    clearInterval(pauseTimerInterval);
+    pauseTimerInterval = null;
+    pauseTimerEnd = null;
+    _hidePauseOverlay();
 
     // Restaurer tous les boutons masqués pour le mode spectateur
     ['end-turn-btn', 'undo-btn', 'mobile-end-turn-btn', 'mobile-undo-btn'].forEach(id => {

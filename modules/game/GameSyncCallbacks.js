@@ -53,6 +53,9 @@ export class GameSyncCallbacks {
         this.updateTurnDisplay = updateTurnDisplay;   // () => void
         this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
         this.afficherMessage   = afficherMessage;     // (msg) => void
+        this.onGamePaused      = null; // (name, ms) => void
+        this.onGameResumed     = null; // (reason) => void
+        this.onFullStateSync   = null; // (data) => void
     }
 
     /**
@@ -201,12 +204,13 @@ export class GameSyncCallbacks {
         // ── Fin de partie ─────────────────────────────────────────────────────
         gs.onPlayerDisconnected = (peerId, playerName, nextPlayerIndex) => {
             console.log('👋 [SYNC] Joueur déconnecté:', playerName);
-            // Retirer le joueur de gameState côté invité
+            // Marquer déconnecté (sans supprimer) côté invité
             if (this.gameState) {
-                this.gameState.players = this.gameState.players.filter(p => p.id !== peerId);
+                this.gameState.markDisconnected(peerId);
                 this.gameState.currentPlayerIndex = nextPlayerIndex;
             }
             if (this.afficherMessage) this.afficherMessage(`💔 ${playerName} s'est déconnecté.`);
+            if (this.onGamePaused) this.onGamePaused(playerName, null);
             // Mettre à jour le tour
             if (this.turnManager) {
                 this.turnManager.updateTurnState();
@@ -216,6 +220,10 @@ export class GameSyncCallbacks {
                 });
             }
         };
+
+        gs.onGamePaused  = (name, ms) => { if (this.onGamePaused)  this.onGamePaused(name, ms); };
+        gs.onGameResumed = (reason)   => { if (this.onGameResumed) this.onGameResumed(reason); };
+        gs.onFullStateSync = (data)   => { if (this.onFullStateSync) this.onFullStateSync(data); };
 
         gs.onGameEnded = (detailedScores, destroyedTilesCount = 0) => {
             console.log('🏁 [SYNC] Fin de partie reçue');

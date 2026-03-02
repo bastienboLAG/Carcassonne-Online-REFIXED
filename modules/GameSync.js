@@ -50,6 +50,7 @@ export class GameSync {
             'game-start', 'tile-rotated', 'tile-placed', 'turn-ended',
             'tile-drawn', 'meeple-placed', 'meeple-count-update', 'score-update',
             'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
+            'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
@@ -238,6 +239,46 @@ export class GameSync {
         });
     }
 
+    /**
+     * Broadcaster la pause de partie (joueur déconnecté)
+     */
+    syncGamePaused(disconnectedName, timeoutMs) {
+        this.multiplayer.broadcast({
+            type: 'game-paused',
+            disconnectedName,
+            timeoutMs,
+            playerId: this.multiplayer.playerId
+        });
+    }
+
+    /**
+     * Broadcaster la reprise de partie
+     */
+    syncGameResumed(reason) {
+        this.multiplayer.broadcast({
+            type: 'game-resumed',
+            reason, // 'reconnected' | 'timeout'
+            playerId: this.multiplayer.playerId
+        });
+    }
+
+    /**
+     * Envoyer l'état complet à un nouveau joueur/reconnexion (hôte → invité ciblé)
+     */
+    syncFullState(targetPeerId, { gameState, deck, plateau, zoneRegistry, tileToZone, placedMeeples, tuileEnMain, gameConfig }) {
+        this.multiplayer.sendTo(targetPeerId, {
+            type: 'full-state-sync',
+            gameState:    gameState.serialize(),
+            deck:         { tiles: deck.tiles, currentIndex: deck.currentIndex, totalTiles: deck.totalTiles },
+            plateau:      plateau.placedTiles,
+            zoneRegistry: zoneRegistry.serialize(),
+            tileToZone:   Array.from(tileToZone.entries()),
+            placedMeeples,
+            tuileEnMain:  tuileEnMain ? { id: tuileEnMain.id, rotation: tuileEnMain.rotation } : null,
+            gameConfig
+        });
+    }
+
     syncGameEnded(detailedScores, destroyedTilesCount = 0) {
         console.log('🏁 Sync game ended:', detailedScores);
         this.multiplayer.broadcast({
@@ -339,6 +380,36 @@ export class GameSync {
                 }
                 break;
             
+            case 'game-paused':
+                if (this.onGamePaused && data.playerId !== this.multiplayer.playerId) {
+                    this.onGamePaused(data.disconnectedName, data.timeoutMs);
+                }
+                break;
+
+            case 'game-resumed':
+                if (this.onGameResumed && data.playerId !== this.multiplayer.playerId) {
+                    this.onGameResumed(data.reason);
+                }
+                break;
+
+            case 'full-state-sync':
+                if (this.onFullStateSync) {
+                    this.onFullStateSync(data);
+                }
+                break;
+
+            case 'rejoin-accepted':
+                if (this.onRejoinAccepted) {
+                    this.onRejoinAccepted(data);
+                }
+                break;
+
+            case 'rejoin-rejected':
+                if (this.onRejoinRejected) {
+                    this.onRejoinRejected(data.reason);
+                }
+                break;
+
             case 'player-disconnected':
                 if (this.onPlayerDisconnected && data.playerId !== this.multiplayer.playerId) {
                     console.log('👋 [SYNC] Joueur déconnecté reçu:', data.playerName);

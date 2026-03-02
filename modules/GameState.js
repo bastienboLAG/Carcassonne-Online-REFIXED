@@ -5,9 +5,47 @@ export class GameState {
     constructor() {
         this.players = []; // Liste des joueurs
         this.currentPlayerIndex = 0; // Index du joueur actuel
+        this.disconnectedPlayers = {}; // { peerId: { player, index, disconnectedAt } }
         this.placedTiles = {}; // Tuiles posées sur le plateau
         this.deck = []; // Pioche (seulement côté hôte)
         this.destroyedTilesCount = 0; // Compteur global de tuiles détruites
+    }
+
+    /**
+     * Marquer un joueur comme déconnecté (sans le supprimer)
+     */
+    markDisconnected(peerId) {
+        const index = this.players.findIndex(p => p.id === peerId);
+        if (index === -1) return null;
+        const player = { ...this.players[index] };
+        this.disconnectedPlayers[peerId] = {
+            player,
+            index,
+            disconnectedAt: Date.now()
+        };
+        this.players[index].disconnected = true;
+        return { player, index };
+    }
+
+    /**
+     * Reconnecter un joueur (par pseudo)
+     */
+    findDisconnectedByName(name) {
+        return Object.entries(this.disconnectedPlayers).find(
+            ([, data]) => data.player.name === name
+        );
+    }
+
+    reconnectPlayer(oldPeerId, newPeerId) {
+        const entry = this.disconnectedPlayers[oldPeerId];
+        if (!entry) return false;
+        const player = this.players.find(p => p.id === oldPeerId);
+        if (player) {
+            player.id = newPeerId;
+            player.disconnected = false;
+        }
+        delete this.disconnectedPlayers[oldPeerId];
+        return true;
     }
 
     /**
@@ -78,7 +116,8 @@ export class GameState {
         return {
             players: this.players,
             currentPlayerIndex: this.currentPlayerIndex,
-            placedTiles: this.placedTiles
+            placedTiles: this.placedTiles,
+            disconnectedPlayers: this.disconnectedPlayers
         };
     }
 
@@ -108,5 +147,6 @@ export class GameState {
         }));
         this.currentPlayerIndex = data.currentPlayerIndex || 0;
         this.placedTiles = data.placedTiles || {};
+        this.disconnectedPlayers = data.disconnectedPlayers || {};
     }
 }

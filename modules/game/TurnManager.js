@@ -51,7 +51,8 @@ export class TurnManager {
         const currentPlayer = this.gameState.getCurrentPlayer();
         const mePlayer = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
         const iAmSpectator = mePlayer?.color === 'spectator';
-        this.isMyTurn = currentPlayer.id === this.multiplayer.playerId && !iAmSpectator;
+        const iAmDisconnected = mePlayer?.disconnected === true;
+        this.isMyTurn = currentPlayer.id === this.multiplayer.playerId && !iAmSpectator && !iAmDisconnected;
         
         console.log('🔄 Mise à jour isMyTurn:', this.isMyTurn, 'Tour de:', currentPlayer.name);
     }
@@ -164,13 +165,14 @@ export class TurnManager {
     nextPlayer() {
         if (!this.gameState) return;
 
-        // Incrémenter l'index du joueur en sautant les spectateurs
+        // Incrémenter l'index du joueur en sautant spectateurs et déconnectés
         let attempts = 0;
         do {
             this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
             attempts++;
         } while (
-            this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' &&
+            (this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' ||
+             this.gameState.players[this.gameState.currentPlayerIndex]?.disconnected === true) &&
             attempts < this.gameState.players.length
         );
         
@@ -277,7 +279,8 @@ export class TurnManager {
             // S'assurer que currentPlayerIndex ne pointe pas sur un spectateur
             let attempts = 0;
             while (
-                this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' &&
+                (this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' ||
+                 this.gameState.players[this.gameState.currentPlayerIndex]?.disconnected === true) &&
                 attempts < this.gameState.players.length
             ) {
                 this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
