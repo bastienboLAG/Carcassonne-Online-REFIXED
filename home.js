@@ -1196,6 +1196,7 @@ function sendFullStateTo(targetPeerId) {
         tileToZone:   zoneMerger.tileToZone,
         placedMeeples,
         tuileEnMain,
+        tuilePosee,
         gameConfig
     });
 }
@@ -1211,6 +1212,11 @@ function applyFullStateSync(data) {
     deck.tiles        = data.deck.tiles;
     deck.currentIndex = data.deck.currentIndex;
     deck.totalTiles   = data.deck.totalTiles;
+
+    // Créer le slot central si pas encore fait (cas reconnexion)
+    if (slotsUI && Object.keys(data.plateau).length > 0) {
+        slotsUI.createCentralSlot();
+    }
 
     // Reconstruire plateau — données + affichage visuel uniquement
     plateau.placedTiles = {};
@@ -1236,8 +1242,11 @@ function applyFullStateSync(data) {
         if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
     }
 
-    // Tuile en main si c'est notre tour
-    if (data.tuileEnMain && turnManager?.isMyTurn) {
+    // Restaurer tuilePosee (le joueur avait posé sa tuile mais pas terminé son tour)
+    tuilePosee = data.tuilePosee ?? false;
+
+    // Tuile en main si c'est notre tour et qu'on n'avait pas encore posé
+    if (data.tuileEnMain && turnManager?.isMyTurn && !tuilePosee) {
         const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
         if (td) {
             tuileEnMain = new Tile(td);
@@ -1490,6 +1499,14 @@ function _postStartSetup() {
                     const [oldPeerId] = disconnectedEntry;
                     gameState.reconnectPlayer(oldPeerId, from);
                     players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
+
+                    // Mettre à jour _connectedPeers du heartbeat (sinon timeout immédiat)
+                    if (heartbeatManager) {
+                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
+                        heartbeatManager._lastPong[from] = Date.now();
+                        heartbeatManager._timedOut.delete(oldPeerId);
+                        delete heartbeatManager._lastPong[oldPeerId];
+                    }
 
                     // Envoyer l'état complet
                     sendFullStateTo(from);
