@@ -1225,7 +1225,7 @@ function applyFullStateSync(data) {
         const [tx, ty] = key.split(',').map(Number);
         const tile = new Tile(tileData);
         tile.rotation = tileData.rotation || 0;
-        poserTuileSync(tx, ty, tile, { skipZoneMerger: true });
+        poserTuileSync(tx, ty, tile, { skipZoneMerger: true, skipValidation: true });
     }
 
     // Reconstruire zones
@@ -1840,18 +1840,23 @@ function poserTuile(x, y, tile, isFirst = false) {
 function poserTuileSync(x, y, tile, extraOptions = {}) {
     console.log('🔄 poserTuileSync appelé:', { x, y, tile });
     const isFirst = !firstTilePlaced;
+    const isReconstruction = !!extraOptions.skipValidation;
 
-    // ✅ Mettre à null AVANT placeTile() car celui-ci émet 'tile-placed' de façon
-    // synchrone, ce qui déclenche refreshAllSlots() immédiatement.
-    // Si tuileEnMain est encore non-null à ce moment, des slots fantômes apparaissent.
-    tuileEnMain = null;
-    updateMobileTilePreview();
+    if (!isReconstruction) {
+        // ✅ Mettre à null AVANT placeTile() car celui-ci émet 'tile-placed' de façon
+        // synchrone, ce qui déclenche refreshAllSlots() immédiatement.
+        // Si tuileEnMain est encore non-null à ce moment, des slots fantômes apparaissent.
+        tuileEnMain = null;
+        updateMobileTilePreview();
+    }
 
     tilePlacement.placeTile(x, y, tile, { isFirst, skipSync: true, ...extraOptions });
 
     if (!firstTilePlaced) firstTilePlaced = true;
-    tuilePosee     = true;
-    lastPlacedTile = { x, y };
+    if (!isReconstruction) {
+        tuilePosee     = true;
+        lastPlacedTile = { x, y };
+    }
     // ✅ Le snapshot est sauvegardé par GameSyncCallbacks après application des zones
     // Ne pas le sauvegarder ici pour éviter un snapshot avec zones incomplètes
 }

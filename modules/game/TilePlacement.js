@@ -43,7 +43,7 @@ export class TilePlacement {
      * @returns {boolean} true si placement réussi
      */
     placeTile(x, y, tile, options = {}) {
-        const { isFirst = false, skipSync = false } = options;
+        const { isFirst = false, skipSync = false, skipValidation = false } = options;
         
         console.log('🎯 TilePlacement: placement tuile', { x, y, tile: tile.id, isFirst });
         
@@ -52,8 +52,8 @@ export class TilePlacement {
             return false;
         }
         
-        // Valider le placement
-        if (!this.canPlace(x, y, tile)) {
+        // Valider le placement (sauf reconstruction)
+        if (!skipValidation && !this.canPlace(x, y, tile)) {
             console.warn('⚠️ Impossible de placer la tuile ici');
             return false;
         }
