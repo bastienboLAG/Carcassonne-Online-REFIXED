@@ -91,6 +91,7 @@ export class Tile {
     clone() {
         const clonedTile = new Tile({
             id: this.id,
+            imagePath: this.imagePath,
             zones: this.zones
         });
         clonedTile.rotation = this.rotation;

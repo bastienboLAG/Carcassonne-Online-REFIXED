@@ -1222,7 +1222,9 @@ function applyFullStateSync(data) {
     plateau.placedTiles = {};
     for (const [key, tileData] of Object.entries(data.plateau)) {
         const [tx, ty] = key.split(',').map(Number);
-        const tile = new Tile(tileData);
+        // Reconstruire depuis deck.tiles pour garantir l'imagePath
+        const srcData = data.deck.tiles.find(t => t.id === tileData.id) || tileData;
+        const tile = new Tile({ ...srcData, imagePath: srcData.imagePath || srcData.image });
         tile.rotation = tileData.rotation || 0;
         plateau.placedTiles[key] = tile;
         if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
