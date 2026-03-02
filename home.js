@@ -834,7 +834,7 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
                 if (data.gameConfig) gameConfig = data.gameConfig;
                 // Initialiser les structures de base si pas encore fait
                 if (!turnManager) {
-                    await startGameForInvite(data);
+                    startGameForInvite(data);
                 } else {
                     applyFullStateSync(data);
                 }
