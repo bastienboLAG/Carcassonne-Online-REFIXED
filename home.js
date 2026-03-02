@@ -1070,6 +1070,24 @@ function startGameTimer() {
     }, 1000);
 }
 
+function startGameTimerFrom(elapsedSeconds) {
+    gameTimerStart = Date.now() - (elapsedSeconds * 1000);
+    const el = document.getElementById('game-timer');
+    if (el) el.style.display = '';
+    clearInterval(gameTimerInterval);
+    gameTimerInterval = setInterval(() => {
+        const el = document.getElementById('game-timer');
+        if (!el) return;
+        const elapsed = Math.floor((Date.now() - gameTimerStart) / 1000);
+        const h = Math.floor(elapsed / 3600);
+        const m = Math.floor((elapsed % 3600) / 60);
+        const s = elapsed % 60;
+        el.textContent = h > 0
+            ? `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }, 1000);
+}
+
 function stopGameTimer() {
     clearInterval(gameTimerInterval);
     gameTimerInterval = null;
@@ -1197,7 +1215,8 @@ function sendFullStateTo(targetPeerId) {
         placedMeeples,
         tuileEnMain,
         tuilePosee,
-        gameConfig
+        gameConfig,
+        timerElapsed: gameTimerStart ? Math.floor((Date.now() - gameTimerStart) / 1000) : 0
     });
 }
 
@@ -1246,6 +1265,12 @@ function applyFullStateSync(data) {
 
     // Restaurer tuilePosee (le joueur avait posé sa tuile mais pas terminé son tour)
     tuilePosee = data.tuilePosee ?? false;
+    if (turnManager) turnManager.tilePlaced = tuilePosee;
+    // Afficher le verso si la tuile a déjà été posée
+    if (tuilePosee && tilePreviewUI) tilePreviewUI.showBackside();
+
+    // Synchroniser turnManager.tilePlaced avec tuilePosee
+    if (turnManager) turnManager.tilePlaced = tuilePosee;
 
     // Tuile en main si c'est notre tour et qu'on n'avait pas encore posé
     if (data.tuileEnMain && turnManager?.isMyTurn && !tuilePosee) {
@@ -1256,6 +1281,14 @@ function applyFullStateSync(data) {
             eventBus.emit('tile-drawn', { tileData: tuileEnMain, fromNetwork: true });
         }
     }
+
+    // Si tuile déjà posée et c'est notre tour → afficher le verso dans tile-preview
+    if (tuilePosee && turnManager?.isMyTurn && tilePreviewUI) {
+        tilePreviewUI.showBackside();
+    }
+
+    // Synchroniser le timer
+    if (data.timerElapsed != null) startGameTimerFrom(data.timerElapsed);
 
     // Mettre à jour l'affichage
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });

@@ -265,7 +265,7 @@ export class GameSync {
     /**
      * Envoyer l'état complet à un nouveau joueur/reconnexion (hôte → invité ciblé)
      */
-    syncFullState(targetPeerId, { gameState, deck, plateau, zoneRegistry, tileToZone, placedMeeples, tuileEnMain, tuilePosee, gameConfig }) {
+    syncFullState(targetPeerId, { gameState, deck, plateau, zoneRegistry, tileToZone, placedMeeples, tuileEnMain, tuilePosee, gameConfig, timerElapsed }) {
         this.multiplayer.sendTo(targetPeerId, {
             type: 'full-state-sync',
             gameState:    gameState.serialize(),
@@ -276,7 +276,8 @@ export class GameSync {
             placedMeeples,
             tuileEnMain:  tuileEnMain ? { id: tuileEnMain.id, rotation: tuileEnMain.rotation } : null,
             tuilePosee:   tuilePosee ?? false,
-            gameConfig
+            gameConfig,
+            timerElapsed: timerElapsed ?? 0
         });
     }
 
