@@ -1212,24 +1212,20 @@ function applyFullStateSync(data) {
     deck.currentIndex = data.deck.currentIndex;
     deck.totalTiles   = data.deck.totalTiles;
 
-    // Reconstruire plateau visuellement
+    // Reconstruire plateau visuellement via poserTuileSync
     plateau.placedTiles = {};
-    for (const [key, tileData] of Object.entries(data.plateau)) {
-        const [x, y] = key.split(',').map(Number);
+    // Trier par distance au centre pour que (0,0) passe en premier
+    const entries = Object.entries(data.plateau).sort(([a], [b]) => {
+        const [ax, ay] = a.split(',').map(Number);
+        const [bx, by] = b.split(',').map(Number);
+        return (Math.abs(ax) + Math.abs(ay)) - (Math.abs(bx) + Math.abs(by));
+    });
+    firstTilePlaced = false;
+    for (const [key, tileData] of entries) {
+        const [tx, ty] = key.split(',').map(Number);
         const tile = new Tile(tileData);
         tile.rotation = tileData.rotation || 0;
-        plateau.placedTiles[key] = tile;
-        // Afficher visuellement
-        const existing = document.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
-        if (!existing) {
-            const tileEl = document.createElement('img');
-            tileEl.className = 'tile';
-            tileEl.src = tile.imagePath;
-            tileEl.dataset.x = x;
-            tileEl.dataset.y = y;
-            tileEl.style.transform = `rotate(${tile.rotation * 90}deg)`;
-            if (slotsUI) slotsUI.placeTileOnBoard(x, y, tileEl);
-        }
+        poserTuileSync(tx, ty, tile, { skipZoneMerger: true });
     }
 
     // Reconstruire zones
