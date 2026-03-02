@@ -1249,9 +1249,6 @@ function applyFullStateSync(data) {
         if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
     }
     firstTilePlaced = Object.keys(data.plateau).length > 0;
-    // Synchroniser le flag interne de SlotsUI et TilePlacement
-    if (slotsUI) slotsUI.firstTilePlaced = firstTilePlaced;
-    if (tilePlacement) tilePlacement.firstTilePlaced = firstTilePlaced;
 
     // Reconstruire zones
     if (zoneMerger) {
@@ -1259,8 +1256,9 @@ function applyFullStateSync(data) {
         zoneMerger.tileToZone = new Map(data.tileToZone);
     }
 
-    // Reconstruire meeples
-    placedMeeples = data.placedMeeples || {};
+    // Reconstruire meeples — modifier en place pour préserver les références
+    Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
+    Object.assign(placedMeeples, data.placedMeeples || {});
     for (const [key, meeple] of Object.entries(placedMeeples)) {
         const [x, y, position] = key.split(',');
         if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
