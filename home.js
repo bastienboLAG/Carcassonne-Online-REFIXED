@@ -1289,15 +1289,17 @@ function applyFullStateSync(data) {
 
     // Afficher le preview après le prochain repaint pour garantir le rendu
     const _tuilePosee  = tuilePosee;
+    const _isMyTurn    = turnManager?.isMyTurn;
     const _tuileEnMain = tuileEnMain;
     requestAnimationFrame(() => {
         if (!tilePreviewUI) return;
         if (_tuilePosee) {
             tilePreviewUI.showBackside();
-        } else if (_tuileEnMain) {
+        } else if (_isMyTurn && _tuileEnMain) {
             tilePreviewUI.showTile(_tuileEnMain);
+        } else {
+            tilePreviewUI.showMessage('En attente...');
         }
-        // sinon : tuile pas encore piochée, rien à afficher
     });
 
     // slotsUI : pas de tuile disponible si tuile déjà posée
