@@ -1045,7 +1045,10 @@ function attachGameSyncCallbacks() {
         };
         gameSync.onFullStateSync = (data) => { applyFullStateSync(data); };
 
-        // Pioche centralisée : l'hôte reçoit your-turn pour lui-même via ce callback
+    }
+
+    // Pioche centralisée : tous les joueurs (hôte et invités) reçoivent your-turn
+    if (gameSync) {
         gameSync.onYourTurn = (tileId, rotation) => {
             if (turnManager) turnManager.receiveYourTurn(tileId, rotation);
         };
@@ -2235,6 +2238,9 @@ function setupEventListeners() {
         if (gameSync) {
             gameSync.syncTurnEnd();
         }
+
+        // Pioche centralisée : après avoir notifié la fin de tour, l'hôte envoie la tuile
+        if (isHost) _hostDrawAndSend();
 
         updateTurnDisplay();
     };

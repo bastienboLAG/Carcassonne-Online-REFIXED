@@ -112,11 +112,7 @@ export class GameSyncCallbacks {
                     this.zoneMerger.tileToZone = new Map(tileToZoneData);
                     console.log('✅ [SYNC] ZoneRegistry appliqué depuis hôte');
                 }
-                // ✅ Sauvegarder le snapshot APRÈS application des zones
-                // (ne pas le faire dans poserTuileSync qui s'exécute avant)
-                if (this.undoManager) {
-                    this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
-                }
+                // Snapshot sauvegardé uniquement par le joueur actif (pas côté invité pour les tuiles des autres)
             }
         };
 

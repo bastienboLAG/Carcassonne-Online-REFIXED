@@ -190,10 +190,7 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer()
         });
         
-        // L'hôte gère la pioche pour tous via syncYourTurn
-        if (this.isHost && this.onNeedYourTurn) {
-            this.onNeedYourTurn();
-        }
+        // La pioche est déclenchée par home.js après syncTurnEnd
     }
 
     /**
