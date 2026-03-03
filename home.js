@@ -1381,6 +1381,8 @@ async function startGameForInvite(fullStateData = null) {
     console.log('🎮 [INVITÉ] Initialisation du jeu...');
     startGameTimer();
     lobbyUI.hide();
+    document.getElementById('lobby-page').style.display = 'none';
+    document.getElementById('game-page').style.display  = 'flex';
     history.pushState({ inGame: true }, '');
 
     gameState = new GameState();
