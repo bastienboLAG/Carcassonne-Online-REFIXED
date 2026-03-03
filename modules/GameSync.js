@@ -126,7 +126,7 @@ export class GameSync {
     }
 
     /**
-     * Synchroniser la pioche d'une nouvelle tuile (broadcast — legacy invité)
+     * Synchroniser la pioche d'une nouvelle tuile
      */
     syncTileDraw(tileId, rotation) {
         console.log('🎲 Sync pioche tuile:', tileId);
@@ -136,25 +136,6 @@ export class GameSync {
             rotation: rotation,
             playerId: this.multiplayer.playerId
         });
-    }
-
-    /**
-     * Envoyer "c'est ton tour + ta tuile" directement au joueur concerné (hôte → invité)
-     * Si le joueur cible est l'hôte lui-même, on émet localement via EventBus.
-     */
-    syncYourTurn(targetPlayerId, targetPeerId, tileId, rotation) {
-        console.log('🎯 Sync your-turn →', targetPlayerId, tileId);
-        if (targetPeerId === this.multiplayer.playerId) {
-            // C'est l'hôte lui-même — appel direct du callback
-            if (this.onYourTurn) this.onYourTurn(tileId, rotation);
-        } else {
-            this.multiplayer.sendTo(targetPeerId, {
-                type: 'your-turn',
-                tileId,
-                rotation,
-                playerId: targetPlayerId
-            });
-        }
     }
 
     /**
@@ -207,25 +188,8 @@ export class GameSync {
         });
     }
 
-    // Invité → hôte : demande d'annulation
-    syncUndoRequest(action) {
-        console.log('⏪ Sync undo-request:', action);
-        // Envoyer uniquement à l'hôte (premier peer connecté = l'hôte)
-        const hostConn = this.multiplayer.connections[0];
-        if (hostConn) {
-            hostConn.send({
-                type: 'undo-request',
-                action,
-                playerId: this.multiplayer.playerId
-            });
-        }
-    }
-
-    // Hôte → tous : broadcast full-state après undo (remplace turn-undo)
     syncUndo(undoneAction) {
-        console.log('⏪ Sync annulation (full-state):', undoneAction);
-        // L'hôte rebroadcast son état complet après undo
-        // chaque invité reçoit full-state-sync et se resynchronise
+        console.log('⏪ Sync annulation:', undoneAction);
         this.multiplayer.broadcast({
             type: 'turn-undo',
             action: undoneAction,
@@ -377,17 +341,10 @@ export class GameSync {
                 break;
 
             case 'tile-drawn':
-                // Legacy : synchroniser uniquement l'index deck pour les spectateurs/autres joueurs
                 if (this.onTileDrawn && data.playerId !== this.multiplayer.playerId) {
-                    console.log('🎲 [SYNC] Sync deck pour:', data.tileId);
+                    console.log('🎲 [SYNC] Pioche tuile reçue:', data.tileId);
                     this.onTileDrawn(data.tileId, data.rotation, data.playerId);
                 }
-                break;
-
-            case 'your-turn':
-                // L'hôte nous donne notre tuile directement
-                console.log('🎯 [SYNC] Réception your-turn:', data.tileId);
-                if (this.onYourTurn) this.onYourTurn(data.tileId, data.rotation);
                 break;
 
             case 'meeple-placed':
@@ -415,14 +372,6 @@ export class GameSync {
                 if (this.onTurnUndo && data.playerId !== this.multiplayer.playerId) {
                     console.log('⏪ [SYNC] Annulation reçue:', data.action);
                     this.onTurnUndo(data.action);
-                }
-                break;
-
-            case 'undo-request':
-                // Un invité demande à l'hôte d'annuler
-                if (this.isHost && this.onUndoRequest) {
-                    console.log('⏪ [HÔTE] Demande d\'annulation reçue de:', data.playerId, 'action:', data.action);
-                    this.onUndoRequest(data.action, data.playerId);
                 }
                 break;
             

@@ -165,19 +165,23 @@ eventBus.on('tile-drawn', (data) => {
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
     updateMobileTilePreview();
 
-    // Snapshot début de tour : local OU réseau si c'est notre tour (invité recevant your-turn)
-    const isOurTurnDraw = !data.fromUndo && (isHost || turnManager?.getIsMyTurn());
-    if (undoManager && isOurTurnDraw) {
+    // Snapshot début de tour (sauf lors d'une annulation)
+    if (undoManager && !data.fromNetwork && !data.fromUndo) {
         undoManager.setLastPlacedTileBeforeTurn(lastPlacedTile);
         undoManager.saveTurnStart(placedMeeples);
     }
 
-    // Reset du builder au début de notre tour
-    if (isOurTurnDraw && gameConfig?.extensions?.tradersBuilders) {
+    // Reset du builder au début de chaque tour local (évite faux positifs de tours précédents)
+    if (!data.fromNetwork && !data.fromUndo && gameConfig?.extensions?.tradersBuilders) {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // Plus de syncTileDraw — l'hôte utilise syncYourTurn directement
+    // L'hôte synchronise toujours la pioche (même spectateur), l'invité seulement si c'est son tour
+    if (!data.fromNetwork && !data.fromUndo && turnManager && gameSync) {
+        if (isHost || turnManager.getIsMyTurn()) {
+            gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
+        }
+    }
 
     // Vérifier si la tuile est plaçable
     if (!data.fromNetwork && !data.fromUndo && tilePlacement && unplaceableManager) {
@@ -1042,29 +1046,6 @@ function attachGameSyncCallbacks() {
             else afficherToast('✅ Partie reprise !');
         };
         gameSync.onFullStateSync = (data) => { applyFullStateSync(data); };
-
-        // Pioche centralisée : l'hôte reçoit "your-turn" pour lui-même via ce callback
-        gameSync.onYourTurn = (tileId, rotation) => {
-            if (turnManager) turnManager.receiveYourTurn(tileId, rotation);
-        };
-    }
-
-    // TurnManager : quand il faut piocher pour le joueur suivant, l'hôte s'en charge
-    if (turnManager && isHost) {
-        turnManager.onNeedYourTurn = () => { _hostDrawAndSend(); };
-    }
-
-    // Undo centralisé : un invité demande à l'hôte d'annuler
-    if (gameSync && isHost) {
-        gameSync.onUndoRequest = (action, fromPlayerId) => {
-            // Vérifier que c'est bien le joueur actif qui demande
-            const currentPlayer = gameState.getCurrentPlayer();
-            if (currentPlayer?.id !== fromPlayerId) {
-                console.warn('⏪ [HÔTE] Demande undo refusée : pas le joueur actif');
-                return;
-            }
-            _executeUndo();
-        };
     }
 }
 
@@ -1175,7 +1156,7 @@ function _onPauseTimeout(disconnectedName) {
         if (gameSync) gameSync.syncGameResumed('timeout');
         if (turnManager) {
             turnManager.updateTurnState();
-            if (isHost) _hostDrawAndSend();
+            if (turnManager.isMyTurn || isHost) turnManager.drawTile();
             eventBus.emit('turn-changed', {
                 isMyTurn: turnManager.isMyTurn,
                 currentPlayer: turnManager.getCurrentPlayer()
@@ -1223,36 +1204,6 @@ function _hidePauseOverlay() {
 /**
  * Construire et envoyer l'état complet à un joueur qui (re)joint
  */
-// ═══════════════════════════════════════════════════════
-// PIOCHE CENTRALISÉE HÔTE
-// ═══════════════════════════════════════════════════════
-
-/**
- * L'hôte pioche une tuile et l'envoie au joueur actif via syncYourTurn.
- * Si le joueur actif est l'hôte lui-même, on déclenche localement via onYourTurn.
- */
-function _hostDrawAndSend() {
-    if (!isHost || !turnManager || !deck) return;
-
-    const tileData = deck.draw();
-    if (!tileData) {
-        console.log('⚠️ Pioche vide !');
-        eventBus.emit('deck-empty');
-        return;
-    }
-
-    console.log('🎲 [HÔTE] Pioche pour joueur actif:', tileData.id);
-
-    const currentPlayer = gameState.getCurrentPlayer();
-    if (!currentPlayer) return;
-
-    // Broadcaster à tous l'info que le deck a avancé (sync index)
-    if (gameSync) gameSync.syncTileDraw(tileData.id, 0);
-
-    // Envoyer la tuile directement au joueur actif
-    if (gameSync) gameSync.syncYourTurn(currentPlayer.id, currentPlayer.id, tileData.id, 0);
-}
-
 function sendFullStateTo(targetPeerId) {
     if (!isHost || !gameSync) return;
     gameSync.syncFullState(targetPeerId, {
@@ -1338,15 +1289,17 @@ function applyFullStateSync(data) {
 
     // Afficher le preview après le prochain repaint pour garantir le rendu
     const _tuilePosee  = tuilePosee;
+    const _isMyTurn    = turnManager?.isMyTurn;
     const _tuileEnMain = tuileEnMain;
     requestAnimationFrame(() => {
         if (!tilePreviewUI) return;
         if (_tuilePosee) {
             tilePreviewUI.showBackside();
-        } else if (_tuileEnMain) {
+        } else if (_isMyTurn && _tuileEnMain) {
             tilePreviewUI.showTile(_tuileEnMain);
+        } else {
+            tilePreviewUI.showMessage('En attente...');
         }
-        // sinon : tuile pas encore piochée, rien à afficher
     });
 
     // slotsUI : pas de tuile disponible si tuile déjà posée
@@ -1421,7 +1374,7 @@ async function startGame() {
     // L'hôte charge et envoie la pioche
     await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {}, gameConfig.startType ?? 'unique');
     gameSync.startGame(deck);
-    _hostDrawAndSend();
+    turnManager.drawTile();
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
     updateTurnDisplay();
     slotsUI.createCentralSlot();
@@ -1613,13 +1566,6 @@ function _postStartSetup() {
 
                     // Envoyer l'état complet
                     sendFullStateTo(from);
-
-                    // Si c'est le tour du joueur reconnecté et qu'il n'a pas encore posé,
-                    // lui envoyer sa tuile directement
-                    const currentPlayer = gameState.getCurrentPlayer();
-                    if (currentPlayer?.id === from && !gameState.currentTilePlaced && tuileEnMain && gameSync) {
-                        gameSync.syncYourTurn(from, from, tuileEnMain.id, tuileEnMain.rotation || 0);
-                    }
 
                     // Reprendre la partie si elle était en pause pour ce joueur
                     if (gamePaused) resumeGame('reconnected');
@@ -1874,94 +1820,6 @@ function afficherToast(msg, type = 'error') {
 /**
  * Gérer une annulation reçue d'un autre joueur
  */
-/**
- * Exécuter un undo localement (hôte uniquement) puis broadcaster via full-state-sync
- */
-function _executeUndo() {
-    if (!undoManager || !undoManager.canUndo()) return;
-
-    const undoneAction = undoManager.undo(placedMeeples);
-    if (!undoneAction) return;
-
-    if (undoneAction.type === 'abbe-recalled-undo') {
-        pendingAbbePoints = null;
-        const { playerId } = undoneAction.abbe;
-        const player = gameState.players.find(p => p.id === playerId);
-        if (player) player.hasAbbot = false;
-        const abbeKey = undoneAction.abbe.key;
-        const abbeData = placedMeeples[abbeKey];
-        if (abbeData) {
-            const [ax, ay] = abbeKey.split(',').map(Number);
-            eventBus.emit('meeple-placed', { ...abbeData, x: ax, y: ay, key: abbeKey, position: parseInt(abbeKey.split(',')[2]), meepleType: abbeData.type, playerColor: abbeData.color, fromUndo: true });
-        }
-        if (gameSync) gameSync.syncAbbeRecallUndo(undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId);
-        if (lastPlacedTile && meepleCursorsUI) {
-            meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
-        }
-
-    } else if (undoneAction.type === 'meeple') {
-        document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
-        if (lastPlacedTile && meepleCursorsUI) {
-            meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
-            if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
-                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
-            }
-        }
-
-    } else if (undoneAction.type === 'tile') {
-        lastPlacedTile = undoneAction.restoredLastPlacedTile ?? null;
-        const { x, y } = undoneAction.tile;
-        let tileEl = document.querySelector(`.tile[data-pos="${x},${y}"]`);
-        if (!tileEl) {
-            tileEl = Array.from(document.querySelectorAll('.tile'))
-                .find(el => el.style.gridColumn == x && el.style.gridRow == y);
-        }
-        if (tileEl) tileEl.remove();
-
-        tuileEnMain = undoneAction.tile.tile;
-        tuilePosee  = false;
-        gameState.currentTilePlaced = false;
-
-        if (x === 50 && y === 50) {
-            firstTilePlaced = false;
-            if (slotsUI)       { slotsUI.firstTilePlaced = false; slotsUI.currentTile = null; }
-            if (tilePlacement)  tilePlacement.firstTilePlaced = false;
-        }
-
-        if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
-        if (slotsUI) slotsUI.tileAvailable = true;
-
-        eventBus.emit('tile-drawn', {
-            tileData: { ...tuileEnMain, rotation: tuileEnMain.rotation },
-            fromUndo: true
-        });
-
-        if (x === 50 && y === 50) {
-            document.querySelectorAll('.slot-central').forEach(s => s.remove());
-            if (slotsUI) slotsUI.createCentralSlot();
-        }
-
-        if (slotsUI && firstTilePlaced) slotsUI.refreshAllSlots();
-        if (meepleCursorsUI) meepleCursorsUI.hideCursors();
-    }
-
-    // Broadcaster l'état complet à tous les invités
-    if (gameSync) {
-        // Pour les invités : full-state-sync resynchronise tout
-        multiplayer.connections.forEach(conn => {
-            sendFullStateTo(conn.peer);
-        });
-    }
-
-    gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
-    eventBus.emit('score-updated');
-    updateTurnDisplay();
-    updateMobileTilePreview();
-    scorePanelUI?.updateMobile();
-    updateMobileButtons();
-}
-
 function handleRemoteUndo(undoneAction) {
     if (!undoManager) return;
     console.log('⏪ Application de l\'annulation distante:', undoneAction);
@@ -2221,7 +2079,7 @@ function setupEventListeners() {
 
         if (waitingToRedraw && isMyTurn) {
             document.getElementById('tile-destroyed-modal').style.display = 'none';
-            if (isHost) _hostDrawAndSend(); else if (gameSync) gameSync.syncUndoRequest('redraw');
+            turnManager.drawTile();
             waitingToRedraw = false;
             updateTurnDisplay();
             return;
@@ -2331,7 +2189,7 @@ function setupEventListeners() {
                 if (gameSync) gameSync.syncTurnEnd(true);
                 // Réinitialiser la dernière tuile posée pour éviter un faux positif au tour bonus
                 ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
-                if (isHost) _hostDrawAndSend();
+                turnManager.drawTile();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
                 // Marquer le toast pour pouvoir le fermer automatiquement à la fin du tour bonus
@@ -2399,18 +2257,101 @@ function setupEventListeners() {
 
     // Annuler le coup
     document.getElementById('undo-btn').addEventListener('click', () => {
-        if (!isMyTurn) return;
-        if (!undoManager || !undoManager.canUndo()) { alert('Rien à annuler'); return; }
+        if (!undoManager || !isMyTurn) return;
+        if (!undoManager.canUndo()) { alert('Rien à annuler'); return; }
 
-        // Invité : demander à l'hôte d'annuler
-        if (!isHost && gameSync) {
-            const action = undoManager.peekNextUndo();
-            gameSync.syncUndoRequest(action);
+        const undoneAction = undoManager.undo(placedMeeples);
+        if (!undoneAction) return;
+
+        if (undoneAction.type === 'abbe-recalled-undo') {
+            // L'Abbé a été remis sur le plateau par restoreSnapshot (placedMeeples restauré)
+            // Il faut juste re-afficher visuellement l'Abbé et annuler les pendingAbbePoints
+            pendingAbbePoints = null;
+            const { playerId } = undoneAction.abbe;
+            const player = gameState.players.find(p => p.id === playerId);
+            if (player) player.hasAbbot = false;
+            // Re-render le meeple sur le plateau
+            const abbeKey = undoneAction.abbe.key;
+            const abbeData = placedMeeples[abbeKey];
+            if (abbeData) {
+                const [ax, ay] = abbeKey.split(',').map(Number);
+                eventBus.emit('meeple-placed', { ...abbeData, x: ax, y: ay, key: abbeKey, position: parseInt(abbeKey.split(',')[2]), meepleType: abbeData.type, playerColor: abbeData.color, fromUndo: true });
+            }
+            if (gameSync) gameSync.syncAbbeRecallUndo(
+                undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId
+            );
+            // Réafficher les curseurs de la tuile courante + curseur rappel abbé
+            if (lastPlacedTile && meepleCursorsUI) {
+                meepleCursorsUI.showCursors(
+                    lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple
+                );
+                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+            }
+            eventBus.emit('score-updated');
+            updateTurnDisplay();
             return;
         }
 
-        // Hôte : exécuter l'undo localement puis broadcaster
-        _executeUndo();
+        if (undoneAction.type === 'meeple') {
+            document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
+            if (lastPlacedTile && meepleCursorsUI) {
+                meepleCursorsUI.showCursors(
+                    lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple
+                );
+                // ✅ Re-afficher les curseurs abbé si l'extension est active
+                if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
+                    meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+                }
+            }
+
+        } else if (undoneAction.type === 'tile') {
+            // Restaurer l'épingle vers la tuile posée avant ce tour
+            lastPlacedTile = undoneAction.restoredLastPlacedTile ?? null;
+            const { x, y } = undoneAction.tile;
+            let tileEl = document.querySelector(`.tile[data-pos="${x},${y}"]`);
+            if (!tileEl) {
+                tileEl = Array.from(document.querySelectorAll('.tile'))
+                    .find(el => el.style.gridColumn == x && el.style.gridRow == y);
+            }
+            if (tileEl) tileEl.remove();
+
+            tuileEnMain = undoneAction.tile.tile;
+            tuilePosee  = false;
+
+            if (x === 50 && y === 50) {
+                firstTilePlaced = false;
+                if (slotsUI)        { slotsUI.firstTilePlaced = false; slotsUI.currentTile = null; }
+                if (tilePlacement)  tilePlacement.firstTilePlaced = false;
+            }
+
+            if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
+
+            // ✅ Remettre tileAvailable à true dans SlotsUI sinon les slots ne s'affichent pas
+            if (slotsUI) slotsUI.tileAvailable = true;
+
+            // Re-émettre tile-drawn sans créer de snapshot
+            eventBus.emit('tile-drawn', {
+                tileData: { ...tuileEnMain, rotation: tuileEnMain.rotation },
+                fromUndo: true
+            });
+
+            if (x === 50 && y === 50) {
+                document.querySelectorAll('.slot-central').forEach(s => s.remove());
+                if (slotsUI) slotsUI.createCentralSlot();
+            }
+
+            if (slotsUI && firstTilePlaced) slotsUI.refreshAllSlots();
+            if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+        }
+
+        if (gameSync) gameSync.syncUndo(undoneAction);
+        // Mettre à jour les compteurs de meeples après undo (hasAbbot peut avoir changé)
+        gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
+        eventBus.emit('score-updated');
+        updateTurnDisplay();
+        updateMobileTilePreview();
+        scorePanelUI?.updateMobile();
+        updateMobileButtons();
     });
 
     // Tuiles restantes

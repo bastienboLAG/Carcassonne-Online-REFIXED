@@ -268,16 +268,6 @@ export class UndoManager {
     }
 
     /**
-     * Retourner le type de la prochaine action annulable sans l'exécuter
-     */
-    peekNextUndo() {
-        if (this.abbeRecalledThisTurn) return 'abbe-recalled-undo';
-        if (this.meeplePlacedThisTurn) return 'meeple';
-        if (this.tilePlacedThisTurn)   return 'tile';
-        return null;
-    }
-
-    /**
      * Reset à la fin du tour
      */
     reset() {
