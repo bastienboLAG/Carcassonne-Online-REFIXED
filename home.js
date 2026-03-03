@@ -1266,13 +1266,8 @@ function applyFullStateSync(data) {
         if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
     }
 
-    // Restaurer tuilePosee (le joueur avait posé sa tuile mais pas terminé son tour)
+    // Restaurer tuilePosee
     tuilePosee = data.tuilePosee ?? false;
-    if (turnManager) turnManager.tilePlaced = tuilePosee;
-    // Afficher le verso si la tuile a déjà été posée
-    if (tuilePosee && tilePreviewUI) tilePreviewUI.showBackside();
-
-    // Synchroniser turnManager.tilePlaced avec tuilePosee
     if (turnManager) turnManager.tilePlaced = tuilePosee;
 
     // Mettre à jour isMyTurn AVANT d'afficher la tuile ou le verso
@@ -1288,10 +1283,18 @@ function applyFullStateSync(data) {
         }
     }
 
-    // Si tuile déjà posée et c'est notre tour → afficher le verso dans tile-preview
-    if (tuilePosee && turnManager?.isMyTurn && tilePreviewUI) {
+    // Tuile posée mais tour pas encore terminé → verso
+    if (tuilePosee && tilePreviewUI) {
         tilePreviewUI.showBackside();
     }
+
+    // Pas notre tour et pas de tuile en main → vider le preview
+    if (!turnManager?.isMyTurn && !tuilePosee && tilePreviewUI) {
+        tilePreviewUI.showMessage('En attente...');
+    }
+
+    // slotsUI : pas de tuile disponible si tuile déjà posée
+    if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!tuileEnMain;
 
     // Synchroniser le timer
     if (data.timerElapsed != null) startGameTimerFrom(data.timerElapsed);
@@ -1539,6 +1542,10 @@ function _postStartSetup() {
                     const [oldPeerId] = disconnectedEntry;
                     gameState.reconnectPlayer(oldPeerId, from);
                     players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
+                    // Mettre à jour placedMeeples pour que l'ancien playerId soit remplacé
+                    Object.values(placedMeeples).forEach(m => {
+                        if (m.playerId === oldPeerId) m.playerId = from;
+                    });
 
                     // Mettre à jour _connectedPeers du heartbeat (sinon timeout immédiat)
                     if (heartbeatManager) {
