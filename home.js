@@ -178,6 +178,7 @@ eventBus.on('tile-drawn', (data) => {
 
     // L'hôte synchronise toujours la pioche (même spectateur), l'invité seulement si c'est son tour
     if (!data.fromNetwork && !data.fromUndo && turnManager && gameSync) {
+        console.log('🎲 [DEBUG tile-drawn] isHost:', isHost, 'isMyTurn:', turnManager.getIsMyTurn(), 'stack:', new Error().stack.split('\n')[2]);
         if (isHost || turnManager.getIsMyTurn()) {
             gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
         }
