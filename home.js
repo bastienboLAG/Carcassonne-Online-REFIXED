@@ -1226,6 +1226,7 @@ console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
  */
 function applyFullStateSync(data) {
 console.log('🔄 applyFullStateSync démarré', !!tilePreviewUI, !!turnManager);
+console.log('📥 data.tuilePosee:', data.tuilePosee, 'data.tuileEnMain:', !!data.tuileEnMain);
     // Reconstruire gameState
     gameState.deserialize(data.gameState);
 
