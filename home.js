@@ -1205,7 +1205,6 @@ function _hidePauseOverlay() {
  * Construire et envoyer l'état complet à un joueur qui (re)joint
  */
 function sendFullStateTo(targetPeerId) {
-console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
     if (!isHost || !gameSync) return;
     gameSync.syncFullState(targetPeerId, {
         gameState,
@@ -1225,11 +1224,9 @@ console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
  * Recevoir et appliquer un full-state-sync (côté invité/reconnecté)
  */
 function applyFullStateSync(data) {
-if (tuilePosee && tilePreviewUI) {
-    tilePreviewUI.showBackside();
-    // Forcer le repaint
-    tilePreviewUI.previewElement.offsetHeight;
-}
+    // Réinitialiser l'état local avant d'appliquer le nouvel état
+    tuileEnMain = null;
+    tuilePosee  = false;
 
     // Reconstruire gameState
     gameState.deserialize(data.gameState);
@@ -1244,7 +1241,6 @@ if (tuilePosee && tilePreviewUI) {
         slotsUI.createCentralSlot();
     }
 
-console.log('1️⃣ avant reconstruction plateau');
     // Reconstruire plateau — données + affichage visuel uniquement
     plateau.placedTiles = {};
     for (const [key, tileData] of Object.entries(data.plateau)) {
@@ -1260,14 +1256,12 @@ console.log('1️⃣ avant reconstruction plateau');
     if (slotsUI)       slotsUI.firstTilePlaced       = firstTilePlaced;
     if (tilePlacement) tilePlacement.firstTilePlaced  = firstTilePlaced;
 
-console.log('2️⃣ avant zones');
     // Reconstruire zones
     if (zoneMerger) {
         zoneMerger.registry.deserialize(data.zoneRegistry);
         zoneMerger.tileToZone = new Map(data.tileToZone);
     }
 
-console.log('3️⃣ avant meeples');
     // Reconstruire meeples — modifier en place pour préserver les références
     Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
     Object.assign(placedMeeples, data.placedMeeples || {});
@@ -1276,7 +1270,6 @@ console.log('3️⃣ avant meeples');
         if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
     }
 
-console.log('4️⃣ avant tuilePosee restore');
     // Restaurer tuilePosee
     tuilePosee = data.tuilePosee ?? false;
     if (turnManager) turnManager.tilePlaced = tuilePosee;
@@ -1294,16 +1287,20 @@ console.log('4️⃣ avant tuilePosee restore');
         }
     }
 
-console.log('5️⃣ avant showBackside');
-    // Tuile posée mais tour pas encore terminé → verso
-    if (tuilePosee && tilePreviewUI) {
-        tilePreviewUI.showBackside();
-    }
-
-    // Pas notre tour et pas de tuile en main → vider le preview
-    if (!turnManager?.isMyTurn && !tuilePosee && tilePreviewUI) {
-        tilePreviewUI.showMessage('En attente...');
-    }
+    // Afficher le preview après le prochain repaint pour garantir le rendu
+    const _tuilePosee  = tuilePosee;
+    const _isMyTurn    = turnManager?.isMyTurn;
+    const _tuileEnMain = tuileEnMain;
+    requestAnimationFrame(() => {
+        if (!tilePreviewUI) return;
+        if (_tuilePosee) {
+            tilePreviewUI.showBackside();
+        } else if (_isMyTurn && _tuileEnMain) {
+            tilePreviewUI.showTile(_tuileEnMain);
+        } else {
+            tilePreviewUI.showMessage('En attente...');
+        }
+    });
 
     // slotsUI : pas de tuile disponible si tuile déjà posée
     if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!tuileEnMain;
@@ -1393,8 +1390,6 @@ async function startGameForInvite(fullStateData = null) {
     console.log('🎮 [INVITÉ] Initialisation du jeu...');
     startGameTimer();
     lobbyUI.hide();
-    document.getElementById('lobby-page').style.display = 'none';
-    document.getElementById('game-page').style.display  = 'flex';
     history.pushState({ inGame: true }, '');
 
     gameState = new GameState();
