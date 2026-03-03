@@ -9,6 +9,7 @@ export class GameState {
         this.placedTiles = {}; // Tuiles posées sur le plateau
         this.deck = []; // Pioche (seulement côté hôte)
         this.destroyedTilesCount = 0; // Compteur global de tuiles détruites
+        this.currentTilePlaced = false; // Le joueur courant a-t-il posé sa tuile ce tour ?
     }
 
     /**
@@ -117,7 +118,8 @@ export class GameState {
             players: this.players,
             currentPlayerIndex: this.currentPlayerIndex,
             placedTiles: this.placedTiles,
-            disconnectedPlayers: this.disconnectedPlayers
+            disconnectedPlayers: this.disconnectedPlayers,
+            currentTilePlaced: this.currentTilePlaced
         };
     }
 
@@ -148,5 +150,6 @@ export class GameState {
         this.currentPlayerIndex = data.currentPlayerIndex || 0;
         this.placedTiles = data.placedTiles || {};
         this.disconnectedPlayers = data.disconnectedPlayers || {};
+        this.currentTilePlaced = data.currentTilePlaced ?? false;
     }
 }

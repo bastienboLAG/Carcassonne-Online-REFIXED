@@ -1214,7 +1214,7 @@ function sendFullStateTo(targetPeerId) {
         tileToZone:   zoneMerger.tileToZone,
         placedMeeples,
         tuileEnMain,
-        tuilePosee,
+        tuilePosee: gameState.currentTilePlaced,
         gameConfig,
         timerElapsed: gameTimerStart ? Math.floor((Date.now() - gameTimerStart) / 1000) : 0
     });
@@ -1877,6 +1877,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     tuilePosee      = true;
     firstTilePlaced = true;
     lastPlacedTile  = { x, y };
+    gameState.currentTilePlaced = true;
 
     // Réinitialiser le suivi des tuiles implaçables après chaque placement réussi
     if (unplaceableManager) unplaceableManager.resetSeenImplacable();
@@ -2088,6 +2089,7 @@ function setupEventListeners() {
         if (!tuilePosee) { alert('Vous devez poser la tuile avant de terminer votre tour !'); return; }
 
         console.log('⏭️ Fin de tour - calcul des scores et passage au joueur suivant');
+        gameState.currentTilePlaced = false;
 
         // ⭐ Vérifier le bonus bâtisseur AVANT le scoring
         // (après scoring le bâtisseur peut être retiré de placedMeeples si zone fermée)

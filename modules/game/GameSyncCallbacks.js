@@ -95,6 +95,7 @@ export class GameSyncCallbacks {
         // ── Placement d'une tuile ─────────────────────────────────────────────
         gs.onTilePlaced = (x, y, tileId, rotation, zoneRegistryData, tileToZoneData) => {
             console.log('📍 [SYNC] Placement reçu:', x, y, tileId, rotation);
+            this.gameState.currentTilePlaced = true;
             const tileData = this.deck.tiles.find(t => t.id === tileId);
             if (tileData) {
                 const tile = new Tile(tileData);
@@ -121,6 +122,7 @@ export class GameSyncCallbacks {
 
         // ── Fin de tour ───────────────────────────────────────────────────────
         gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false) => {
+            this.gameState.currentTilePlaced = false;
             this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn);
             // Si tour bonus : afficher le toast ici — plus besoin du message bonus-turn-started séparé
             if (isBonusTurn && this.onBonusTurnStarted) {
