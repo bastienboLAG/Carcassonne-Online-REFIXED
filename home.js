@@ -1225,8 +1225,11 @@ console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
  * Recevoir et appliquer un full-state-sync (côté invité/reconnecté)
  */
 function applyFullStateSync(data) {
-console.log('🔄 applyFullStateSync démarré', !!tilePreviewUI, !!turnManager);
-console.log('📥 data.tuilePosee:', data.tuilePosee, 'data.tuileEnMain:', !!data.tuileEnMain);
+if (tuilePosee && tilePreviewUI) {
+    tilePreviewUI.showBackside();
+    // Forcer le repaint
+    tilePreviewUI.previewElement.offsetHeight;
+}
 
     // Reconstruire gameState
     gameState.deserialize(data.gameState);
