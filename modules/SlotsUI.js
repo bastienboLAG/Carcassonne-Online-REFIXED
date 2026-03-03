@@ -147,7 +147,6 @@ export class SlotsUI {
         }
 
         const placedTilesCount = Object.keys(this.plateau.placedTiles).length;
-        console.log('🔍 [SlotsUI] plateau.placedTiles count:', placedTilesCount, 'tileAvailable:', this.tileAvailable, 'firstTilePlaced:', this.firstTilePlaced);
         if (placedTilesCount === 0) {
             console.log('  ❌ STOP: plateau vide');
             return;

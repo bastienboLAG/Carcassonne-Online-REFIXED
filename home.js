@@ -1249,6 +1249,8 @@ function applyFullStateSync(data) {
         if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
     }
     firstTilePlaced = Object.keys(data.plateau).length > 0;
+    if (slotsUI)       slotsUI.firstTilePlaced       = firstTilePlaced;
+    if (tilePlacement) tilePlacement.firstTilePlaced  = firstTilePlaced;
 
     // Reconstruire zones
     if (zoneMerger) {
@@ -1887,6 +1889,7 @@ function poserTuile(x, y, tile, isFirst = false) {
 
 function poserTuileSync(x, y, tile, extraOptions = {}) {
     console.log('🔄 poserTuileSync appelé:', { x, y, tile });
+
     const isFirst = !firstTilePlaced;
     const isReconstruction = !!extraOptions.skipValidation;
 
