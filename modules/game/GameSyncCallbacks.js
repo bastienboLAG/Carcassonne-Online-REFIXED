@@ -99,8 +99,12 @@ export class GameSyncCallbacks {
             if (tileData) {
                 const tile = new Tile(tileData);
                 tile.rotation = rotation;
-                // Passer skipZoneMerger=true si l'hôte fournit l'état des zones
-                this.poserTuileSync(x, y, tile, zoneRegistryData ? { skipZoneMerger: true } : {});
+                // skipValidation=true : l'hôte a déjà validé, on ne revalide pas côté invité
+                // skipZoneMerger=true si l'hôte fournit l'état des zones
+                this.poserTuileSync(x, y, tile, {
+                    skipValidation: true,
+                    ...(zoneRegistryData ? { skipZoneMerger: true } : {})
+                });
                 // Appliquer l'état des zones de l'hôte directement
                 if (zoneRegistryData && tileToZoneData) {
                     this.zoneMerger.registry.deserialize(zoneRegistryData);
@@ -189,6 +193,24 @@ export class GameSyncCallbacks {
 
             meeplesToReturn.forEach(key => {
                 document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+                const meeple = placedMeeples[key];
+                if (meeple) {
+                    const player = this.gameState.players.find(p => p.id === meeple.playerId);
+                    if (player) {
+                        if (meeple.type === 'Abbot') {
+                            player.hasAbbot = true;
+                        } else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') {
+                            player.hasLargeMeeple = true;
+                        } else if (meeple.type === 'Builder') {
+                            player.hasBuilder = true;
+                        } else if (meeple.type === 'Pig') {
+                            player.hasPig = true;
+                        } else {
+                            player.meeples = (player.meeples || 0) + 1;
+                        }
+                        this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
+                    }
+                }
                 delete placedMeeples[key];
             });
 

@@ -190,9 +190,9 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer()
         });
         
-        // L'hôte pioche toujours (il gère la pioche pour tous)
-        // Un joueur normal pioche seulement si c'est son tour
-        if (this.isMyTurn || this.isHost) {
+        // On pioche uniquement si c'est notre tour
+        // (l'hôte ne pioche PAS pour les autres — chaque joueur pioche lui-même)
+        if (this.isMyTurn) {
             this.drawTile();
         }
     }
@@ -297,8 +297,8 @@ export class TurnManager {
             // Tour normal : remettre à zéro les flags bonus
             this.bonusAlreadyUsedThisTurn = false;
             this.updateTurnState();
-            // L'hôte pioche toujours, sinon seulement si c'est notre tour
-            if (this.isMyTurn || this.isHost) {
+            // On pioche uniquement si c'est notre tour
+            if (this.isMyTurn) {
                 this.drawTile();
             }
         }

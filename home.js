@@ -178,7 +178,6 @@ eventBus.on('tile-drawn', (data) => {
 
     // L'hôte synchronise toujours la pioche (même spectateur), l'invité seulement si c'est son tour
     if (!data.fromNetwork && !data.fromUndo && turnManager && gameSync) {
-        console.log('🎲 [DEBUG tile-drawn] isHost:', isHost, 'isMyTurn:', turnManager.getIsMyTurn(), 'stack:', new Error().stack.split('\n')[2]);
         if (isHost || turnManager.getIsMyTurn()) {
             gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
         }
@@ -1276,6 +1275,9 @@ function applyFullStateSync(data) {
     // Synchroniser turnManager.tilePlaced avec tuilePosee
     if (turnManager) turnManager.tilePlaced = tuilePosee;
 
+    // Mettre à jour isMyTurn AVANT d'afficher la tuile ou le verso
+    if (turnManager) turnManager.updateTurnState();
+
     // Tuile en main si c'est notre tour et qu'on n'avait pas encore posé
     if (data.tuileEnMain && turnManager?.isMyTurn && !tuilePosee) {
         const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
@@ -1298,7 +1300,6 @@ function applyFullStateSync(data) {
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
     eventBus.emit('score-updated');
     if (turnManager) {
-        turnManager.updateTurnState();
         eventBus.emit('turn-changed', {
             isMyTurn: turnManager.isMyTurn,
             currentPlayer: turnManager.getCurrentPlayer()

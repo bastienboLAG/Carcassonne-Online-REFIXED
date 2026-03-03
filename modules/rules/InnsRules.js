@@ -86,6 +86,7 @@ export class InnsRules {
      * @returns {number}
      */
     static getMeepleWeight(meeple) {
+        if (meeple.type === 'Builder' || meeple.type === 'Pig') return 0;
         return (meeple.type === 'Large' || meeple.type === 'Large-Farmer') ? 2 : 1;
     }
 
