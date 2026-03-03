@@ -1227,15 +1227,7 @@ console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
 function applyFullStateSync(data) {
 console.log('🔄 applyFullStateSync démarré', !!tilePreviewUI, !!turnManager);
 console.log('📥 data.tuilePosee:', data.tuilePosee, 'data.tuileEnMain:', !!data.tuileEnMain);
-console.log('1️⃣ avant reconstruction plateau');
-// ... reconstruction plateau ...
-console.log('2️⃣ avant zones');
-// ... zones ...
-console.log('3️⃣ avant meeples');
-// ... meeples ...
-console.log('4️⃣ avant tuilePosee restore');
-// ... tuilePosee ...
-console.log('5️⃣ avant showBackside');
+
     // Reconstruire gameState
     gameState.deserialize(data.gameState);
 
@@ -1249,6 +1241,7 @@ console.log('5️⃣ avant showBackside');
         slotsUI.createCentralSlot();
     }
 
+console.log('1️⃣ avant reconstruction plateau');
     // Reconstruire plateau — données + affichage visuel uniquement
     plateau.placedTiles = {};
     for (const [key, tileData] of Object.entries(data.plateau)) {
@@ -1264,12 +1257,14 @@ console.log('5️⃣ avant showBackside');
     if (slotsUI)       slotsUI.firstTilePlaced       = firstTilePlaced;
     if (tilePlacement) tilePlacement.firstTilePlaced  = firstTilePlaced;
 
+console.log('2️⃣ avant zones');
     // Reconstruire zones
     if (zoneMerger) {
         zoneMerger.registry.deserialize(data.zoneRegistry);
         zoneMerger.tileToZone = new Map(data.tileToZone);
     }
 
+console.log('3️⃣ avant meeples');
     // Reconstruire meeples — modifier en place pour préserver les références
     Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
     Object.assign(placedMeeples, data.placedMeeples || {});
@@ -1278,6 +1273,7 @@ console.log('5️⃣ avant showBackside');
         if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
     }
 
+console.log('4️⃣ avant tuilePosee restore');
     // Restaurer tuilePosee
     tuilePosee = data.tuilePosee ?? false;
     if (turnManager) turnManager.tilePlaced = tuilePosee;
@@ -1295,6 +1291,7 @@ console.log('5️⃣ avant showBackside');
         }
     }
 
+console.log('5️⃣ avant showBackside');
     // Tuile posée mais tour pas encore terminé → verso
     if (tuilePosee && tilePreviewUI) {
         tilePreviewUI.showBackside();

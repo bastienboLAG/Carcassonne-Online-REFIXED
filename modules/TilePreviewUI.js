@@ -34,9 +34,10 @@ export class TilePreviewUI {
     }
 
     showBackside() {
-console.log('🖼️ showBackside — previewElement:', !!this.previewElement, this.previewElement?.style?.display, this.previewElement?.offsetParent);
-        if (!this.previewElement) return;
-        this.previewElement.innerHTML = '<img src="./assets/verso.png" style="width: 120px; border: 2px solid #666;">';
+    console.log('🖼️ showBackside — previewElement:', this.previewElement, 'innerHTML avant:', this.previewElement?.innerHTML?.substring(0,50));
+    if (!this.previewElement) return;
+    this.previewElement.innerHTML = '<img src="./assets/verso.png" style="width: 120px; border: 2px solid #666;">';
+    console.log('🖼️ showBackside — innerHTML après:', this.previewElement.innerHTML.substring(0,50));
     }
 
     showMessage(msg) {
