@@ -37,6 +37,12 @@ export class TilePreviewUI {
     console.log('🖼️ showBackside — previewElement:', this.previewElement, 'innerHTML avant:', this.previewElement?.innerHTML?.substring(0,50));
     if (!this.previewElement) return;
     this.previewElement.innerHTML = '<img src="./assets/verso.png" style="width: 120px; border: 2px solid #666;">';
+const el = this.previewElement;
+const computed = window.getComputedStyle(el);
+console.log('🖼️ computed — display:', computed.display, 'visibility:', computed.visibility, 'opacity:', computed.opacity, 'width:', computed.width, 'height:', computed.height);
+const parent = el.parentElement;
+const parentComputed = window.getComputedStyle(parent);
+console.log('🖼️ parent —', parent.id || parent.className, 'display:', parentComputed.display, 'visibility:', parentComputed.visibility);
     console.log('🖼️ showBackside — innerHTML après:', this.previewElement.innerHTML.substring(0,50));
     }
 
