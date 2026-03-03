@@ -1205,6 +1205,7 @@ function _hidePauseOverlay() {
  * Construire et envoyer l'état complet à un joueur qui (re)joint
  */
 function sendFullStateTo(targetPeerId) {
+console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
     if (!isHost || !gameSync) return;
     gameSync.syncFullState(targetPeerId, {
         gameState,
