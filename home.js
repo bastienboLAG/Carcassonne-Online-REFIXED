@@ -176,11 +176,9 @@ eventBus.on('tile-drawn', (data) => {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // L'hôte synchronise toujours la pioche (même spectateur), l'invité seulement si c'est son tour
-    if (!data.fromNetwork && !data.fromUndo && turnManager && gameSync) {
-        if (isHost || turnManager.getIsMyTurn()) {
-            gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
-        }
+    // L'hôte broadcaste l'avancement du deck à tous (sync index)
+    if (!data.fromNetwork && !data.fromUndo && isHost && gameSync) {
+        gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
     }
 
     // Vérifier si la tuile est plaçable
@@ -1046,6 +1044,16 @@ function attachGameSyncCallbacks() {
             else afficherToast('✅ Partie reprise !');
         };
         gameSync.onFullStateSync = (data) => { applyFullStateSync(data); };
+
+        // Pioche centralisée : l'hôte reçoit your-turn pour lui-même via ce callback
+        gameSync.onYourTurn = (tileId, rotation) => {
+            if (turnManager) turnManager.receiveYourTurn(tileId, rotation);
+        };
+    }
+
+    // TurnManager : quand il faut piocher pour le joueur suivant, l'hôte s'en charge
+    if (turnManager && isHost) {
+        turnManager.onNeedYourTurn = () => { _hostDrawAndSend(); };
     }
 }
 
@@ -1156,7 +1164,7 @@ function _onPauseTimeout(disconnectedName) {
         if (gameSync) gameSync.syncGameResumed('timeout');
         if (turnManager) {
             turnManager.updateTurnState();
-            if (turnManager.isMyTurn || isHost) turnManager.drawTile();
+            if (isHost) _hostDrawAndSend();
             eventBus.emit('turn-changed', {
                 isMyTurn: turnManager.isMyTurn,
                 currentPlayer: turnManager.getCurrentPlayer()
@@ -1204,6 +1212,31 @@ function _hidePauseOverlay() {
 /**
  * Construire et envoyer l'état complet à un joueur qui (re)joint
  */
+/**
+ * L'hôte pioche une tuile et l'envoie directement au joueur actif via syncYourTurn.
+ */
+function _hostDrawAndSend() {
+    if (!isHost || !deck || !gameSync) return;
+
+    const tileData = deck.draw();
+    if (!tileData) {
+        console.log('⚠️ Pioche vide !');
+        eventBus.emit('deck-empty');
+        return;
+    }
+
+    console.log('🎲 [HÔTE] Pioche pour:', gameState.getCurrentPlayer()?.name, '→', tileData.id);
+
+    // Broadcaster l'avancement du deck à tous (sync index)
+    gameSync.syncTileDraw(tileData.id, 0);
+
+    // Envoyer la tuile directement au joueur actif
+    const currentPlayer = gameState.getCurrentPlayer();
+    if (currentPlayer) {
+        gameSync.syncYourTurn(currentPlayer.id, tileData.id, 0);
+    }
+}
+
 function sendFullStateTo(targetPeerId) {
     if (!isHost || !gameSync) return;
     gameSync.syncFullState(targetPeerId, {
@@ -1374,7 +1407,7 @@ async function startGame() {
     // L'hôte charge et envoie la pioche
     await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {}, gameConfig.startType ?? 'unique');
     gameSync.startGame(deck);
-    turnManager.drawTile();
+    _hostDrawAndSend();
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
     updateTurnDisplay();
     slotsUI.createCentralSlot();
@@ -2079,7 +2112,7 @@ function setupEventListeners() {
 
         if (waitingToRedraw && isMyTurn) {
             document.getElementById('tile-destroyed-modal').style.display = 'none';
-            turnManager.drawTile();
+            if (isHost) _hostDrawAndSend();
             waitingToRedraw = false;
             updateTurnDisplay();
             return;
@@ -2189,7 +2222,7 @@ function setupEventListeners() {
                 if (gameSync) gameSync.syncTurnEnd(true);
                 // Réinitialiser la dernière tuile posée pour éviter un faux positif au tour bonus
                 ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
-                turnManager.drawTile();
+                if (isHost) _hostDrawAndSend();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
                 // Marquer le toast pour pouvoir le fermer automatiquement à la fin du tour bonus

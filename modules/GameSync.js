@@ -139,6 +139,23 @@ export class GameSync {
     }
 
     /**
+     * Envoyer "c'est ton tour + ta tuile" directement au joueur concerné (hôte → invité)
+     * Si le joueur cible est l'hôte lui-même, appelle onYourTurn directement.
+     */
+    syncYourTurn(targetPeerId, tileId, rotation) {
+        console.log('🎯 Sync your-turn →', targetPeerId, tileId);
+        if (targetPeerId === this.multiplayer.playerId) {
+            if (this.onYourTurn) this.onYourTurn(tileId, rotation);
+        } else {
+            this.multiplayer.sendTo(targetPeerId, {
+                type: 'your-turn',
+                tileId,
+                rotation
+            });
+        }
+    }
+
+    /**
      * Synchroniser le placement d'un meeple
      */
     syncMeeplePlacement(x, y, position, meepleType, color) {
@@ -341,10 +358,16 @@ export class GameSync {
                 break;
 
             case 'tile-drawn':
+                // Synchroniser l'index du deck pour les autres joueurs
                 if (this.onTileDrawn && data.playerId !== this.multiplayer.playerId) {
-                    console.log('🎲 [SYNC] Pioche tuile reçue:', data.tileId);
+                    console.log('🎲 [SYNC] Sync deck pour:', data.tileId);
                     this.onTileDrawn(data.tileId, data.rotation, data.playerId);
                 }
+                break;
+
+            case 'your-turn':
+                console.log('🎯 [SYNC] Réception your-turn:', data.tileId);
+                if (this.onYourTurn) this.onYourTurn(data.tileId, data.rotation);
                 break;
 
             case 'meeple-placed':
