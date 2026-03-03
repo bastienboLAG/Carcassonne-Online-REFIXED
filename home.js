@@ -1227,6 +1227,15 @@ console.log('📤 sendFullStateTo — tuilePosee:', tuilePosee);
 function applyFullStateSync(data) {
 console.log('🔄 applyFullStateSync démarré', !!tilePreviewUI, !!turnManager);
 console.log('📥 data.tuilePosee:', data.tuilePosee, 'data.tuileEnMain:', !!data.tuileEnMain);
+console.log('1️⃣ avant reconstruction plateau');
+// ... reconstruction plateau ...
+console.log('2️⃣ avant zones');
+// ... zones ...
+console.log('3️⃣ avant meeples');
+// ... meeples ...
+console.log('4️⃣ avant tuilePosee restore');
+// ... tuilePosee ...
+console.log('5️⃣ avant showBackside');
     // Reconstruire gameState
     gameState.deserialize(data.gameState);
 
