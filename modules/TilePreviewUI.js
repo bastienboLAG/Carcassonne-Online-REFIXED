@@ -34,6 +34,7 @@ export class TilePreviewUI {
     }
 
     showBackside() {
+console.log('🖼️ showBackside — previewElement:', !!this.previewElement, this.previewElement?.style?.display, this.previewElement?.offsetParent);
         if (!this.previewElement) return;
         this.previewElement.innerHTML = '<img src="./assets/verso.png" style="width: 120px; border: 2px solid #666;">';
     }
