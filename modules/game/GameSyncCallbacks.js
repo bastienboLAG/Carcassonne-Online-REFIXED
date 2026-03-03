@@ -132,8 +132,15 @@ export class GameSyncCallbacks {
         };
 
         // ── Pioche d'une tuile ────────────────────────────────────────────────
+        // tile-drawn reçu = synchroniser uniquement l'index deck (la pioche réelle est via your-turn)
         gs.onTileDrawn = (tileId, rotation) => {
             this.turnManager.receiveTileDrawn(tileId, rotation);
+        };
+
+        // your-turn reçu = l'hôte nous donne notre tuile
+        gs.onYourTurn = (tileId, rotation) => {
+            console.log('🎯 [SYNC] your-turn reçu:', tileId);
+            this.turnManager.receiveYourTurn(tileId, rotation);
         };
 
         // ── Placement d'un meeple ─────────────────────────────────────────────
