@@ -1224,6 +1224,7 @@ function sendFullStateTo(targetPeerId) {
  * Recevoir et appliquer un full-state-sync (côté invité/reconnecté)
  */
 function applyFullStateSync(data) {
+console.log('🔄 applyFullStateSync démarré', !!tilePreviewUI, !!turnManager);
     // Reconstruire gameState
     gameState.deserialize(data.gameState);
 
