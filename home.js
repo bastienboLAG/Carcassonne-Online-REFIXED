@@ -1752,7 +1752,7 @@ function updateMobileButtons() {
     }
 
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && !!undoManager?.canUndo();
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && (isHost ? !!undoManager?.canUndo() : !!tuilePosee);
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity = canUndo ? '1' : '0.4';
     }
@@ -1808,7 +1808,7 @@ function updateTurnDisplay() {
 
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && !!undoManager?.canUndo();
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && (isHost ? !!undoManager?.canUndo() : !!tuilePosee);
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity    = canUndo ? '1' : '0.5';
         undoBtn.style.cursor     = canUndo ? 'pointer' : 'not-allowed';
