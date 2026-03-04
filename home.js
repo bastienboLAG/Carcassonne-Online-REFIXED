@@ -802,7 +802,7 @@ document.getElementById('join-game-btn').addEventListener('click', () => {
     document.getElementById('join-code-input').focus();
 });
 
-document.getElementById('join-confirm-btn').addEventListener('click', async () => {
+async function _doJoin(isSpectator = false) {
     const code = document.getElementById('join-code-input').value.trim();
     if (!code) { showJoinError('Veuillez entrer un code !'); return; }
 
@@ -907,14 +907,17 @@ document.getElementById('join-confirm-btn').addEventListener('click', async () =
         updateLobbyUI();
 
         setTimeout(() => {
-            multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor });
+            multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator });
         }, 500);
 
     } catch (error) {
         console.error('❌ Erreur de connexion:', error);
         showJoinError("Impossible de rejoindre: " + error.message);
     }
-});
+}
+
+document.getElementById('join-confirm-btn').addEventListener('click', () => _doJoin(false));
+document.getElementById('join-spectate-btn').addEventListener('click', () => _doJoin(true));
 
 document.getElementById('join-cancel-btn').addEventListener('click', () => {
     document.getElementById('join-modal').style.display = 'none';
@@ -1729,35 +1732,40 @@ function _postStartSetup() {
 
                 } else {
                     // ── Nouvelle connexion en cours de partie ─────────────────
-                    const takenNow = gameState.players.map(p => p.color);
-                    const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
-
-                    if (freePlaying.length === 0) {
-                        // Plus de couleurs libres → refuser
-                        multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' });
-                        return;
+                    let assigned;
+                    if (data.isSpectator) {
+                        assigned = 'spectator';
+                    } else {
+                        const takenNow   = gameState.players.map(p => p.color);
+                        const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
+                        if (freePlaying.length === 0) {
+                            multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' });
+                            return;
+                        }
+                        assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
                     }
 
-                    const assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
                     const newPlayer = { id: from, name, color: assigned, isHost: false };
                     gameState.addPlayer(from, name, assigned, false);
-                    // Initialiser les meeples spéciaux selon la config de la partie
-                    const newP = gameState.players.find(p => p.id === from);
-                    if (newP) {
-                        if (gameConfig.extensions?.abbot)          newP.hasAbbot       = true;
-                        if (gameConfig.extensions?.largeMeeple)    newP.hasLargeMeeple = true;
-                        if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder    = true;
-                        if (gameConfig.extensions?.pig)            newP.hasPig         = true;
+                    // Initialiser les meeples spéciaux (pas pour spectateur)
+                    if (assigned !== 'spectator') {
+                        const newP = gameState.players.find(p => p.id === from);
+                        if (newP) {
+                            if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
+                            if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
+                            if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
+                            if (gameConfig.extensions?.pig)             newP.hasPig         = true;
+                        }
                     }
                     players.push(newPlayer);
 
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
-                    // Rafraîchir l'UI hôte avec le nouveau joueur
                     eventBus.emit('score-updated');
                     if (scorePanelUI) scorePanelUI.updateMobile();
                     updateTurnDisplay();
-                    afficherToast(`👋 ${name} a rejoint la partie !`);
+                    const label = assigned === 'spectator' ? '👁 observe la partie' : 'a rejoint la partie';
+                    afficherToast(`👋 ${name} ${label} !`);
                 }
                 return;
             }
