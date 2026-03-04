@@ -1745,8 +1745,30 @@ function _postStartSetup() {
 
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
+                    // Rafraîchir l'UI hôte avec le nouveau joueur
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) scorePanelUI.updateMobile();
+                    updateTurnDisplay();
                     afficherToast(`👋 ${name} a rejoint la partie !`);
                 }
+                return;
+            }
+
+            // Mise à jour liste joueurs en cours de partie (nouveau joueur ou reconnexion)
+            if (data.type === 'players-update' && gameState) {
+                players = data.players;
+                // Synchroniser gameState.players avec les nouveaux joueurs
+                // (ajouter ceux qui manquent, ne pas écraser les existants)
+                data.players.forEach(p => {
+                    const existing = gameState.players.find(gp => gp.id === p.id);
+                    if (!existing) {
+                        gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
+                    }
+                });
+                // Rafraîchir le score panel et l'UI mobile
+                eventBus.emit('score-updated');
+                if (scorePanelUI) scorePanelUI.updateMobile();
+                updateTurnDisplay();
                 return;
             }
 
