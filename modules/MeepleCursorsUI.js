@@ -146,17 +146,13 @@ export class MeepleCursorsUI {
                 console.log('🚫 Champs désactivés, pas de curseur field à position', position);
                 return;
             }
-            // Filtrer les zones normales si pas de meeples, grand meeple, ni bâtisseur
-            if (zoneType !== 'garden' && zoneType !== 'abbey' && !hasMeeples && !hasLarge && !hasBuilder && !hasPig) {
-                return;
-            }
-            // Filtrer les jardins si pas d'abbé
-            if (zoneType === 'garden' && !hasAbbot) {
-                return;
-            }
-            // Filtrer les abbayes si ni meeple normal ni abbé disponible
-            if (zoneType === 'abbey' && !hasMeeples && !hasAbbot && !hasLarge) {
-                return;
+            // Filtrer selon le type de zone et les ressources disponibles
+            if (zoneType === 'garden' && !hasAbbot) return;
+            if (zoneType === 'abbey'  && !hasMeeples && !hasAbbot && !hasLarge) return;
+            // city/road/field : besoin d'au moins un meeple normal ou grand
+            // (cochon et bâtisseur ne peuvent pas être posés dans une zone vide)
+            if (zoneType === 'city' || zoneType === 'road' || zoneType === 'field') {
+                if (!hasMeeples && !hasLarge && !hasBuilder) return;
             }
             
             const key = `${x},${y},${position}`;
@@ -198,14 +194,13 @@ export class MeepleCursorsUI {
                         } else {
                             return; // Zone occupée, pas de curseur
                         }
-                    } else if ((hasBuilder && !hasMeeples && !hasLarge) && !(hasPig && zoneType === 'field')) {
-                        // Le joueur n'a QUE le bâtisseur : zone vide → pas de curseur city/road
-                        const zoneIsCityOrRoad = zoneType === 'city' || zoneType === 'road';
-                        if (zoneIsCityOrRoad) return;
+                    } else {
+                        // Zone vide : cochon et bâtisseur ne peuvent pas être posés seuls
+                        if (!hasMeeples && !hasLarge) return;
                     }
-                } else if ((hasBuilder && !hasMeeples && !hasLarge) && !(hasPig)) {
-                    // Aucune zone fusionnée et uniquement bâtisseur dispo : impossible
-                    return;
+                } else {
+                    // Pas de zone fusionnée : cochon et bâtisseur ne peuvent pas être posés seuls
+                    if (!hasMeeples && !hasLarge) return;
                 }
             }
             

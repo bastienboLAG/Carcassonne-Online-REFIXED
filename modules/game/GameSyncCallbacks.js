@@ -209,7 +209,8 @@ export class GameSyncCallbacks {
                         } else if (meeple.type === 'Pig') {
                             player.hasPig = true;
                         } else {
-                            player.meeples = (player.meeples || 0) + 1;
+                            // Ne pas incrémenter ici : meeple-count-update broadcasted par l'hôte
+                            // via incrementPlayerMeeples s'en charge pour éviter le double comptage
                         }
                         this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
                     }
