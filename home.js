@@ -1290,18 +1290,26 @@ function _excludeDisconnectedPlayer(disconnectedName) {
             const wasCurrentPlayer = (idx === gameState.currentPlayerIndex);
             const peerId = gameState.players[idx].id;
 
-            // On garde le joueur dans gameState.players (déjà marqué disconnected=true)
-            // pour conserver l'affichage visuel côté tous les joueurs.
-            // TurnManager skippe automatiquement les joueurs disconnected.
-            // Si c'était son tour, avancer currentPlayerIndex vers le suivant non-disconnected.
-            if (wasCurrentPlayer) {
-                let next = (idx + 1) % gameState.players.length;
-                let attempts = 0;
-                while (gameState.players[next]?.disconnected && attempts < gameState.players.length) {
-                    next = (next + 1) % gameState.players.length;
-                    attempts++;
+            const isSpectatorPlayer = gameState.players[idx]?.color === 'spectator';
+
+            if (isSpectatorPlayer) {
+                // Spectateur : suppression complète, rien à conserver
+                gameState.players.splice(idx, 1);
+                if (gameState.currentPlayerIndex >= gameState.players.length) {
+                    gameState.currentPlayerIndex = 0;
                 }
-                gameState.currentPlayerIndex = next;
+            } else {
+                // Joueur réel : on garde dans gameState pour conserver l'affichage visuel.
+                // TurnManager skippe automatiquement les joueurs disconnected.
+                if (wasCurrentPlayer) {
+                    let next = (idx + 1) % gameState.players.length;
+                    let attempts = 0;
+                    while (gameState.players[next]?.disconnected && attempts < gameState.players.length) {
+                        next = (next + 1) % gameState.players.length;
+                        attempts++;
+                    }
+                    gameState.currentPlayerIndex = next;
+                }
             }
             players = players.filter(p => p.id !== peerId);
 
@@ -1470,8 +1478,8 @@ function applyFullStateSync(data) {
     // Mettre à jour isMyTurn AVANT d'afficher la tuile ou le verso
     if (turnManager) turnManager.updateTurnState();
 
-    // Tuile en main : reconstruire si c'est notre tour OU si on est spectateur
-    if (data.tuileEnMain && !tuilePosee && (turnManager?.isMyTurn || _isSpectator())) {
+    // Tuile en main : reconstruire pour tout le monde (joueur courant, invité, spectateur)
+    if (data.tuileEnMain && !tuilePosee) {
         const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
         if (td) {
             tuileEnMain = new Tile(td);
@@ -1698,6 +1706,20 @@ function _postStartSetup() {
         const handleDisconnect = (peerId) => {
             if (!isHost) return;
             if (!gameState) return;
+
+            const disconnectingPlayer = gameState.players.find(p => p.id === peerId);
+            const isSpectator = disconnectingPlayer?.color === 'spectator';
+
+            if (isSpectator) {
+                // Spectateur : suppression silencieuse, pas de pause
+                gameState.players.splice(gameState.players.findIndex(p => p.id === peerId), 1);
+                players = players.filter(p => p.id !== peerId);
+                if (gameSync) multiplayer.broadcast({ type: 'players-update', players });
+                if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
+                afficherToast(`👁 ${disconnectingPlayer.name} a quitté.`);
+                eventBus.emit('score-updated');
+                return;
+            }
 
             const result = gameState.markDisconnected(peerId);
             if (!result) return;
