@@ -52,7 +52,8 @@ export class GameSync {
             'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
-            'turn-end-request'
+            'turn-end-request',
+            'turn-undo-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -217,6 +218,20 @@ export class GameSync {
     }
 
     /**
+     * Invité → hôte : demande d'annulation
+     */
+    syncUndoRequest() {
+        console.log('⏪ [INVITÉ] Demande annulation');
+        const hostConn = this.multiplayer.connections[0];
+        if (hostConn && hostConn.open) {
+            hostConn.send({
+                type: 'turn-undo-request',
+                playerId: this.multiplayer.playerId
+            });
+        }
+    }
+
+    /**
      * Synchroniser la destruction d'une tuile
      */
     syncTileDestroyed(tileId, playerName, action, count = 1) {
@@ -321,7 +336,7 @@ export class GameSync {
         // le re-broadcaster aux autres joueurs (topologie étoile, invités non connectés entre eux)
         const relayTypes = [
             'tile-rotated', 'tile-placed', 'tile-drawn',
-            'meeple-placed', 'meeple-count-update', 'score-update', 'turn-undo',
+            'meeple-placed', 'meeple-count-update', 'score-update',
             'tile-destroyed', 'deck-reshuffled', 'abbe-recalled', 'abbe-recalled-undo',
             'game-ended'
         ];
@@ -364,6 +379,13 @@ export class GameSync {
                 if (this.isHost && this.onTurnEndRequest) {
                     console.log('⏭️ [HÔTE] Demande fin de tour reçue de:', data.playerId);
                     this.onTurnEndRequest(data.playerId, data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false);
+                }
+                break;
+
+            case 'turn-undo-request':
+                if (this.isHost && this.onUndoRequest) {
+                    console.log('⏪ [HÔTE] Demande annulation reçue de:', data.playerId);
+                    this.onUndoRequest(data.playerId);
                 }
                 break;
 

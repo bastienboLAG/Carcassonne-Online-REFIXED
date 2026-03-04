@@ -28,6 +28,7 @@ export class GameSyncCallbacks {
         updateTurnDisplay,
         poserTuileSync,
         afficherMessage,
+        isHost = false,
     }) {
         this.gameSync        = gameSync;
         this.gameState       = gameState;
@@ -53,6 +54,7 @@ export class GameSyncCallbacks {
         this.updateTurnDisplay = updateTurnDisplay;   // () => void
         this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
         this.afficherMessage   = afficherMessage;     // (msg) => void
+        this.isHost            = isHost;
         this.onGamePaused      = null; // (name, ms) => void
         this.onGameResumed     = null; // (reason) => void
         this.onFullStateSync   = null; // (data) => void
@@ -112,9 +114,8 @@ export class GameSyncCallbacks {
                     this.zoneMerger.tileToZone = new Map(tileToZoneData);
                     console.log('✅ [SYNC] ZoneRegistry appliqué depuis hôte');
                 }
-                // ✅ Sauvegarder le snapshot APRÈS application des zones
-                // (ne pas le faire dans poserTuileSync qui s'exécute avant)
-                if (this.undoManager) {
+                // ✅ L'hôte sauvegarde le snapshot après pose tuile d'un invité (undo centralisé)
+                if (this.undoManager && this.isHost) {
                     this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
                 }
             }
