@@ -930,29 +930,12 @@ async function _doJoin(isSpectator = false) {
     }
 }
 
-// Étape 1 : clic "Rejoindre" → ouvrir la modale de choix rôle
-document.getElementById('join-confirm-btn').addEventListener('click', () => {
-    const code = document.getElementById('join-code-input').value.trim();
-    if (!code) { showJoinError('Veuillez entrer un code !'); return; }
-    document.getElementById('join-modal').style.display = 'none';
-    document.getElementById('join-role-modal').style.display = 'flex';
-});
+// Clic "Rejoindre" → connexion directe (le choix joueur/spectateur se fait
+// après connexion via modale si la partie est déjà en cours)
+document.getElementById('join-confirm-btn').addEventListener('click', () => _doJoin(false));
 
 document.getElementById('join-cancel-btn').addEventListener('click', () => {
     document.getElementById('join-modal').style.display = 'none';
-});
-
-// Étape 2 : choix joueur ou spectateur
-document.getElementById('join-as-player-btn').addEventListener('click', () => {
-    document.getElementById('join-role-modal').style.display = 'none';
-    document.getElementById('join-modal').style.display = 'flex';
-    _doJoin(false);
-});
-
-document.getElementById('join-as-spectator-btn').addEventListener('click', () => {
-    document.getElementById('join-role-modal').style.display = 'none';
-    document.getElementById('join-modal').style.display = 'flex';
-    _doJoin(true);
 });
 
 function _showRoleChoiceModal(callback) {
