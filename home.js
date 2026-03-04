@@ -2611,6 +2611,19 @@ function setupEventListeners() {
         const undoneAction = undoManager.undo(placedMeeples);
         if (!undoneAction) return;
 
+        // Enrichir avec l'état post-undo pour que les invités puissent reconstruire
+        undoneAction.postUndoState = {
+            placedTileKeys: Object.keys(plateau.placedTiles),
+            zones:          zoneMerger.registry.serialize(),
+            tileToZone:     Array.from(zoneMerger.tileToZone.entries()),
+            placedMeeples:  JSON.parse(JSON.stringify(placedMeeples)),
+            playerMeeples:  gameState.players.map(p => ({
+                id: p.id, meeples: p.meeples,
+                hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
+                hasBuilder: p.hasBuilder, hasPig: p.hasPig
+            }))
+        };
+
         _applyUndoLocally(undoneAction);
 
         if (gameSync) gameSync.syncUndo(undoneAction);
