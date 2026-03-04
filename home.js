@@ -125,6 +125,7 @@ let originalLobbyHandler = null;
 // ÉTAT DU JEU
 // ═══════════════════════════════════════════════════════
 let tuileEnMain    = null;
+let currentTileForPlayer = null; // Tuile piochée pour le joueur courant (hôte ou invité)
 let tuilePosee     = false;
 let waitingToRedraw   = false;
 let pendingAbbePoints = null; // { playerId, points } — points abbé à attribuer en fin de tour
@@ -1086,7 +1087,7 @@ function attachGameSyncCallbacks() {
 
     // Callbacks reconnexion (définis après attach car gameSync callbacks obj créé)
     if (gameSync) {
-        gameSync.onGamePaused  = (name, ms) => { _showPauseOverlay(name, ms ?? PAUSE_TIMEOUT_MS); };
+        gameSync.onGamePaused  = (name) => { _showPauseOverlay(name); };
         gameSync.onGameResumed = (reason)   => {
             _hidePauseOverlay();
             if (reason === 'timeout') afficherToast('⏱ Partie reprise (joueur exclu).');
@@ -1211,22 +1212,12 @@ function stopGameTimer() {
 function pauseGame(disconnectedName) {
     if (!isHost || gamePaused) return;
     gamePaused = true;
-    pauseTimerEnd = Date.now() + PAUSE_TIMEOUT_MS;
 
-    // Broadcaster aux invités
-    if (gameSync) gameSync.syncGamePaused(disconnectedName, PAUSE_TIMEOUT_MS);
+    // Broadcaster aux invités (sans timeout — attente indéfinie)
+    if (gameSync) gameSync.syncGamePaused(disconnectedName, 0);
 
     // Afficher l'overlay
-    _showPauseOverlay(disconnectedName, PAUSE_TIMEOUT_MS);
-
-    // Timer de countdown
-    pauseTimerInterval = setInterval(() => {
-        const remaining = pauseTimerEnd - Date.now();
-        _updatePauseCountdown(remaining);
-        if (remaining <= 0) {
-            _onPauseTimeout(disconnectedName);
-        }
-    }, 1000);
+    _showPauseOverlay(disconnectedName);
 }
 
 /**
@@ -1243,16 +1234,14 @@ function resumeGame(reason = 'reconnected') {
 }
 
 /**
- * Timer de pause expiré — marquer le joueur comme abandonné et continuer
+ * Exclure le joueur déconnecté et reprendre la partie (déclenché par le bouton hôte)
  */
-function _onPauseTimeout(disconnectedName) {
-    clearInterval(pauseTimerInterval);
-    pauseTimerInterval = null;
+function _excludeDisconnectedPlayer(disconnectedName) {
+    if (!isHost) return;
     gamePaused = false;
     _hidePauseOverlay();
 
-    // Trouver et supprimer le joueur déconnecté du gameState
-    if (isHost && gameState) {
+    if (gameState) {
         const idx = gameState.players.findIndex(p => p.name === disconnectedName && p.disconnected);
         if (idx !== -1) {
             const peerId = gameState.players[idx].id;
@@ -1265,21 +1254,19 @@ function _onPauseTimeout(disconnectedName) {
         if (gameSync) gameSync.syncGameResumed('timeout');
         if (turnManager) {
             turnManager.updateTurnState();
-            if (isHost) {
-                const _t = _hostDrawAndSend();
-                if (_t) turnManager.receiveYourTurn(_t.id);
-                gameSync.syncTurnEnd(false, _t?.id ?? null);
-            }
+            const _t = _hostDrawAndSend();
+            if (_t) turnManager.receiveYourTurn(_t.id);
+            gameSync.syncTurnEnd(false, _t?.id ?? null);
             eventBus.emit('turn-changed', {
                 isMyTurn: turnManager.isMyTurn,
                 currentPlayer: turnManager.getCurrentPlayer()
             });
         }
     }
-    afficherToast(`⏱ ${disconnectedName} a été exclu (délai dépassé).`);
+    afficherToast(`👋 ${disconnectedName} a été exclu(e) de la partie.`);
 }
 
-function _showPauseOverlay(name, timeoutMs) {
+function _showPauseOverlay(name) {
     let overlay = document.getElementById('pause-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
@@ -1291,22 +1278,31 @@ function _showPauseOverlay(name, timeoutMs) {
         `;
         document.body.appendChild(overlay);
     }
-    const secs = Math.ceil(timeoutMs / 1000);
+
+    const hostBtn = isHost
+        ? `<button id="exclude-player-btn" style="
+            margin-top:20px; padding:10px 24px; font-size:15px; font-weight:bold;
+            background:#e74c3c; color:#fff; border:none; border-radius:8px; cursor:pointer;">
+            Continuer sans ${name}
+          </button>`
+        : '';
+
     overlay.innerHTML = `
-        <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+        <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
             <div style="font-size:48px;margin-bottom:12px;">⏸</div>
             <h2 style="margin:0 0 8px;font-size:22px;">Partie en pause</h2>
-            <p style="margin:0 0 16px;color:#aaa;font-size:15px;"><strong style="color:#fff">${name}</strong> s'est déconnecté(e).</p>
-            <p style="margin:0 0 4px;color:#aaa;font-size:14px;">Reprise automatique dans</p>
-            <div id="pause-countdown" style="font-size:36px;font-weight:bold;color:#f39c12;">${secs}s</div>
+            <p style="margin:0 0 8px;color:#aaa;font-size:15px;"><strong style="color:#fff">${name}</strong> s'est déconnecté(e).</p>
+            <p style="margin:0 0 4px;color:#aaa;font-size:13px;">En attente de reconnexion…</p>
+            ${hostBtn}
         </div>
     `;
     overlay.style.display = 'flex';
-}
 
-function _updatePauseCountdown(remaining) {
-    const el = document.getElementById('pause-countdown');
-    if (el) el.textContent = Math.max(0, Math.ceil(remaining / 1000)) + 's';
+    if (isHost) {
+        document.getElementById('exclude-player-btn')?.addEventListener('click', () => {
+            _excludeDisconnectedPlayer(name);
+        });
+    }
 }
 
 function _hidePauseOverlay() {
@@ -1330,6 +1326,7 @@ function _hostDrawAndSend() {
         return null;
     }
     console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', gameState.getCurrentPlayer()?.name);
+    currentTileForPlayer = tileData; // Mémoriser pour reconnexion
     // Sync compteur deck côté invités
     gameSync.syncTileDraw(tileData.id, 0);
     return tileData;
@@ -1344,7 +1341,7 @@ function sendFullStateTo(targetPeerId) {
         zoneRegistry: zoneMerger.registry,
         tileToZone:   zoneMerger.tileToZone,
         placedMeeples,
-        tuileEnMain,
+        tuileEnMain: tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer),
         tuilePosee: gameState.currentTilePlaced,
         gameConfig,
         timerElapsed: gameTimerStart ? Math.floor((Date.now() - gameTimerStart) / 1000) : 0
@@ -2073,6 +2070,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     firstTilePlaced = true;
     lastPlacedTile  = { x, y };
     gameState.currentTilePlaced = true;
+    currentTileForPlayer = null; // Tuile posée, plus besoin pour reconnexion
 
     // Réinitialiser le suivi des tuiles implaçables après chaque placement réussi
     if (unplaceableManager) unplaceableManager.resetSeenImplacable();

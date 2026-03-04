@@ -55,7 +55,7 @@ export class GameSyncCallbacks {
         this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
         this.afficherMessage   = afficherMessage;     // (msg) => void
         this.isHost            = isHost;
-        this.onGamePaused      = null; // (name, ms) => void
+        this.onGamePaused      = null; // (name) => void
         this.onGameResumed     = null; // (reason) => void
         this.onFullStateSync   = null; // (data) => void
     }
@@ -252,7 +252,7 @@ export class GameSyncCallbacks {
             }
         };
 
-        gs.onGamePaused  = (name, ms) => { if (this.onGamePaused)  this.onGamePaused(name, ms); };
+        gs.onGamePaused  = (name) => { if (this.onGamePaused)  this.onGamePaused(name); };
         gs.onGameResumed = (reason)   => { if (this.onGameResumed) this.onGameResumed(reason); };
         gs.onFullStateSync = (data)   => { if (this.onFullStateSync) this.onFullStateSync(data); };
 
