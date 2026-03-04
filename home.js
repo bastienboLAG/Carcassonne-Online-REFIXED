@@ -1470,8 +1470,8 @@ function applyFullStateSync(data) {
     // Mettre à jour isMyTurn AVANT d'afficher la tuile ou le verso
     if (turnManager) turnManager.updateTurnState();
 
-    // Tuile en main si c'est notre tour et qu'on n'avait pas encore posé
-    if (data.tuileEnMain && turnManager?.isMyTurn && !tuilePosee) {
+    // Tuile en main : reconstruire si c'est notre tour OU si on est spectateur
+    if (data.tuileEnMain && !tuilePosee && (turnManager?.isMyTurn || _isSpectator())) {
         const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
         if (td) {
             tuileEnMain = new Tile(td);
@@ -1488,7 +1488,7 @@ function applyFullStateSync(data) {
         if (!tilePreviewUI) return;
         if (_tuilePosee) {
             tilePreviewUI.showBackside();
-        } else if (_isMyTurn && _tuileEnMain) {
+        } else if (_tuileEnMain) {
             tilePreviewUI.showTile(_tuileEnMain);
         } else {
             tilePreviewUI.showMessage('En attente...');
