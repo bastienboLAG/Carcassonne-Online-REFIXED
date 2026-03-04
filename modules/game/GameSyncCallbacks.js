@@ -144,6 +144,10 @@ export class GameSyncCallbacks {
             const key = `${x},${y},${position}`;
             placedMeeples[key] = { type: meepleType, color, playerId };
             this.meepleDisplayUI.showMeeple(x, y, position, meepleType, color);
+            // Hôte marque le meeple pour undo centralisé
+            if (this.isHost && this.undoManager) {
+                this.undoManager.markMeeplePlaced(x, y, position, key);
+            }
         };
 
         // ── Mise à jour du compteur de meeples ───────────────────────────────

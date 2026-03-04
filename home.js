@@ -1977,9 +1977,6 @@ function _applyUndoLocally(undoneAction) {
 
 function handleRemoteUndo(undoneAction) {
     console.log('⏪ [REMOTE] Application annulation distante:', undoneAction.type);
-    console.log('⏪ [REMOTE] postUndoState keys:', undoneAction.postUndoState?.placedTileKeys?.length, undoneAction.postUndoState?.placedTileKeys);
-    const _tilesBefore = document.querySelectorAll('.tile').length;
-    console.log('⏪ [REMOTE] tuiles DOM avant:', _tilesBefore);
 
     // Restaurer l'état post-undo envoyé par l'hôte
     const s = undoneAction.postUndoState;
@@ -2009,7 +2006,6 @@ function handleRemoteUndo(undoneAction) {
 
     // Appliquer visuellement (sans curseurs — ce n'est pas notre tour)
     _applyUndoLocally(undoneAction);
-    console.log('⏪ [REMOTE] tuiles DOM après _applyUndoLocally:', document.querySelectorAll('.tile').length);
 
     gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
     eventBus.emit('score-updated');
