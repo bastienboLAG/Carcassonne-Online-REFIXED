@@ -912,15 +912,35 @@ async function _doJoin(isSpectator = false) {
 
     } catch (error) {
         console.error('❌ Erreur de connexion:', error);
+        // Rouvrir la modale de saisie du code pour afficher l'erreur
+        document.getElementById('join-modal').style.display = 'flex';
         showJoinError("Impossible de rejoindre: " + error.message);
     }
 }
 
-document.getElementById('join-confirm-btn').addEventListener('click', () => _doJoin(false));
-document.getElementById('join-spectate-btn').addEventListener('click', () => _doJoin(true));
+// Étape 1 : clic "Rejoindre" → ouvrir la modale de choix rôle
+document.getElementById('join-confirm-btn').addEventListener('click', () => {
+    const code = document.getElementById('join-code-input').value.trim();
+    if (!code) { showJoinError('Veuillez entrer un code !'); return; }
+    document.getElementById('join-modal').style.display = 'none';
+    document.getElementById('join-role-modal').style.display = 'flex';
+});
 
 document.getElementById('join-cancel-btn').addEventListener('click', () => {
     document.getElementById('join-modal').style.display = 'none';
+});
+
+// Étape 2 : choix joueur ou spectateur
+document.getElementById('join-as-player-btn').addEventListener('click', () => {
+    document.getElementById('join-role-modal').style.display = 'none';
+    document.getElementById('join-modal').style.display = 'flex';
+    _doJoin(false);
+});
+
+document.getElementById('join-as-spectator-btn').addEventListener('click', () => {
+    document.getElementById('join-role-modal').style.display = 'none';
+    document.getElementById('join-modal').style.display = 'flex';
+    _doJoin(true);
 });
 
 function showJoinError(message) {

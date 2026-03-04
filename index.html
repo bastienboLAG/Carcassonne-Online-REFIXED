@@ -288,10 +288,21 @@
             <input type="text" id="join-code-input" placeholder="Code à 6 chiffres" maxlength="6" pattern="[0-9]{6}" inputmode="numeric">
             <div class="modal-buttons">
                 <button id="join-confirm-btn" class="modal-btn confirm">Rejoindre</button>
-                <button id="join-spectate-btn" class="modal-btn secondary">👁 Spectateur</button>
                 <button id="join-cancel-btn" class="modal-btn cancel">Annuler</button>
             </div>
             <p id="join-error" class="error-message" style="display: none;"></p>
+        </div>
+    </div>
+
+    <!-- Modale choix joueur / spectateur -->
+    <div id="join-role-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Comment rejoindre ?</h2>
+            <p>Voulez-vous participer à la partie ou simplement observer ?</p>
+            <div class="modal-buttons">
+                <button id="join-as-player-btn" class="modal-btn confirm">🎮 Joueur</button>
+                <button id="join-as-spectator-btn" class="modal-btn secondary">👁 Spectateur</button>
+            </div>
         </div>
     </div>
 
