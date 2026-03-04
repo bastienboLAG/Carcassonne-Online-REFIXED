@@ -1741,6 +1741,14 @@ function _postStartSetup() {
                     const assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
                     const newPlayer = { id: from, name, color: assigned, isHost: false };
                     gameState.addPlayer(from, name, assigned, false);
+                    // Initialiser les meeples spéciaux selon la config de la partie
+                    const newP = gameState.players.find(p => p.id === from);
+                    if (newP) {
+                        if (gameConfig.extensions?.abbot)          newP.hasAbbot       = true;
+                        if (gameConfig.extensions?.largeMeeple)    newP.hasLargeMeeple = true;
+                        if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder    = true;
+                        if (gameConfig.extensions?.pig)            newP.hasPig         = true;
+                    }
                     players.push(newPlayer);
 
                     sendFullStateTo(from);
@@ -1763,6 +1771,14 @@ function _postStartSetup() {
                     const existing = gameState.players.find(gp => gp.id === p.id);
                     if (!existing) {
                         gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
+                        // Initialiser les meeples spéciaux selon la config de la partie
+                        const newP = gameState.players.find(gp => gp.id === p.id);
+                        if (newP && gameConfig) {
+                            if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
+                            if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
+                            if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
+                            if (gameConfig.extensions?.pig)             newP.hasPig         = true;
+                        }
                     }
                 });
                 // Rafraîchir le score panel et l'UI mobile
