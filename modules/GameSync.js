@@ -51,7 +51,8 @@ export class GameSync {
             'tile-drawn', 'meeple-placed', 'meeple-count-update', 'score-update',
             'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
-            'abbe-recalled', 'abbe-recalled-undo'
+            'abbe-recalled', 'abbe-recalled-undo',
+            'turn-end-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
