@@ -58,7 +58,7 @@ export class GameState {
             name: playerName,
             color: color,
             score: 0,
-            meeples: 2, // TEST
+            meeples: 7,
             hasAbbot:       false, // Initialisé à false, mis à true si extension Abbé activée
             hasLargeMeeple: false, // Grand meeple (Auberges & Cathédrales)
             hasBuilder:     false, // Bâtisseur (Marchands & Bâtisseurs)
@@ -133,7 +133,7 @@ export class GameState {
             name: p.name,
             color: p.color,
             score: p.score || 0,
-            meeples: p.meeples ?? 2, // TEST
+            meeples: p.meeples ?? 7,
             hasAbbot:       p.hasAbbot       ?? false,
             hasLargeMeeple: p.hasLargeMeeple ?? false,
             hasBuilder:     p.hasBuilder     ?? false,

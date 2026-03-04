@@ -524,6 +524,49 @@ function _updatePigAvailability() {
 document.getElementById('base-fields')?.addEventListener('change', _updatePigAvailability);
 _updatePigAvailability(); // état initial
 
+// Liaison tiles-traders-builders <-> ext-merchants
+function _updateMerchantsAvailability() {
+    const tilesOn = document.getElementById('tiles-traders-builders')?.checked ?? false;
+    const label   = document.getElementById('ext-merchants')?.closest('label');
+    const cb      = document.getElementById('ext-merchants');
+    if (!cb) return;
+    if (!tilesOn) {
+        cb.checked = false; cb.disabled = true;
+        if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
+    } else {
+        cb.disabled = false;
+        if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
+    }
+    _updateMasterCheckboxSafe('all-traders-builders');
+    saveLobbyOptions();
+}
+document.getElementById('tiles-traders-builders')?.addEventListener('change', _updateMerchantsAvailability);
+_updateMerchantsAvailability();
+
+// Liaison tiles-inns-cathedrals <-> ext-cathedrals et ext-inns
+function _updateInnsCthdAvailability() {
+    const tilesOn = document.getElementById('tiles-inns-cathedrals')?.checked ?? false;
+    [
+        { id: 'ext-cathedrals' },
+        { id: 'ext-inns'       }
+    ].forEach(({ id }) => {
+        const cb    = document.getElementById(id);
+        const label = cb?.closest('label');
+        if (!cb) return;
+        if (!tilesOn) {
+            cb.checked = false; cb.disabled = true;
+            if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
+        } else {
+            cb.disabled = false;
+            if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
+        }
+    });
+    _updateMasterCheckboxSafe('all-inns-cathedrals');
+    saveLobbyOptions();
+}
+document.getElementById('tiles-inns-cathedrals')?.addEventListener('change', _updateInnsCthdAvailability);
+_updateInnsCthdAvailability();
+
 // ── Coches maîtres (bidirectionnelles) ────────────────────────────────
 // Un groupe est défini par data-group="<masterId>" sur chaque coche enfant.
 // La coche maître est checked si TOUTES les enfants sont cochées,
@@ -538,8 +581,9 @@ function _onMasterChange(masterId) {
         .filter(el => !el.disabled);
     children.forEach(c => { c.checked = master.checked; });
     // Ré-appliquer les contraintes de dépendance AVANT de dispatcher les change
-    // (ex : ext-pig dépend de base-fields, même au sein d'une coche maître)
     _updatePigAvailability();
+    _updateMerchantsAvailability();
+    _updateInnsCthdAvailability();
     // Déclencher les side-effects (saveLobbyOptions, sync)
     children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
     saveLobbyOptions();
@@ -1109,39 +1153,47 @@ function attachGameSyncCallbacks() {
 // ═══════════════════════════════════════════════════════
 // DÉMARRAGE — HÔTE
 // ═══════════════════════════════════════════════════════
+function _updateTimerEls(text) {
+    ['game-timer', 'mobile-game-timer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    });
+}
+
+function _showTimerEls() {
+    ['game-timer', 'mobile-game-timer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
+    });
+}
+
 function startGameTimer() {
     gameTimerStart = Date.now();
-    const el = document.getElementById('game-timer');
-    if (el) el.style.display = '';
+    _showTimerEls();
     clearInterval(gameTimerInterval);
     gameTimerInterval = setInterval(() => {
-        const el = document.getElementById('game-timer');
-        if (!el) return;
         const elapsed = Math.floor((Date.now() - gameTimerStart) / 1000);
         const h = Math.floor(elapsed / 3600);
         const m = Math.floor((elapsed % 3600) / 60);
         const s = elapsed % 60;
-        el.textContent = h > 0
+        _updateTimerEls(h > 0
             ? `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
     }, 1000);
 }
 
 function startGameTimerFrom(elapsedSeconds) {
     gameTimerStart = Date.now() - (elapsedSeconds * 1000);
-    const el = document.getElementById('game-timer');
-    if (el) el.style.display = '';
+    _showTimerEls();
     clearInterval(gameTimerInterval);
     gameTimerInterval = setInterval(() => {
-        const el = document.getElementById('game-timer');
-        if (!el) return;
         const elapsed = Math.floor((Date.now() - gameTimerStart) / 1000);
         const h = Math.floor(elapsed / 3600);
         const m = Math.floor((elapsed % 3600) / 60);
         const s = elapsed % 60;
-        el.textContent = h > 0
+        _updateTimerEls(h > 0
             ? `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
     }, 1000);
 }
 
@@ -2552,8 +2604,10 @@ function returnToInitialLobby(message = null) {
 function returnToLobby() {
     console.log('🔙 Retour au lobby...');
     stopGameTimer();
-    const timerEl = document.getElementById('game-timer');
-    if (timerEl) { timerEl.textContent = '⏱ 00:00'; timerEl.style.display = 'none'; }
+    ['game-timer', 'mobile-game-timer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = '⏱ 00:00'; el.style.display = 'none'; }
+    });
 
     if (isHost && multiplayer.peer?.open) {
         multiplayer.broadcast({ type: 'return-to-lobby' });
