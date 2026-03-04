@@ -85,10 +85,7 @@ export class InnsRules {
      * @param {Object} meeple
      * @returns {number}
      */
-    static getMeepleWeight(meeple) {
-        if (meeple.type === 'Builder' || meeple.type === 'Pig') return 0;
-        return (meeple.type === 'Large' || meeple.type === 'Large-Farmer') ? 2 : 1;
-    }
+
 
     /**
      * Modificateur de score ville fermée

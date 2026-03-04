@@ -309,7 +309,5 @@ export class BuilderRules {
     // Helpers
     // ─────────────────────────────────────────────────────────────
 
-    static getMeepleWeight(meeple) {
-        return 0; // Bâtisseur et cochon : poids 0 pour la majorité
-    }
+
 }
