@@ -199,12 +199,17 @@ export class MeepleCursorsUI {
                             return; // Zone occupée, pas de curseur
                         }
                     } else {
-                        // Zone vide : cochon et bâtisseur ne peuvent pas être posés seuls
-                        if (!hasMeeples && !hasLarge) return;
+                        // Zone vide : cochon/bâtisseur ne peuvent pas être posés seuls
+                        // L'abbé peut être posé seul sur abbey
+                        const canPlaceAlone = hasMeeples || hasLarge ||
+                            (zoneType === 'abbey' && hasAbbot);
+                        if (!canPlaceAlone) return;
                     }
                 } else {
-                    // Pas de zone fusionnée : cochon et bâtisseur ne peuvent pas être posés seuls
-                    if (!hasMeeples && !hasLarge) return;
+                    // Pas de zone fusionnée
+                    const canPlaceAlone = hasMeeples || hasLarge ||
+                        (zoneType === 'abbey' && hasAbbot);
+                    if (!canPlaceAlone) return;
                 }
             }
             
