@@ -111,8 +111,8 @@ export class GameSync {
     /**
      * Synchroniser la fin du tour
      */
-    syncTurnEnd(isBonusTurn = false, nextTileId = null, nextTileRotation = 0) {
-        console.log('⏭️ Sync fin de tour — isBonusTurn:', isBonusTurn);
+    syncTurnEnd(isBonusTurn = false, nextTileId = null) {
+        console.log('⏭️ Sync fin de tour — isBonusTurn:', isBonusTurn, 'nextTileId:', nextTileId);
 
         this.multiplayer.broadcast({
             type: 'turn-ended',
@@ -120,11 +120,27 @@ export class GameSync {
             nextPlayerIndex: this.gameState.currentPlayerIndex,
             gameState: this.gameState.serialize(),
             isBonusTurn: isBonusTurn,
-            nextTileId: nextTileId,
-            nextTileRotation: nextTileRotation
+            nextTileId: nextTileId
         });
-        
+
         return true;
+    }
+
+    /**
+     * Invité → hôte : demande de fin de tour
+     */
+    syncTurnEndRequest(isBonusTurn = false) {
+        console.log('⏭️ [INVITÉ] Demande fin de tour — isBonusTurn:', isBonusTurn);
+        const hostConn = this.multiplayer.connections[0];
+        if (hostConn && hostConn.open) {
+            hostConn.send({
+                type: 'turn-end-request',
+                playerId: this.multiplayer.playerId,
+                nextPlayerIndex: this.gameState.currentPlayerIndex,
+                gameState: this.gameState.serialize(),
+                isBonusTurn: isBonusTurn
+            });
+        }
     }
 
     /**
@@ -138,23 +154,6 @@ export class GameSync {
             rotation: rotation,
             playerId: this.multiplayer.playerId
         });
-    }
-
-    /**
-     * Envoyer "c'est ton tour + ta tuile" directement au joueur concerné (hôte → invité)
-     * Si le joueur cible est l'hôte lui-même, appelle onYourTurn directement.
-     */
-    syncYourTurn(targetPeerId, tileId, rotation) {
-        console.log('🎯 Sync your-turn →', targetPeerId, tileId);
-        if (targetPeerId === this.multiplayer.playerId) {
-            if (this.onYourTurn) this.onYourTurn(tileId, rotation);
-        } else {
-            this.multiplayer.sendTo(targetPeerId, {
-                type: 'your-turn',
-                tileId,
-                rotation
-            });
-        }
     }
 
     /**
@@ -320,7 +319,7 @@ export class GameSync {
         // ✅ RELAIS HÔTE : si on est l'hôte et que le message vient d'un invité,
         // le re-broadcaster aux autres joueurs (topologie étoile, invités non connectés entre eux)
         const relayTypes = [
-            'tile-rotated', 'tile-placed', 'tile-drawn', 'turn-ended',
+            'tile-rotated', 'tile-placed', 'tile-drawn',
             'meeple-placed', 'meeple-count-update', 'score-update', 'turn-undo',
             'tile-destroyed', 'deck-reshuffled', 'abbe-recalled', 'abbe-recalled-undo',
             'game-ended'
@@ -354,22 +353,24 @@ export class GameSync {
 
             case 'turn-ended':
                 if (this.onTurnEnded && data.playerId !== this.multiplayer.playerId) {
-                    console.log('⏭️ [SYNC] Fin de tour reçue');
-                    this.onTurnEnded(data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false, data.nextTileId ?? null, data.nextTileRotation ?? 0);
+                    console.log('⏭️ [SYNC] Fin de tour reçue — nextTileId:', data.nextTileId);
+                    this.onTurnEnded(data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false, data.nextTileId ?? null);
+                }
+                break;
+
+            case 'turn-end-request':
+                // Un invité demande à l'hôte de clore son tour
+                if (this.isHost && this.onTurnEndRequest) {
+                    console.log('⏭️ [HÔTE] Demande fin de tour reçue de:', data.playerId);
+                    this.onTurnEndRequest(data.playerId, data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false);
                 }
                 break;
 
             case 'tile-drawn':
-                // Synchroniser l'index du deck pour les autres joueurs
                 if (this.onTileDrawn && data.playerId !== this.multiplayer.playerId) {
-                    console.log('🎲 [SYNC] Sync deck pour:', data.tileId);
+                    console.log('🎲 [SYNC] Pioche tuile reçue:', data.tileId);
                     this.onTileDrawn(data.tileId, data.rotation, data.playerId);
                 }
-                break;
-
-            case 'your-turn':
-                console.log('🎯 [SYNC] Réception your-turn:', data.tileId);
-                if (this.onYourTurn) this.onYourTurn(data.tileId, data.rotation);
                 break;
 
             case 'meeple-placed':

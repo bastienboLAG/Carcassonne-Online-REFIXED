@@ -112,14 +112,18 @@ export class GameSyncCallbacks {
                     this.zoneMerger.tileToZone = new Map(tileToZoneData);
                     console.log('✅ [SYNC] ZoneRegistry appliqué depuis hôte');
                 }
-                // Snapshot sauvegardé uniquement par le joueur actif (pas côté invité pour les tuiles des autres)
+                // ✅ Sauvegarder le snapshot APRÈS application des zones
+                // (ne pas le faire dans poserTuileSync qui s'exécute avant)
+                if (this.undoManager) {
+                    this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
+                }
             }
         };
 
         // ── Fin de tour ───────────────────────────────────────────────────────
-        gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null, nextTileRotation = 0) => {
+        gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null) => {
             this.gameState.currentTilePlaced = false;
-            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn, nextTileId, nextTileRotation);
+            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn, nextTileId);
             // Si tour bonus : afficher le toast ici — plus besoin du message bonus-turn-started séparé
             if (isBonusTurn && this.onBonusTurnStarted) {
                 const currentPlayer = this.gameState.getCurrentPlayer();
@@ -128,15 +132,8 @@ export class GameSyncCallbacks {
         };
 
         // ── Pioche d'une tuile ────────────────────────────────────────────────
-        // tile-drawn = synchroniser l'index deck uniquement
         gs.onTileDrawn = (tileId, rotation) => {
             this.turnManager.receiveTileDrawn(tileId, rotation);
-        };
-
-        // your-turn = l'hôte nous donne notre tuile
-        gs.onYourTurn = (tileId, rotation) => {
-            console.log('🎯 [SYNC] your-turn reçu:', tileId);
-            this.turnManager.receiveYourTurn(tileId, rotation);
         };
 
         // ── Placement d'un meeple ─────────────────────────────────────────────

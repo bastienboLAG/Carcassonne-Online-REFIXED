@@ -165,22 +165,21 @@ eventBus.on('tile-drawn', (data) => {
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
     updateMobileTilePreview();
 
-    // Snapshot début de tour : local OU your-turn reçu (fromYourTurn=true)
-    const isNewTurn = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
-    if (undoManager && isNewTurn) {
+    // Snapshot + reset builder : au début de notre propre tour (local ou via your-turn réseau)
+    const isOwnTurnStart = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
+    if (undoManager && isOwnTurnStart) {
         undoManager.setLastPlacedTileBeforeTurn(lastPlacedTile);
         undoManager.saveTurnStart(placedMeeples);
     }
-
-    // Reset du builder au début de notre tour
-    if (isNewTurn && gameConfig?.extensions?.tradersBuilders) {
+    if (isOwnTurnStart && gameConfig?.extensions?.tradersBuilders) {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // Plus de syncTileDraw — la tuile est incluse dans turn-ended
+    // Vérifier si la tuile est plaçable (seulement si c'est notre tour)
+    // Note: syncTileDraw est fait dans _hostDrawAndSend, pas ici
 
-    // Vérifier si la tuile est plaçable
-    if (!data.fromNetwork && !data.fromUndo && tilePlacement && unplaceableManager) {
+    // Vérifier si la tuile est plaçable (seulement si c'est notre tour)
+    if (isOwnTurnStart && tilePlacement && unplaceableManager) {
         const isRiverPhase = tuileEnMain?.id?.startsWith('river-') ?? false;
         const placeable = unplaceableManager.isTilePlaceable(tuileEnMain, tilePlacement.plateau, isRiverPhase);
         if (!placeable) {
@@ -1043,18 +1042,20 @@ function attachGameSyncCallbacks() {
         };
         gameSync.onFullStateSync = (data) => { applyFullStateSync(data); };
 
-    }
-
-    // Pioche centralisée : tous les joueurs (hôte et invités) reçoivent your-turn
-    if (gameSync) {
-        gameSync.onYourTurn = (tileId, rotation) => {
-            if (turnManager) turnManager.receiveYourTurn(tileId, rotation);
-        };
-    }
-
-    // TurnManager : quand il faut piocher pour le joueur suivant, l'hôte s'en charge
-    if (turnManager && isHost) {
-        turnManager.onNeedYourTurn = () => { _hostDrawAndSend(); };
+        // Hôte : traitement d'une demande de fin de tour d'un invité
+        if (isHost) {
+            gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurn) => {
+                console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
+                // Appliquer l'état du jeu envoyé par l'invité
+                if (gameStateData) gameState.deserialize(gameStateData);
+                // Piocher la prochaine tuile
+                const _nextTile = _hostDrawAndSend();
+                // Donner la tuile au joueur actif (qui vient de changer via deserialize)
+                if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
+                // Broadcaster turn-ended enrichi à tous
+                gameSync.syncTurnEnd(isBonusTurn, _nextTile?.id ?? null);
+            };
+        }
     }
 }
 
@@ -1165,7 +1166,11 @@ function _onPauseTimeout(disconnectedName) {
         if (gameSync) gameSync.syncGameResumed('timeout');
         if (turnManager) {
             turnManager.updateTurnState();
-            if (isHost) _hostDrawAndSend();
+            if (isHost) {
+                const _t = _hostDrawAndSend();
+                if (_t) turnManager.receiveYourTurn(_t.id);
+                gameSync.syncTurnEnd(false, _t?.id ?? null);
+            }
             eventBus.emit('turn-changed', {
                 isMyTurn: turnManager.isMyTurn,
                 currentPlayer: turnManager.getCurrentPlayer()
@@ -1214,29 +1219,20 @@ function _hidePauseOverlay() {
  * Construire et envoyer l'état complet à un joueur qui (re)joint
  */
 /**
- * L'hôte pioche une tuile et l'envoie directement au joueur actif via syncYourTurn.
+ * L'hôte pioche la prochaine tuile et la retourne.
+ * Broadcaste aussi tile-drawn pour sync le compteur deck côté invités.
  */
 function _hostDrawAndSend() {
-    if (!isHost || !deck || !gameSync) return null;
-
+    if (!deck || !gameSync) return null;
     const tileData = deck.draw();
     if (!tileData) {
         console.log('⚠️ Pioche vide !');
         eventBus.emit('deck-empty');
         return null;
     }
-
-    console.log('🎲 [HÔTE] Pioche pour:', gameState.getCurrentPlayer()?.name, '→', tileData.id);
-
-    // Broadcaster l'avancement du deck à tous (sync compteur)
+    console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', gameState.getCurrentPlayer()?.name);
+    // Sync compteur deck côté invités
     gameSync.syncTileDraw(tileData.id, 0);
-
-    // Envoyer la tuile directement au joueur actif
-    const currentPlayer = gameState.getCurrentPlayer();
-    if (currentPlayer) {
-        gameSync.syncYourTurn(currentPlayer.id, tileData.id, 0);
-    }
-
     return tileData;
 }
 
@@ -1410,7 +1406,9 @@ async function startGame() {
     // L'hôte charge et envoie la pioche
     await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {}, gameConfig.startType ?? 'unique');
     gameSync.startGame(deck);
-    _hostDrawAndSend();
+    const _startTile = _hostDrawAndSend();
+    if (_startTile) turnManager.receiveYourTurn(_startTile.id);
+    gameSync.syncTurnEnd(false, _startTile?.id ?? null);
     eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
     updateTurnDisplay();
     slotsUI.createCentralSlot();
@@ -1893,10 +1891,10 @@ function handleRemoteUndo(undoneAction) {
             if (slotsUI) slotsUI.createCentralSlot();
         }
 
-        // Remettre la tuile en main — seulement pour le joueur actif
+        // Remettre la tuile en main côté invité (slot + preview)
         const tileObj = undoneAction.tile?.tile;
         console.log('⏪ [REMOTE UNDO] tileObj:', tileObj, 'slotsUI.tileAvailable:', slotsUI?.tileAvailable, 'tuileEnMain avant:', tuileEnMain?.id);
-        if (tileObj && isMyTurn) {
+        if (tileObj) {
             eventBus.emit('tile-drawn', { tileData: tileObj, fromNetwork: true });
             console.log('⏪ [REMOTE UNDO] tile-drawn émis, tuileEnMain après:', tuileEnMain?.id, 'tileAvailable:', slotsUI?.tileAvailable);
         }
@@ -2097,7 +2095,6 @@ function setupEventListeners() {
         if (!tuileEnMain || tuilePosee) return;
 
         const currentImg = document.getElementById('current-tile-img');
-        if (!currentImg) return;
         tuileEnMain.rotation = (tuileEnMain.rotation + 90) % 360;
         const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
         currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
@@ -2116,7 +2113,10 @@ function setupEventListeners() {
 
         if (waitingToRedraw && isMyTurn) {
             document.getElementById('tile-destroyed-modal').style.display = 'none';
-            if (isHost) _hostDrawAndSend();
+            if (isHost) {
+                const _t = _hostDrawAndSend();
+                if (_t) turnManager.receiveYourTurn(_t.id);
+            }
             waitingToRedraw = false;
             updateTurnDisplay();
             return;
@@ -2221,27 +2221,31 @@ function setupEventListeners() {
         if (turnManager) {
             const result = turnManager.endTurn(builderBonusTriggered);
             if (result?.bonusTurnStarted) {
-                // Tour bonus déclenché — un seul message turn-ended avec isBonusTurn=true
-                // (syncBonusTurnStarted supprimé : le toast invité est géré dans onTurnEnded)
-                // Pioche centralisée : piocher avant syncTurnEnd
-                const _bonusTile = isHost ? _hostDrawAndSend() : null;
-                if (gameSync) gameSync.syncTurnEnd(true, _bonusTile?.id ?? null, 0);
-                // Réinitialiser la dernière tuile posée pour éviter un faux positif au tour bonus
+                // Tour bonus : l'hôte pioche pour le même joueur
+                if (isHost) {
+                    const _bonusTile = _hostDrawAndSend();
+                    if (_bonusTile) turnManager.receiveYourTurn(_bonusTile.id);
+                    if (gameSync) gameSync.syncTurnEnd(true, _bonusTile?.id ?? null);
+                } else {
+                    if (gameSync) gameSync.syncTurnEndRequest(true);
+                }
                 ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
-                // Marquer le toast pour pouvoir le fermer automatiquement à la fin du tour bonus
                 const _bonusToast = document.getElementById('disconnect-toast');
                 if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
                 return;
             }
         }
 
-        // Pioche centralisée : piocher AVANT syncTurnEnd pour inclure la tuile dans le message
-        const _nextTile = isHost ? _hostDrawAndSend() : null;
-
         if (gameSync) {
-            gameSync.syncTurnEnd(false, _nextTile?.id ?? null, 0);
+            if (isHost) {
+                const _nextTile = _hostDrawAndSend();
+                if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
+                gameSync.syncTurnEnd(false, _nextTile?.id ?? null);
+            } else {
+                gameSync.syncTurnEndRequest(false);
+            }
         }
 
         updateTurnDisplay();

@@ -190,7 +190,11 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer()
         });
         
-        // La pioche est déclenchée par home.js après syncTurnEnd
+        // On pioche uniquement si c'est notre tour
+        // (l'hôte ne pioche PAS pour les autres — chaque joueur pioche lui-même)
+        if (this.isMyTurn) {
+            this.drawTile();
+        }
     }
 
     /**
@@ -266,8 +270,8 @@ export class TurnManager {
         }
     }
 
-    receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null, nextTileRotation = 0) {
-        console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn, 'nextTileId:', nextTileId);
+    receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null) {
+        console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn);
         
         // Restaurer le GameState
         if (gameStateData) {
@@ -293,7 +297,10 @@ export class TurnManager {
             // Tour normal : remettre à zéro les flags bonus
             this.bonusAlreadyUsedThisTurn = false;
             this.updateTurnState();
-            // La pioche est envoyée par l'hôte via your-turn
+            // On pioche uniquement si c'est notre tour
+            if (this.isMyTurn) {
+                this.drawTile();
+            }
         }
         
         // ✅ Un seul emit turn-changed pour rafraîchir TOUS les joueurs
@@ -303,23 +310,23 @@ export class TurnManager {
             isBonusTurn: this.isBonusTurn
         });
 
-        // Si c'est notre tour et que l'hôte a inclus la prochaine tuile → la recevoir maintenant
+        // Si l'hôte a inclus la prochaine tuile et que c'est notre tour → l'afficher
         if (this.isMyTurn && nextTileId) {
-            this.receiveYourTurn(nextTileId, nextTileRotation);
+            this.receiveYourTurn(nextTileId);
         }
     }
 
     /**
-     * Recevoir "c'est ton tour + ta tuile" depuis l'hôte
+     * Recevoir sa tuile depuis l'hôte
      */
-    receiveYourTurn(tileId, rotation) {
+    receiveYourTurn(tileId) {
         console.log('🎲 [SYNC] Réception your-turn:', tileId);
         const tileData = this.deck.tiles.find(t => t.id === tileId);
         if (!tileData) {
             console.error('❌ Tuile introuvable dans le deck:', tileId);
             return;
         }
-        this.currentTile = { ...tileData, rotation };
+        this.currentTile = { ...tileData, rotation: 0 };
         this.tilePlaced = false;
 
         this.eventBus.emit('tile-drawn', {
@@ -335,11 +342,30 @@ export class TurnManager {
     }
 
     /**
-     * Recevoir une tuile piochée depuis le réseau — synchronise uniquement l'index deck
+     * Recevoir une tuile piochée depuis le réseau (multijoueur)
      */
     receiveTileDrawn(tileId, rotation) {
-        console.log('🎲 [SYNC] Sync index deck pour:', tileId);
-        this.deck.draw();
+        console.log('🎲 [SYNC] Tuile piochée:', tileId);
+        console.log('📦 [SYNC] Index AVANT draw():', this.deck.currentIndex);
+        
+        // Piocher localement pour synchroniser l'index
+        const tileData = this.deck.draw();
+        console.log('📦 [SYNC] Index APRÈS draw():', this.deck.currentIndex);
+        
+        if (tileData) {
+            this.currentTile = { ...tileData, rotation };
+            this.tilePlaced = false;
+            
+            this.eventBus.emit('tile-drawn', { 
+                tileData: this.currentTile,
+                fromNetwork: true
+            });
+            
+            this.eventBus.emit('deck-updated', { 
+                remaining: this.deck.remaining(), 
+                total: this.deck.total() 
+            });
+        }
     }
 
     /**
