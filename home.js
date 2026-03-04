@@ -1046,11 +1046,12 @@ function attachGameSyncCallbacks() {
         if (isHost) {
             gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurn) => {
                 console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
-                // Appliquer l'état du jeu envoyé par l'invité
-                if (gameStateData) gameState.deserialize(gameStateData);
+                // Reset undo + avance le tour côté hôte
+                if (undoManager) undoManager.reset();
+                if (turnManager) turnManager.endTurnRemote(isBonusTurn);
                 // Piocher la prochaine tuile
                 const _nextTile = _hostDrawAndSend();
-                // Donner la tuile au joueur actif (qui vient de changer via deserialize)
+                // Donner la tuile au joueur actif
                 if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
                 // Broadcaster turn-ended enrichi à tous
                 gameSync.syncTurnEnd(isBonusTurn, _nextTile?.id ?? null);

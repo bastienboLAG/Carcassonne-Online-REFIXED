@@ -190,11 +190,7 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer()
         });
         
-        // On pioche uniquement si c'est notre tour
-        // (l'hôte ne pioche PAS pour les autres — chaque joueur pioche lui-même)
-        if (this.isMyTurn) {
-            this.drawTile();
-        }
+        // La pioche est gérée par l'hôte via receiveYourTurn
     }
 
     /**
@@ -264,10 +260,7 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer()
         });
 
-        // Si c'est maintenant notre tour et qu'on n'a pas de tuile → piocher
-        if (this.isMyTurn && !tuileEnMain) {
-            this.drawTile();
-        }
+        // La pioche est gérée par l'hôte
     }
 
     receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null) {
@@ -297,10 +290,7 @@ export class TurnManager {
             // Tour normal : remettre à zéro les flags bonus
             this.bonusAlreadyUsedThisTurn = false;
             this.updateTurnState();
-            // On pioche uniquement si c'est notre tour
-            if (this.isMyTurn) {
-                this.drawTile();
-            }
+            // La pioche arrive via receiveYourTurn après ce bloc
         }
         
         // ✅ Un seul emit turn-changed pour rafraîchir TOUS les joueurs
@@ -314,6 +304,24 @@ export class TurnManager {
         if (this.isMyTurn && nextTileId) {
             this.receiveYourTurn(nextTileId);
         }
+    }
+
+    /**
+     * L'hôte avance le tour suite à un turn-end-request d'un invité
+     * (sans pioche — la pioche est faite séparément par _hostDrawAndSend)
+     */
+    endTurnRemote(isBonusTurn = false) {
+        if (!isBonusTurn) {
+            this.bonusAlreadyUsedThisTurn = false;
+            this.isBonusTurn = false;
+            this.nextPlayer();
+        }
+        this.updateTurnState();
+        this.eventBus.emit('turn-changed', {
+            isMyTurn: this.isMyTurn,
+            currentPlayer: this.getCurrentPlayer(),
+            isBonusTurn: this.isBonusTurn
+        });
     }
 
     /**
