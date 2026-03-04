@@ -12,28 +12,28 @@
 export const MEEPLE_CONFIG = {
     'Normal': {
         w: 69, h: 70,
-        plate:       0.87,
+        plate:       0.85,
         panel:       0.35,
         panelMobile: 0.28,
         selector:    0.44,
     },
     'Farmer': {
         w: 70, h: 69,
-        plate:       0.87,
+        plate:       0.85,
         panel:       0.35,
         panelMobile: 0.28,
         selector:    0.44,
     },
     'Large': {
         w: 79, h: 80,
-        plate:       0.87,
+        plate:       0.92,
         panel:       0.35,
         panelMobile: 0.28,
         selector:    0.44,
     },
     'Large-Farmer': {
         w: 80, h: 79,
-        plate:       0.87,
+        plate:       0.92,
         panel:       0.35,
         panelMobile: 0.28,
         selector:    0.44,
