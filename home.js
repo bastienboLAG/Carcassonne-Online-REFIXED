@@ -1249,6 +1249,13 @@ function _excludeDisconnectedPlayer(disconnectedName) {
             const peerId = gameState.players[idx].id;
 
             gameState.players.splice(idx, 1);
+            // Ajuster currentPlayerIndex :
+            // - si le joueur supprimé était AVANT le courant → décrémenter pour rester sur le même joueur
+            // - si le joueur supprimé était le courant → on reste à idx (qui pointe maintenant sur le suivant)
+            // - si hors bornes après suppression → revenir à 0
+            if (!wasCurrentPlayer && idx < gameState.currentPlayerIndex) {
+                gameState.currentPlayerIndex--;
+            }
             if (gameState.currentPlayerIndex >= gameState.players.length) {
                 gameState.currentPlayerIndex = 0;
             }
