@@ -1228,7 +1228,10 @@ function _hostDrawAndSend() {
 
     console.log('🎲 [HÔTE] Pioche pour:', gameState.getCurrentPlayer()?.name, '→', tileData.id);
 
-    // Envoyer la tuile directement au joueur actif (incluse dans turn-ended ou séparément au démarrage)
+    // Broadcaster l'avancement du deck à tous (sync compteur)
+    gameSync.syncTileDraw(tileData.id, 0);
+
+    // Envoyer la tuile directement au joueur actif
     const currentPlayer = gameState.getCurrentPlayer();
     if (currentPlayer) {
         gameSync.syncYourTurn(currentPlayer.id, tileData.id, 0);
@@ -1890,10 +1893,10 @@ function handleRemoteUndo(undoneAction) {
             if (slotsUI) slotsUI.createCentralSlot();
         }
 
-        // Remettre la tuile en main côté invité (slot + preview)
+        // Remettre la tuile en main — seulement pour le joueur actif
         const tileObj = undoneAction.tile?.tile;
         console.log('⏪ [REMOTE UNDO] tileObj:', tileObj, 'slotsUI.tileAvailable:', slotsUI?.tileAvailable, 'tuileEnMain avant:', tuileEnMain?.id);
-        if (tileObj) {
+        if (tileObj && isMyTurn) {
             eventBus.emit('tile-drawn', { tileData: tileObj, fromNetwork: true });
             console.log('⏪ [REMOTE UNDO] tile-drawn émis, tuileEnMain après:', tuileEnMain?.id, 'tileAvailable:', slotsUI?.tileAvailable);
         }
@@ -2094,6 +2097,7 @@ function setupEventListeners() {
         if (!tuileEnMain || tuilePosee) return;
 
         const currentImg = document.getElementById('current-tile-img');
+        if (!currentImg) return;
         tuileEnMain.rotation = (tuileEnMain.rotation + 90) % 360;
         const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
         currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;

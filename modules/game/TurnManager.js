@@ -267,7 +267,7 @@ export class TurnManager {
     }
 
     receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null, nextTileRotation = 0) {
-        console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn);
+        console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn, 'nextTileId:', nextTileId);
         
         // Restaurer le GameState
         if (gameStateData) {
