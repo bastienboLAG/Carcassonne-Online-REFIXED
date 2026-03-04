@@ -266,9 +266,10 @@ export class TurnManager {
     receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null) {
         console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn);
         
-        // Restaurer le GameState
+        // Restaurer uniquement currentPlayerIndex depuis le gameState de l'hôte
+        // (on ne touche PAS aux meeples/flags : ils sont à jour via meeple-count-update)
         if (gameStateData) {
-            this.gameState.deserialize(gameStateData);
+            this.gameState.currentPlayerIndex = gameStateData.currentPlayerIndex ?? this.gameState.currentPlayerIndex;
             // S'assurer que currentPlayerIndex ne pointe pas sur un spectateur
             let attempts = 0;
             while (
