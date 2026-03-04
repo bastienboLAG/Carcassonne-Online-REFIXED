@@ -1244,23 +1244,37 @@ function _excludeDisconnectedPlayer(disconnectedName) {
     if (gameState) {
         const idx = gameState.players.findIndex(p => p.name === disconnectedName && p.disconnected);
         if (idx !== -1) {
+            // Était-ce le tour du joueur exclu ?
+            const wasCurrentPlayer = (idx === gameState.currentPlayerIndex);
             const peerId = gameState.players[idx].id;
+
             gameState.players.splice(idx, 1);
             if (gameState.currentPlayerIndex >= gameState.players.length) {
                 gameState.currentPlayerIndex = 0;
             }
             players = players.filter(p => p.id !== peerId);
-        }
-        if (gameSync) gameSync.syncGameResumed('timeout');
-        if (turnManager) {
-            turnManager.updateTurnState();
-            const _t = _hostDrawAndSend();
-            if (_t) turnManager.receiveYourTurn(_t.id);
-            gameSync.syncTurnEnd(false, _t?.id ?? null);
-            eventBus.emit('turn-changed', {
-                isMyTurn: turnManager.isMyTurn,
-                currentPlayer: turnManager.getCurrentPlayer()
-            });
+
+            if (gameSync) gameSync.syncGameResumed('timeout');
+
+            if (turnManager) {
+                turnManager.updateTurnState();
+
+                if (wasCurrentPlayer) {
+                    // Le tour appartenait au joueur exclu → passer au suivant
+                    const _t = _hostDrawAndSend();
+                    if (_t) turnManager.receiveYourTurn(_t.id);
+                    gameSync.syncTurnEnd(false, _t?.id ?? null);
+                }
+                // Sinon : le tour en cours continue normalement, on ne fait rien de plus
+
+                eventBus.emit('turn-changed', {
+                    isMyTurn: turnManager.isMyTurn,
+                    currentPlayer: turnManager.getCurrentPlayer()
+                });
+            }
+        } else {
+            // Joueur introuvable (déjà supprimé ?) — juste reprendre
+            if (gameSync) gameSync.syncGameResumed('timeout');
         }
     }
     afficherToast(`👋 ${disconnectedName} a été exclu(e) de la partie.`);
