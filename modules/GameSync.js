@@ -111,7 +111,7 @@ export class GameSync {
     /**
      * Synchroniser la fin du tour
      */
-    syncTurnEnd(isBonusTurn = false) {
+    syncTurnEnd(isBonusTurn = false, nextTileId = null, nextTileRotation = 0) {
         console.log('⏭️ Sync fin de tour — isBonusTurn:', isBonusTurn);
 
         this.multiplayer.broadcast({
@@ -119,7 +119,9 @@ export class GameSync {
             playerId: this.multiplayer.playerId,
             nextPlayerIndex: this.gameState.currentPlayerIndex,
             gameState: this.gameState.serialize(),
-            isBonusTurn: isBonusTurn
+            isBonusTurn: isBonusTurn,
+            nextTileId: nextTileId,
+            nextTileRotation: nextTileRotation
         });
         
         return true;
@@ -353,7 +355,7 @@ export class GameSync {
             case 'turn-ended':
                 if (this.onTurnEnded && data.playerId !== this.multiplayer.playerId) {
                     console.log('⏭️ [SYNC] Fin de tour reçue');
-                    this.onTurnEnded(data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false);
+                    this.onTurnEnded(data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false, data.nextTileId ?? null, data.nextTileRotation ?? 0);
                 }
                 break;
 

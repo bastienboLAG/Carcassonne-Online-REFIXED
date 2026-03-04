@@ -165,21 +165,19 @@ eventBus.on('tile-drawn', (data) => {
     if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
     updateMobileTilePreview();
 
-    // Snapshot début de tour (sauf lors d'une annulation)
-    if (undoManager && !data.fromNetwork && !data.fromUndo) {
+    // Snapshot début de tour : local OU your-turn reçu (fromYourTurn=true)
+    const isNewTurn = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
+    if (undoManager && isNewTurn) {
         undoManager.setLastPlacedTileBeforeTurn(lastPlacedTile);
         undoManager.saveTurnStart(placedMeeples);
     }
 
-    // Reset du builder au début de chaque tour local (évite faux positifs de tours précédents)
-    if (!data.fromNetwork && !data.fromUndo && gameConfig?.extensions?.tradersBuilders) {
+    // Reset du builder au début de notre tour
+    if (isNewTurn && gameConfig?.extensions?.tradersBuilders) {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // L'hôte broadcaste l'avancement du deck à tous (sync index)
-    if (!data.fromNetwork && !data.fromUndo && isHost && gameSync) {
-        gameSync.syncTileDraw(data.tileData.id, tuileEnMain.rotation);
-    }
+    // Plus de syncTileDraw — la tuile est incluse dans turn-ended
 
     // Vérifier si la tuile est plaçable
     if (!data.fromNetwork && !data.fromUndo && tilePlacement && unplaceableManager) {
@@ -1219,25 +1217,24 @@ function _hidePauseOverlay() {
  * L'hôte pioche une tuile et l'envoie directement au joueur actif via syncYourTurn.
  */
 function _hostDrawAndSend() {
-    if (!isHost || !deck || !gameSync) return;
+    if (!isHost || !deck || !gameSync) return null;
 
     const tileData = deck.draw();
     if (!tileData) {
         console.log('⚠️ Pioche vide !');
         eventBus.emit('deck-empty');
-        return;
+        return null;
     }
 
     console.log('🎲 [HÔTE] Pioche pour:', gameState.getCurrentPlayer()?.name, '→', tileData.id);
 
-    // Broadcaster l'avancement du deck à tous (sync index)
-    gameSync.syncTileDraw(tileData.id, 0);
-
-    // Envoyer la tuile directement au joueur actif
+    // Envoyer la tuile directement au joueur actif (incluse dans turn-ended ou séparément au démarrage)
     const currentPlayer = gameState.getCurrentPlayer();
     if (currentPlayer) {
         gameSync.syncYourTurn(currentPlayer.id, tileData.id, 0);
     }
+
+    return tileData;
 }
 
 function sendFullStateTo(targetPeerId) {
@@ -2222,10 +2219,11 @@ function setupEventListeners() {
             if (result?.bonusTurnStarted) {
                 // Tour bonus déclenché — un seul message turn-ended avec isBonusTurn=true
                 // (syncBonusTurnStarted supprimé : le toast invité est géré dans onTurnEnded)
-                if (gameSync) gameSync.syncTurnEnd(true);
+                // Pioche centralisée : piocher avant syncTurnEnd
+                const _bonusTile = isHost ? _hostDrawAndSend() : null;
+                if (gameSync) gameSync.syncTurnEnd(true, _bonusTile?.id ?? null, 0);
                 // Réinitialiser la dernière tuile posée pour éviter un faux positif au tour bonus
                 ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
-                if (isHost) _hostDrawAndSend();
                 updateTurnDisplay();
                 afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
                 // Marquer le toast pour pouvoir le fermer automatiquement à la fin du tour bonus
@@ -2235,12 +2233,12 @@ function setupEventListeners() {
             }
         }
 
-        if (gameSync) {
-            gameSync.syncTurnEnd();
-        }
+        // Pioche centralisée : piocher AVANT syncTurnEnd pour inclure la tuile dans le message
+        const _nextTile = isHost ? _hostDrawAndSend() : null;
 
-        // Pioche centralisée : après avoir notifié la fin de tour, l'hôte envoie la tuile
-        if (isHost) _hostDrawAndSend();
+        if (gameSync) {
+            gameSync.syncTurnEnd(false, _nextTile?.id ?? null, 0);
+        }
 
         updateTurnDisplay();
     };

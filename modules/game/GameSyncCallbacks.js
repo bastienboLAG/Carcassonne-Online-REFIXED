@@ -117,9 +117,9 @@ export class GameSyncCallbacks {
         };
 
         // ── Fin de tour ───────────────────────────────────────────────────────
-        gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false) => {
+        gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null, nextTileRotation = 0) => {
             this.gameState.currentTilePlaced = false;
-            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn);
+            this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn, nextTileId, nextTileRotation);
             // Si tour bonus : afficher le toast ici — plus besoin du message bonus-turn-started séparé
             if (isBonusTurn && this.onBonusTurnStarted) {
                 const currentPlayer = this.gameState.getCurrentPlayer();

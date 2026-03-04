@@ -266,7 +266,7 @@ export class TurnManager {
         }
     }
 
-    receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false) {
+    receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null, nextTileRotation = 0) {
         console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn);
         
         // Restaurer le GameState
@@ -302,6 +302,11 @@ export class TurnManager {
             currentPlayer: this.getCurrentPlayer(),
             isBonusTurn: this.isBonusTurn
         });
+
+        // Si c'est notre tour et que l'hôte a inclus la prochaine tuile → la recevoir maintenant
+        if (this.isMyTurn && nextTileId) {
+            this.receiveYourTurn(nextTileId, nextTileRotation);
+        }
     }
 
     /**
@@ -319,7 +324,8 @@ export class TurnManager {
 
         this.eventBus.emit('tile-drawn', {
             tileData: this.currentTile,
-            fromNetwork: true
+            fromNetwork: true,
+            fromYourTurn: true
         });
 
         this.eventBus.emit('deck-updated', {
