@@ -2834,6 +2834,16 @@ function returnToLobby() {
 
     if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
 
+    // Réinitialiser onPlayerJoined au comportement lobby (pas de game-in-progress)
+    multiplayer.onPlayerJoined = (playerId) => {
+        console.log('👤 Nouveau joueur connecté (lobby):', playerId);
+        _startHeartbeat((peerId) => {
+            players = players.filter(p => p.id !== peerId);
+            lobbyUI.setPlayers(players);
+            multiplayer.broadcast({ type: 'players-update', players });
+        });
+    };
+
     lobbyUI.show();
     lobbyUI.reset();
 
