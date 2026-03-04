@@ -149,10 +149,14 @@ export class MeepleCursorsUI {
             // Filtrer selon le type de zone et les ressources disponibles
             if (zoneType === 'garden' && !hasAbbot) return;
             if (zoneType === 'abbey'  && !hasMeeples && !hasAbbot && !hasLarge) return;
-            // city/road/field : besoin d'au moins un meeple normal ou grand
-            // (cochon et bâtisseur ne peuvent pas être posés dans une zone vide)
-            if (zoneType === 'city' || zoneType === 'road' || zoneType === 'field') {
+            // city/road : besoin d'au moins un meeple normal, grand ou bâtisseur
+            if (zoneType === 'city' || zoneType === 'road') {
                 if (!hasMeeples && !hasLarge && !hasBuilder) return;
+            }
+            // field : besoin d'au moins un meeple normal, grand ou cochon
+            // (le cochon seul est bloqué plus bas si la zone est vide)
+            if (zoneType === 'field') {
+                if (!hasMeeples && !hasLarge && !hasPig) return;
             }
             
             const key = `${x},${y},${position}`;
