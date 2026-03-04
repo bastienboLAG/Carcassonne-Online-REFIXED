@@ -812,13 +812,21 @@ async function _doJoin(isSpectator = false) {
 
             if (data.type === 'welcome') {
                 console.log('🎉', data.message);
-                // Afficher le code d'invitation côté invité
-                gameCode = code; // ✅ mémoriser pour que le bouton "Copier" fonctionne
+                gameCode = code;
                 document.getElementById('game-code-container').style.display = 'block';
                 document.getElementById('game-code-text').textContent = `Code: ${code}`;
-                // Démarrer le heartbeat côté invité (détecte si l'hôte disparaît)
                 _startHeartbeat((peerId) => {
                     returnToInitialLobby("L'hote ne repond plus.");
+                });
+            }
+            if (data.type === 'game-in-progress') {
+                // La partie est déjà commencée — annuler l'envoi automatique
+                // et demander à l'invité s'il veut jouer ou observer
+                clearTimeout(window._pendingPlayerInfoTimer);
+                window._waitingForRoleChoice = true;
+                _showRoleChoiceModal((chosenIsSpectator) => {
+                    window._waitingForRoleChoice = false;
+                    multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: chosenIsSpectator });
                 });
             }
             if (data.type === 'players-update') {
@@ -906,8 +914,12 @@ async function _doJoin(isSpectator = false) {
         inLobby = true; isHost = false;
         updateLobbyUI();
 
-        setTimeout(() => {
-            multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator });
+        // player-info sera envoyé soit après 500ms (lobby normal),
+        // soit après choix dans la modale (partie en cours — game-in-progress)
+        window._pendingPlayerInfoTimer = setTimeout(() => {
+            if (!window._waitingForRoleChoice) {
+                multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator });
+            }
         }, 500);
 
     } catch (error) {
@@ -942,6 +954,30 @@ document.getElementById('join-as-spectator-btn').addEventListener('click', () =>
     document.getElementById('join-modal').style.display = 'flex';
     _doJoin(true);
 });
+
+function _showRoleChoiceModal(callback) {
+    const modal = document.getElementById('join-role-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    const onPlayer = () => {
+        modal.style.display = 'none';
+        cleanup();
+        callback(false);
+    };
+    const onSpectator = () => {
+        modal.style.display = 'none';
+        cleanup();
+        callback(true);
+    };
+    const cleanup = () => {
+        document.getElementById('join-as-player-btn').removeEventListener('click', onPlayer);
+        document.getElementById('join-as-spectator-btn').removeEventListener('click', onSpectator);
+    };
+
+    document.getElementById('join-as-player-btn').addEventListener('click', onPlayer);
+    document.getElementById('join-as-spectator-btn').addEventListener('click', onSpectator);
+}
 
 function showJoinError(message) {
     const el       = document.getElementById('join-error');
@@ -1708,7 +1744,8 @@ function _postStartSetup() {
         // ── Reconnexion / nouvelle connexion en cours de partie ──────────────
         multiplayer.onPlayerJoined = (playerId) => {
             console.log('👤 Nouveau joueur en cours de partie:', playerId);
-            // On attend le message player-info pour identifier
+            // Signaler que la partie est déjà commencée
+            multiplayer.sendTo(playerId, { type: 'game-in-progress' });
         };
 
         // Intercept les messages réseau non-sync pour gérer reconnexion
