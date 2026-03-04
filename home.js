@@ -1835,13 +1835,19 @@ function _postStartSetup() {
             // Mise à jour liste joueurs en cours de partie (nouveau joueur ou reconnexion)
             if (data.type === 'players-update' && gameState) {
                 players = data.players;
-                // Synchroniser gameState.players avec les nouveaux joueurs
-                // (ajouter ceux qui manquent, ne pas écraser les existants)
+                const incomingIds = new Set(data.players.map(p => p.id));
+
+                // Supprimer les joueurs absents de la liste (ex: spectateur parti)
+                // mais uniquement les spectateurs — les joueurs disconnected sont conservés
+                gameState.players = gameState.players.filter(gp =>
+                    incomingIds.has(gp.id) || (gp.disconnected && gp.color !== 'spectator')
+                );
+
+                // Ajouter les nouveaux joueurs manquants
                 data.players.forEach(p => {
                     const existing = gameState.players.find(gp => gp.id === p.id);
                     if (!existing) {
                         gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
-                        // Initialiser les meeples spéciaux selon la config de la partie
                         const newP = gameState.players.find(gp => gp.id === p.id);
                         if (newP && gameConfig) {
                             if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
@@ -1851,6 +1857,7 @@ function _postStartSetup() {
                         }
                     }
                 });
+
                 // Rafraîchir le score panel et l'UI mobile
                 eventBus.emit('score-updated');
                 if (scorePanelUI) scorePanelUI.updateMobile();
