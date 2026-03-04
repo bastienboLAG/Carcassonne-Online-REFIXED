@@ -252,6 +252,7 @@ eventBus.on('meeple-count-updated', (data) => {
             meeples:        player ? player.meeples        : data.meeples,
             hasAbbot:       player ? player.hasAbbot       : undefined,
             hasLargeMeeple: player ? player.hasLargeMeeple : undefined,
+            hasBuilder:     player ? player.hasBuilder     : undefined,
             hasPig:         player ? player.hasPig         : undefined
         });
     }
