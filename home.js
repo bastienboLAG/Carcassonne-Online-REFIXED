@@ -1248,16 +1248,18 @@ function _excludeDisconnectedPlayer(disconnectedName) {
             const wasCurrentPlayer = (idx === gameState.currentPlayerIndex);
             const peerId = gameState.players[idx].id;
 
-            gameState.players.splice(idx, 1);
-            // Ajuster currentPlayerIndex :
-            // - si le joueur supprimé était AVANT le courant → décrémenter pour rester sur le même joueur
-            // - si le joueur supprimé était le courant → on reste à idx (qui pointe maintenant sur le suivant)
-            // - si hors bornes après suppression → revenir à 0
-            if (!wasCurrentPlayer && idx < gameState.currentPlayerIndex) {
-                gameState.currentPlayerIndex--;
-            }
-            if (gameState.currentPlayerIndex >= gameState.players.length) {
-                gameState.currentPlayerIndex = 0;
+            // On garde le joueur dans gameState.players (déjà marqué disconnected=true)
+            // pour conserver l'affichage visuel côté tous les joueurs.
+            // TurnManager skippe automatiquement les joueurs disconnected.
+            // Si c'était son tour, avancer currentPlayerIndex vers le suivant non-disconnected.
+            if (wasCurrentPlayer) {
+                let next = (idx + 1) % gameState.players.length;
+                let attempts = 0;
+                while (gameState.players[next]?.disconnected && attempts < gameState.players.length) {
+                    next = (next + 1) % gameState.players.length;
+                    attempts++;
+                }
+                gameState.currentPlayerIndex = next;
             }
             players = players.filter(p => p.id !== peerId);
 
