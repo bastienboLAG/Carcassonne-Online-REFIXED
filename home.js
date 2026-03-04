@@ -2156,7 +2156,7 @@ function setupEventListeners() {
             const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
             const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, multiplayer.playerId, gameState, newlyClosed);
 
-            if (scoringResults.length > 0) {
+            if (scoringResults.length > 0 || goodsResults.length > 0) {
                 scoringResults.forEach(({ playerId, points, zoneType }) => {
                     const player = gameState.players.find(p => p.id === playerId);
                     if (player) {
