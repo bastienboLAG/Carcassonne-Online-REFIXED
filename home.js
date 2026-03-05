@@ -2769,11 +2769,16 @@ function setupEventListeners() {
 
     }
 
-    // Bouton menu mobile (···) — en dehors du if(isMobile()) car isMobile()
-    // peut retourner false sur certains appareils mobiles selon la largeur
-    mobileBtn('mobile-menu-btn', () => {
-        _openCloseMenu(document.getElementById('mobile-menu-btn'));
-    });
+    // Bouton menu mobile (···)
+    const _mobileMenuEl = document.getElementById('mobile-menu-btn');
+    if (_mobileMenuEl) {
+        _mobileMenuEl.addEventListener('touchstart', () => {}, { passive: true });
+        _mobileMenuEl.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            _openCloseMenu(_mobileMenuEl);
+        }, { passive: false });
+    }
 
     eventListenersInstalled = true;
     console.log('✅ Event listeners installés');
