@@ -2767,11 +2767,13 @@ function setupEventListeners() {
 
         // Rotation tuile : déjà sur touchend via click — garder tel quel
 
-        // Bouton menu mobile (···)
-        mobileBtn('mobile-menu-btn', () => {
-            _openCloseMenu(document.getElementById('mobile-menu-btn'));
-        });
     }
+
+    // Bouton menu mobile (···) — en dehors du if(isMobile()) car isMobile()
+    // peut retourner false sur certains appareils mobiles selon la largeur
+    mobileBtn('mobile-menu-btn', () => {
+        _openCloseMenu(document.getElementById('mobile-menu-btn'));
+    });
 
     eventListenersInstalled = true;
     console.log('✅ Event listeners installés');
