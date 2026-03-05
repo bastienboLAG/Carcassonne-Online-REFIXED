@@ -2597,10 +2597,14 @@ function setupEventListeners() {
         if (popover) popover.style.display = 'none';
     }
 
-    document.getElementById('menu-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        _toggleMenu();
-    });
+    const _menuBtn = document.getElementById('menu-btn');
+    console.log('🍔 menu-btn trouvé:', _menuBtn);
+    if (_menuBtn) {
+        _menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _toggleMenu();
+        });
+    }
 
     // Fermer au clic extérieur
     document.addEventListener('click', (e) => {
