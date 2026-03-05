@@ -1693,11 +1693,19 @@ function _postStartSetup() {
         if (scoring) scoring._builderRules = builderRulesInst;
     }
 
-    document.getElementById('remaining-tiles-btn').style.display =
-        gameConfig.showRemainingTiles ? 'block' : 'none';
     document.getElementById('test-modal-btn').style.display =
         gameConfig.enableDebug ? 'block' : 'none';
-    document.getElementById('back-to-lobby-btn').style.display = isHost ? 'block' : 'none';
+    // Menu : afficher retour lobby + séparateur uniquement pour l'hôte
+    const _backBtn = document.getElementById('back-to-lobby-btn');
+    const _lobbySep = document.querySelector('.menu-lobby-separator');
+    if (_backBtn)  _backBtn.style.display  = isHost ? 'block' : 'none';
+    if (_lobbySep) _lobbySep.style.display = isHost ? 'block' : 'none';
+    // Afficher/masquer tuiles restantes dans le menu
+    const _remBtn = document.getElementById('menu-remaining-btn');
+    if (_remBtn) _remBtn.style.display = gameConfig.showRemainingTiles ? 'block' : 'none';
+    // Afficher le code dans le menu
+    const _codeDisplay = document.getElementById('menu-code-display');
+    if (_codeDisplay) _codeDisplay.textContent = `Code : ${gameCode || '—'}`;
 
     // Spectateur : masquer les contrôles d'action mais garder la tile preview
     if (_isSpectator()) {
@@ -2576,8 +2584,46 @@ function setupEventListeners() {
         setTimeout(() => el.classList.remove('tile-highlight'), 3000);
     };
 
-    // Retour au lobby
+    // ── Menu bouton ────────────────────────────────────────────────────────
+    function _toggleMenu() {
+        const popover = document.getElementById('game-menu-popover');
+        if (!popover) return;
+        const isOpen = popover.style.display !== 'none';
+        popover.style.display = isOpen ? 'none' : 'block';
+    }
+
+    function _closeMenu() {
+        const popover = document.getElementById('game-menu-popover');
+        if (popover) popover.style.display = 'none';
+    }
+
+    document.getElementById('menu-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        _toggleMenu();
+    });
+
+    // Fermer au clic extérieur
+    document.addEventListener('click', (e) => {
+        const popover = document.getElementById('game-menu-popover');
+        const menuBtn = document.getElementById('menu-btn');
+        if (popover && !popover.contains(e.target) && e.target !== menuBtn) {
+            _closeMenu();
+        }
+    });
+
+    // Copier le code depuis le menu
+    document.getElementById('menu-copy-code-btn').addEventListener('click', () => {
+        if (!gameCode) return;
+        navigator.clipboard.writeText(gameCode).then(() => {
+            const btn = document.getElementById('menu-copy-code-btn');
+            btn.textContent = '✅ Copié !';
+            setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000);
+        });
+    });
+
+    // Retour au lobby (dans le menu)
     document.getElementById('back-to-lobby-btn').onclick = () => {
+        _closeMenu();
         if (confirm('Retourner au lobby ? (La partie sera terminée mais les joueurs resteront connectés)')) {
             returnToLobby();
         }
@@ -2646,13 +2692,15 @@ function setupEventListeners() {
     });
 
     // Tuiles restantes
-    document.getElementById('remaining-tiles-btn').addEventListener('click', () => {
+    document.getElementById('menu-remaining-btn').addEventListener('click', () => {
+        _closeMenu();
         if (!deck) { alert('Aucune partie en cours'); return; }
         modalUI.showRemainingTiles(deck.getRemainingTilesByType(), deck.remaining());
     });
 
     // Règles de la partie
-    document.getElementById('rules-btn').addEventListener('click', () => {
+    document.getElementById('menu-rules-btn').addEventListener('click', () => {
+        _closeMenu();
         if (!gameConfig) { alert('Aucune partie en cours'); return; }
         modalUI.showGameRules(gameConfig);
     });
@@ -2700,23 +2748,14 @@ function setupEventListeners() {
         mobileBtn('mobile-highlight-btn', () => {
             document.getElementById('highlight-tile-btn').click();
         });
-        mobileBtn('mobile-remaining-btn', () => {
-            document.getElementById('remaining-tiles-btn').click();
-        });
-        mobileBtn('mobile-rules-btn', () => {
-            document.getElementById('rules-btn').click();
-        });
+
 
         // Rotation tuile : déjà sur touchend via click — garder tel quel
-        // Retour lobby (hôte uniquement)
-        const mobileLobbyBtn = document.getElementById('mobile-lobby-btn');
-        if (mobileLobbyBtn) {
-            mobileLobbyBtn.style.display = isHost ? 'flex' : 'none';
-            mobileLobbyBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                document.getElementById('back-to-lobby-btn').onclick?.();
-            }, { passive: false });
-        }
+
+        // Bouton menu mobile (···) — ouvre le même popover que PC
+        mobileBtn('mobile-menu-btn', () => {
+            _toggleMenu();
+        });
     }
 
     eventListenersInstalled = true;

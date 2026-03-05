@@ -40,6 +40,7 @@ html, body {
     overflow-y: hidden;
     height: auto;
     max-height: 100vh;
+    position: relative;
 }
 
 #game-ui h2 {
@@ -402,6 +403,15 @@ button:disabled {
 
 .modal-btn.cancel:hover {
     background: linear-gradient(135deg, #c0392b, #a93226);
+}
+
+.modal-btn.secondary {
+    background: linear-gradient(135deg, #7f8c8d, #636e72);
+    color: white;
+}
+
+.modal-btn.secondary:hover {
+    background: linear-gradient(135deg, #636e72, #535c68);
 }
 
 .error-message {
@@ -860,7 +870,7 @@ h3 .ext-master {
     background: #f1c40f;
     color: #000;
     font-weight: bold;
-    width: 80%;
+    width: 100%;
 }
 
 .undo-btn:hover {
@@ -976,8 +986,8 @@ h3 .ext-master {
 }
 
 /* Les 3 boutons principaux ont la même largeur */
-#end-turn-btn, #undo-btn, #recenter-btn {
-    width: 80%;
+#end-turn-btn, #undo-btn {
+    width: 100%;
 }
 
 /* Animations pour highlight de tuile */
@@ -1250,6 +1260,7 @@ h3 .ext-master {
         width: 100%;
         box-sizing: border-box;
         order: 3;
+        position: relative;
     }
 
     /* Section tuile en main */
@@ -1415,3 +1426,109 @@ h3 .ext-master {
                     inset 0 0 6px rgba(0,0,0,0.9);
     }
 }
+
+/* ========================================
+   MENU BOUTON + POPOVER
+   ======================================== */
+
+.menu-btn {
+    width: 100%;
+    background: #455a64;
+    color: white;
+    font-weight: bold;
+    padding: 10px 15px;
+    font-size: 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+}
+
+.menu-btn:hover {
+    background: #546e7a;
+}
+
+.game-menu-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 10px;
+    right: 10px;
+    background: #1e2d3d;
+    border: 1px solid #455a64;
+    border-radius: 8px;
+    padding: 12px;
+    z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+
+
+.game-menu-code {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #1a252f;
+    border-radius: 5px;
+    font-size: 13px;
+    color: #ecf0f1;
+}
+
+#menu-copy-code-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#menu-copy-code-btn:hover {
+    background: #2980b9;
+}
+
+.menu-separator {
+    border: none;
+    border-top: 1px solid #455a64;
+    margin: 2px 0;
+}
+
+.menu-item-btn {
+    width: 100%;
+    background: #34495e;
+    color: #ecf0f1;
+    border: none;
+    border-radius: 5px;
+    padding: 9px 12px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.menu-item-btn:hover {
+    background: #415b6e;
+}
+
+.menu-item-danger {
+    background: #c0392b;
+    color: white;
+}
+
+.menu-item-danger:hover {
+    background: #e74c3c;
+}
+
+    /* Popover menu sur mobile */
+    @media (max-width: 768px) {
+        .game-menu-popover {
+            bottom: calc(100% + 4px);
+            left: 4px;
+            right: 4px;
+        }
+    }
