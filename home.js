@@ -949,7 +949,6 @@ function _openCloseMenu(btnEl) {
         popover.style.display = 'none';
         return;
     }
-    // Mesurer avant d'afficher
     const rect = btnEl.getBoundingClientRect();
     popover.style.visibility = 'hidden';
     popover.style.display    = 'block';
@@ -957,10 +956,12 @@ function _openCloseMenu(btnEl) {
     const ph = popover.offsetHeight;
     let left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8));
     let top  = Math.max(8, rect.top - ph - 8);
+    console.log('🍔 popover position — rect:', JSON.stringify(rect.toJSON()), 'pw:', pw, 'ph:', ph, 'left:', left, 'top:', top, 'viewport:', window.innerWidth, 'x', window.innerHeight);
     popover.style.left       = left + 'px';
     popover.style.top        = top + 'px';
     popover.style.bottom     = '';
     popover.style.visibility = '';
+    console.log('🍔 popover style après:', popover.style.cssText);
 }
 
 document.getElementById('menu-btn')?.addEventListener('click', (e) => {
