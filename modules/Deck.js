@@ -132,11 +132,19 @@ export class Deck {
             console.log(`🌊 Mode rivière : ${riverDeck.length} tuiles river + ${normalDeck.length} tuiles normales`);
 
         } else if (testMode) {
-            // Mode test : seulement base-02, base-03, base-24
-            const testIds = ['base-02', 'base-03', 'base-24'];
+            // Mode test : deck personnalisé dans l'ordre défini
+            // Charger les tuiles manquantes si besoin (ex: inns sans extension activée)
+            if (!tileGroups.inns_cathedrals) {
+                try {
+                    const res  = await fetch('./data/Inns_Cathedrals/03.json');
+                    const data = await res.json();
+                    normalDeck.push({ id: 'inns_cathedrals-03', zones: data.zones, imagePath: data.image });
+                } catch(e) { console.error('Erreur chargement inns_cathedrals-03:', e); }
+            }
+            const testIds = ['base-23', 'base-23', 'base-23', 'inns_cathedrals-03'];
             this.tiles = testIds.map(id => normalDeck.find(t => t.id === id)).filter(Boolean);
             this.totalTiles = this.tiles.length;
-            console.log('🧪 Mode test implaçable : ' + this.tiles.map(t => t.id).join(', '));
+            console.log('🧪 Mode test custom : ' + this.tiles.map(t => t.id).join(', '));
 
         } else {
             // Tuile unique : shuffle + base-04 en premier
