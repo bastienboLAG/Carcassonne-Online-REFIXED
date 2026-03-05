@@ -949,15 +949,16 @@ function _openCloseMenu(btnEl) {
         popover.style.display = 'none';
         return;
     }
-    // Positionner au-dessus du bouton cliqué
-    const rect = btnEl.getBoundingClientRect();
     popover.style.display = 'block';
-    const pw = popover.offsetWidth;
-    let left = rect.left;
-    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    // Positionner au-dessus du bouton
+    const rect = btnEl.getBoundingClientRect();
+    const pw = popover.offsetWidth || 240;
+    const ph = popover.offsetHeight || 200;
+    let left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8));
+    let top  = Math.max(8, rect.top - ph - 8);
     popover.style.left   = left + 'px';
-    popover.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-    popover.style.top    = '';
+    popover.style.top    = top + 'px';
+    popover.style.bottom = '';
 }
 
 document.getElementById('menu-btn')?.addEventListener('click', (e) => {
@@ -2776,6 +2777,8 @@ function setupEventListeners() {
         _mobileMenuEl.addEventListener('touchend', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            console.log('📱 mobile-menu-btn touché');
+            alert('menu touché');
             _openCloseMenu(_mobileMenuEl);
         }, { passive: false });
     }
