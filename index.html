@@ -371,19 +371,83 @@
 
     <script type="module" src="home.js"></script>
 
-    <!-- DEBUG MOBILE - À retirer après debug -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <!-- Logger maison — intercepte tous les logs/erreurs et permet l'export -->
     <script>
-        eruda.init();
-        setTimeout(() => {
-            const btn = document.querySelector('.eruda-entry-btn');
-            if (btn) {
-                btn.style.left   = '10px';
-                btn.style.right  = 'auto';
-                btn.style.top    = '10px';
-                btn.style.bottom = 'auto';
-            }
-        }, 500);
+        (function() {
+            const _logs = [];
+            const _methods = ['log', 'warn', 'error', 'info', 'debug'];
+            _methods.forEach(method => {
+                const orig = console[method].bind(console);
+                console[method] = function(...args) {
+                    orig(...args);
+                    const line = `[${new Date().toISOString()}] [${method.toUpperCase()}] ` +
+                        args.map(a => {
+                            try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
+                            catch(e) { return String(a); }
+                        }).join(' ');
+                    _logs.push(line);
+                };
+            });
+
+            window.addEventListener('error', e => {
+                _logs.push(`[${new Date().toISOString()}] [UNCAUGHT] ${e.message} — ${e.filename}:${e.lineno}`);
+            });
+            window.addEventListener('unhandledrejection', e => {
+                _logs.push(`[${new Date().toISOString()}] [PROMISE] ${e.reason}`);
+            });
+
+            window._exportLogs = function() {
+                const blob = new Blob([_logs.join('\n')], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `carcassonne-logs-${new Date().toISOString().replace(/[:.]/g,'-')}.txt`;
+                a.click();
+            };
+
+            // Bouton flottant draggable
+            window.addEventListener('DOMContentLoaded', () => {
+                const btn = document.createElement('button');
+                btn.textContent = '📥';
+                btn.title = 'Exporter les logs';
+                Object.assign(btn.style, {
+                    position: 'fixed', top: '10px', left: '10px',
+                    zIndex: '99999', width: '40px', height: '40px',
+                    borderRadius: '50%', border: 'none',
+                    background: 'rgba(0,0,0,0.6)', color: 'white',
+                    fontSize: '18px', cursor: 'grab',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    userSelect: 'none', touchAction: 'none'
+                });
+                document.body.appendChild(btn);
+
+                // Drag
+                let dragging = false, ox = 0, oy = 0, moved = false;
+                function startDrag(cx, cy) {
+                    dragging = true; moved = false;
+                    ox = cx - btn.getBoundingClientRect().left;
+                    oy = cy - btn.getBoundingClientRect().top;
+                    btn.style.cursor = 'grabbing';
+                }
+                function moveDrag(cx, cy) {
+                    if (!dragging) return;
+                    moved = true;
+                    btn.style.left = Math.max(0, Math.min(window.innerWidth  - 40, cx - ox)) + 'px';
+                    btn.style.top  = Math.max(0, Math.min(window.innerHeight - 40, cy - oy)) + 'px';
+                }
+                function endDrag() {
+                    dragging = false;
+                    btn.style.cursor = 'grab';
+                }
+                btn.addEventListener('mousedown',  e => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+                window.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+                window.addEventListener('mouseup',   endDrag);
+                btn.addEventListener('touchstart',  e => { startDrag(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+                window.addEventListener('touchmove', e => { if(dragging) { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
+                window.addEventListener('touchend',  endDrag);
+
+                btn.addEventListener('click', () => { if (!moved) window._exportLogs(); });
+            });
+        })();
     </script>
 </body>
 </html>
