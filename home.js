@@ -941,8 +941,7 @@ async function _doJoin(isSpectator = false) {
 }
 
 // ── Menu bouton (global) ────────────────────────────────────────────────────
-function _openCloseMenu(e) {
-    if (e) e.stopPropagation();
+function _openCloseMenu(btnEl) {
     const popover = document.getElementById('game-menu-popover');
     if (!popover) return;
     const isOpen = popover.style.display !== 'none';
@@ -951,11 +950,9 @@ function _openCloseMenu(e) {
         return;
     }
     // Positionner au-dessus du bouton cliqué
-    const btn = e?.currentTarget || document.getElementById('menu-btn');
-    const rect = btn.getBoundingClientRect();
+    const rect = btnEl.getBoundingClientRect();
     popover.style.display = 'block';
     const pw = popover.offsetWidth;
-    // Aligner à gauche du bouton, ne pas dépasser le viewport
     let left = rect.left;
     if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
     popover.style.left   = left + 'px';
@@ -963,7 +960,10 @@ function _openCloseMenu(e) {
     popover.style.top    = '';
 }
 
-document.getElementById('menu-btn')?.addEventListener('click', _openCloseMenu);
+document.getElementById('menu-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _openCloseMenu(e.currentTarget);
+});
 // mobile-menu-btn branché via mobileBtn(touchend) dans setupEventListeners
 console.log('🍔 listeners menu installés, menu-btn:', document.getElementById('menu-btn'));
 
@@ -2769,7 +2769,7 @@ function setupEventListeners() {
 
         // Bouton menu mobile (···)
         mobileBtn('mobile-menu-btn', () => {
-            _openCloseMenu({ currentTarget: document.getElementById('mobile-menu-btn') });
+            _openCloseMenu(document.getElementById('mobile-menu-btn'));
         });
     }
 
