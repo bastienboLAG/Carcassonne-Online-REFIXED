@@ -940,6 +940,21 @@ async function _doJoin(isSpectator = false) {
     }
 }
 
+// ── Menu bouton (global — fonctionne même après retour lobby) ──────────────
+document.getElementById('menu-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const popover = document.getElementById('game-menu-popover');
+    if (!popover) return;
+    popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('mobile-menu-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const popover = document.getElementById('game-menu-popover');
+    if (!popover) return;
+    popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
+});
+
 // Clic "Rejoindre" → connexion directe (le choix joueur/spectateur se fait
 // après connexion via modale si la partie est déjà en cours)
 document.getElementById('join-confirm-btn').addEventListener('click', () => _doJoin(false));
@@ -2597,21 +2612,12 @@ function setupEventListeners() {
         if (popover) popover.style.display = 'none';
     }
 
-    const _menuBtn = document.getElementById('menu-btn');
-    console.log('🍔 menu-btn trouvé:', _menuBtn);
-    if (_menuBtn) {
-        _menuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            _toggleMenu();
-        });
-    }
-
     // Fermer au clic extérieur
     document.addEventListener('click', (e) => {
         const popover = document.getElementById('game-menu-popover');
         const menuBtn = document.getElementById('menu-btn');
-        if (popover && !popover.contains(e.target) && e.target !== menuBtn) {
-            _closeMenu();
+        if (popover && popover.style.display !== 'none' && !popover.contains(e.target) && e.target !== menuBtn) {
+            popover.style.display = 'none';
         }
     });
 
@@ -2756,10 +2762,8 @@ function setupEventListeners() {
 
         // Rotation tuile : déjà sur touchend via click — garder tel quel
 
-        // Bouton menu mobile (···) — ouvre le même popover que PC
-        mobileBtn('mobile-menu-btn', () => {
-            _toggleMenu();
-        });
+        // Bouton menu mobile (···) — délégué au listener global du menu-btn
+        // (déjà branché globalement via addEventListener sur mobile-menu-btn)
     }
 
     eventListenersInstalled = true;
