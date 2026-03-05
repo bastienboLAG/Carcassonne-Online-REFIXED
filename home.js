@@ -944,9 +944,23 @@ async function _doJoin(isSpectator = false) {
 function _openCloseMenu(e) {
     if (e) e.stopPropagation();
     const popover = document.getElementById('game-menu-popover');
-    console.log('🍔 _openCloseMenu appelé, popover:', popover, 'display:', popover?.style.display);
     if (!popover) return;
-    popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
+    const isOpen = popover.style.display !== 'none';
+    if (isOpen) {
+        popover.style.display = 'none';
+        return;
+    }
+    // Positionner au-dessus du bouton cliqué
+    const btn = e?.currentTarget || document.getElementById('menu-btn');
+    const rect = btn.getBoundingClientRect();
+    popover.style.display = 'block';
+    const pw = popover.offsetWidth;
+    // Aligner à gauche du bouton, ne pas dépasser le viewport
+    let left = rect.left;
+    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    popover.style.left   = left + 'px';
+    popover.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+    popover.style.top    = '';
 }
 
 document.getElementById('menu-btn')?.addEventListener('click', _openCloseMenu);
@@ -2598,13 +2612,6 @@ function setupEventListeners() {
     };
 
     // ── Menu bouton ────────────────────────────────────────────────────────
-    function _toggleMenu() {
-        const popover = document.getElementById('game-menu-popover');
-        if (!popover) return;
-        const isOpen = popover.style.display !== 'none';
-        popover.style.display = isOpen ? 'none' : 'block';
-    }
-
     function _closeMenu() {
         const popover = document.getElementById('game-menu-popover');
         if (popover) popover.style.display = 'none';
