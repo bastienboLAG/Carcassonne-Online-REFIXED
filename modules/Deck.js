@@ -31,7 +31,7 @@ export class Deck {
 
         // ── Groupe Base ─────────────────────────────────────────────────
         const baseIds = testMode
-            ? ['24', '03', '01', '02', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14']
+            ? ['23', '24', '03', '01', '02', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14']
             : Array.from({ length: 24 }, (_, i) => String(i + 1).padStart(2, '0'));
 
         for (const id of baseIds) {
@@ -142,7 +142,10 @@ export class Deck {
                 } catch(e) { console.error('Erreur chargement inns_cathedrals-03:', e); }
             }
             const testIds = ['base-23', 'base-23', 'base-23', 'inns_cathedrals-03'];
-            this.tiles = testIds.map(id => normalDeck.find(t => t.id === id)).filter(Boolean);
+            this.tiles = testIds.map(id => {
+                const found = normalDeck.find(t => t.id === id);
+                return found ? { ...found } : null;
+            }).filter(Boolean);
             this.totalTiles = this.tiles.length;
             console.log('🧪 Mode test custom : ' + this.tiles.map(t => t.id).join(', '));
 
