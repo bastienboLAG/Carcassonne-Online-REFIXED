@@ -174,7 +174,8 @@ export class ZoneRegistry {
      * Désérialiser le registry depuis une sauvegarde
      */
     deserialize(data) {
-        this.zones = new Map(data.zones);
+        // ✅ Deep clone de chaque zone pour éviter les références partagées avec le snapshot
+        this.zones = new Map(data.zones.map(([id, zone]) => [id, JSON.parse(JSON.stringify(zone))]));
         this.nextId = data.nextId;
         this.closedCitiesHistory = [...data.closedCitiesHistory];
     }
