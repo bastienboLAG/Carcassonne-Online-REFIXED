@@ -2604,11 +2604,29 @@ function setupEventListeners() {
         if (!lastPlacedTile) return;
         const { x, y } = lastPlacedTile;
 
-        // Centrer le viewport sur la tuile
         const container = document.getElementById('board-container');
-        const CELL = 208;
-        container.scrollLeft = (x - 1) * CELL - container.clientWidth  / 2 + CELL / 2;
-        container.scrollTop  = (y - 1) * CELL - container.clientHeight / 2 + CELL / 2;
+        const CELL      = 208;
+        const boardSize = 20800;
+        const center    = boardSize / 2; // 10400
+        const level     = zoomManager ? zoomManager.zoomLevel : 1;
+        const tileX     = (x - 1) * CELL + CELL / 2;
+        const tileY     = (y - 1) * CELL + CELL / 2;
+        const scrollLeft = center + (tileX - center) * level - container.clientWidth  / 2;
+        const scrollTop  = center + (tileY - center) * level - container.clientHeight / 2;
+
+        console.log('📌 [ÉPINGLE] lastPlacedTile:', JSON.stringify(lastPlacedTile));
+        console.log('📌 [ÉPINGLE] zoom level:', level);
+        console.log('📌 [ÉPINGLE] CELL:', CELL, '| boardSize:', boardSize, '| center:', center);
+        console.log('📌 [ÉPINGLE] tileX (px dans board):', tileX, '| tileY:', tileY);
+        console.log('📌 [ÉPINGLE] container.clientWidth:', container.clientWidth, '| clientHeight:', container.clientHeight);
+        console.log('📌 [ÉPINGLE] container.scrollWidth:', container.scrollWidth, '| scrollHeight:', container.scrollHeight);
+        console.log('📌 [ÉPINGLE] scrollLeft calculé:', scrollLeft, '| scrollTop calculé:', scrollTop);
+        console.log('📌 [ÉPINGLE] scrollLeft actuel avant:', container.scrollLeft, '| scrollTop actuel avant:', container.scrollTop);
+
+        container.scrollLeft = scrollLeft;
+        container.scrollTop  = scrollTop;
+
+        console.log('📌 [ÉPINGLE] scrollLeft après affectation:', container.scrollLeft, '| scrollTop après:', container.scrollTop);
 
         // Flash visuel
         const el = document.querySelector(`.tile[data-pos="${x},${y}"]`);
