@@ -940,20 +940,18 @@ async function _doJoin(isSpectator = false) {
     }
 }
 
-// ── Menu bouton (global — fonctionne même après retour lobby) ──────────────
-document.getElementById('menu-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
+// ── Menu bouton (global) ────────────────────────────────────────────────────
+function _openCloseMenu(e) {
+    if (e) e.stopPropagation();
     const popover = document.getElementById('game-menu-popover');
+    console.log('🍔 _openCloseMenu appelé, popover:', popover, 'display:', popover?.style.display);
     if (!popover) return;
     popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
-});
+}
 
-document.getElementById('mobile-menu-btn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const popover = document.getElementById('game-menu-popover');
-    if (!popover) return;
-    popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
-});
+document.getElementById('menu-btn')?.addEventListener('click', _openCloseMenu);
+document.getElementById('mobile-menu-btn')?.addEventListener('click', _openCloseMenu);
+console.log('🍔 listeners menu installés, menu-btn:', document.getElementById('menu-btn'));
 
 // Clic "Rejoindre" → connexion directe (le choix joueur/spectateur se fait
 // après connexion via modale si la partie est déjà en cours)
