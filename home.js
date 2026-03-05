@@ -971,7 +971,7 @@ document.getElementById('menu-btn')?.addEventListener('click', (e) => {
     _openCloseMenu(e.currentTarget);
 });
 // mobile-menu-btn branché via mobileBtn(touchend) dans setupEventListeners
-console.log('🍔 listeners menu installés, menu-btn:', document.getElementById('menu-btn'));
+
 
 // Clic "Rejoindre" → connexion directe (le choix joueur/spectateur se fait
 // après connexion via modale si la partie est déjà en cours)
