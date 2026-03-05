@@ -412,11 +412,13 @@
                 Object.assign(btn.style, {
                     position: 'fixed', top: '10px', left: '10px',
                     zIndex: '99999', width: '40px', height: '40px',
-                    borderRadius: '50%', border: 'none',
-                    background: 'rgba(0,0,0,0.6)', color: 'white',
+                    borderRadius: '50%', border: '1px solid #ccc',
+                    background: 'white', color: '#333',
                     fontSize: '18px', cursor: 'grab',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                    userSelect: 'none', touchAction: 'none'
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    userSelect: 'none', touchAction: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    lineHeight: '1', padding: '0'
                 });
                 document.body.appendChild(btn);
 
@@ -445,7 +447,11 @@
                 window.addEventListener('touchmove', e => { if(dragging) { e.preventDefault(); moveDrag(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
                 window.addEventListener('touchend',  endDrag);
 
-                btn.addEventListener('click', () => { if (!moved) window._exportLogs(); });
+                btn.addEventListener('click', () => {
+                    if (!moved && confirm('Télécharger le fichier de logs ?')) {
+                        window._exportLogs();
+                    }
+                });
             });
         })();
     </script>
