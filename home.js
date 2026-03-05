@@ -949,16 +949,18 @@ function _openCloseMenu(btnEl) {
         popover.style.display = 'none';
         return;
     }
-    popover.style.display = 'block';
-    // Positionner au-dessus du bouton
+    // Mesurer avant d'afficher
     const rect = btnEl.getBoundingClientRect();
-    const pw = popover.offsetWidth || 240;
-    const ph = popover.offsetHeight || 200;
+    popover.style.visibility = 'hidden';
+    popover.style.display    = 'block';
+    const pw = popover.offsetWidth;
+    const ph = popover.offsetHeight;
     let left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8));
     let top  = Math.max(8, rect.top - ph - 8);
-    popover.style.left   = left + 'px';
-    popover.style.top    = top + 'px';
-    popover.style.bottom = '';
+    popover.style.left       = left + 'px';
+    popover.style.top        = top + 'px';
+    popover.style.bottom     = '';
+    popover.style.visibility = '';
 }
 
 document.getElementById('menu-btn')?.addEventListener('click', (e) => {
@@ -2777,8 +2779,6 @@ function setupEventListeners() {
         _mobileMenuEl.addEventListener('touchend', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('📱 mobile-menu-btn touché');
-            alert('menu touché');
             _openCloseMenu(_mobileMenuEl);
         }, { passive: false });
     }
