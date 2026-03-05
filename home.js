@@ -689,18 +689,26 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
             });
         });
 
-        multiplayer.onPlayerJoined = (playerId) => {
-            console.log('👤 Nouveau joueur connecté:', playerId);
-            // Démarrer/redémarrer le heartbeat avec handler lobby (kick de la liste)
-            _startHeartbeat((peerId) => {
-                players = players.filter(p => p.id !== peerId);
-                lobbyUI.setPlayers(players);
-                multiplayer.broadcast({ type: 'players-update', players });
-                console.warn(`💔 Joueur ${peerId} retiré du lobby (timeout heartbeat)`);
-            });
+        const _lobbyHeartbeatTimeout = (peerId) => {
+            players = players.filter(p => p.id !== peerId);
+            lobbyUI.setPlayers(players);
+            multiplayer.broadcast({ type: 'players-update', players });
+            console.warn(`💔 Joueur ${peerId} retiré du lobby (timeout heartbeat)`);
         };
 
-        multiplayer.onDataReceived = (data, from) => {
+        multiplayer.onPlayerJoined = (playerId) => {
+            console.log('👤 Nouveau joueur connecté:', playerId);
+            if (heartbeatManager) {
+                // Heartbeat déjà actif : juste enregistrer le nouveau peer
+                heartbeatManager._lastPong[playerId] = Date.now();
+            } else {
+                // Premier joueur : démarrer le heartbeat
+                _startHeartbeat(_lobbyHeartbeatTimeout);
+            }
+        };
+
+        multiplayer._lobbyHostHandler = null; // sera set après définition
+        const _hostLobbyHandler = (data, from) => {
             console.log('📨 [HÔTE] Reçu:', data);
 
             if (data.type === 'player-info') {
@@ -759,6 +767,8 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
                 multiplayer.broadcast({ type: 'players-update', players });
             }
         };
+        multiplayer.onDataReceived = _hostLobbyHandler;
+        multiplayer._lobbyHostHandler = _hostLobbyHandler;
 
         // Hôte : kick un invité
         lobbyUI.onKickPlayer = (playerId) => {
@@ -2832,17 +2842,32 @@ function returnToLobby() {
     if (zoomManager) { zoomManager.setZoom(1); zoomManager.destroy(); zoomManager = null; }
     _navigationSetup = false;
 
+    // Relancer le heartbeat lobby avec le bon handler de timeout
+    // On initialise _lastPong avec les peers déjà connus pour éviter un faux timeout
+    const _existingPeers = new Set(multiplayer._connectedPeers);
     if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
 
-    // Réinitialiser onPlayerJoined au comportement lobby (pas de game-in-progress)
+    _startHeartbeat((peerId) => {
+        players = players.filter(p => p.id !== peerId);
+        lobbyUI.setPlayers(players);
+        multiplayer.broadcast({ type: 'players-update', players });
+    });
+    // Initialiser tous les peers existants à now pour éviter timeout immédiat
+    _existingPeers.forEach(peerId => {
+        if (heartbeatManager) heartbeatManager._lastPong[peerId] = Date.now();
+    });
+
     multiplayer.onPlayerJoined = (playerId) => {
-        console.log('👤 Nouveau joueur connecté (lobby):', playerId);
-        _startHeartbeat((peerId) => {
-            players = players.filter(p => p.id !== peerId);
-            lobbyUI.setPlayers(players);
-            multiplayer.broadcast({ type: 'players-update', players });
-        });
+        console.log('👤 Nouveau joueur connecté (lobby post-retour):', playerId);
+        if (heartbeatManager) heartbeatManager._lastPong[playerId] = Date.now();
     };
+
+    // Restaurer onDataReceived au lobbyHandler hôte
+    if (isHost) {
+        multiplayer.onDataReceived = multiplayer._lobbyHostHandler ?? null;
+    } else if (originalLobbyHandler) {
+        multiplayer.onDataReceived = originalLobbyHandler;
+    }
 
     lobbyUI.show();
     lobbyUI.reset();
