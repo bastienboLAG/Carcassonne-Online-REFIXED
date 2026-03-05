@@ -964,7 +964,7 @@ function _openCloseMenu(e) {
 }
 
 document.getElementById('menu-btn')?.addEventListener('click', _openCloseMenu);
-document.getElementById('mobile-menu-btn')?.addEventListener('click', _openCloseMenu);
+// mobile-menu-btn branché via mobileBtn(touchend) dans setupEventListeners
 console.log('🍔 listeners menu installés, menu-btn:', document.getElementById('menu-btn'));
 
 // Clic "Rejoindre" → connexion directe (le choix joueur/spectateur se fait
@@ -2767,8 +2767,10 @@ function setupEventListeners() {
 
         // Rotation tuile : déjà sur touchend via click — garder tel quel
 
-        // Bouton menu mobile (···) — délégué au listener global du menu-btn
-        // (déjà branché globalement via addEventListener sur mobile-menu-btn)
+        // Bouton menu mobile (···)
+        mobileBtn('mobile-menu-btn', () => {
+            _openCloseMenu({ currentTarget: document.getElementById('mobile-menu-btn') });
+        });
     }
 
     eventListenersInstalled = true;
