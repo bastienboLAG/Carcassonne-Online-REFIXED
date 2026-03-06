@@ -141,7 +141,7 @@ export class Deck {
                     normalDeck.push({ id: 'inns_cathedrals-03', zones: data.zones, imagePath: data.image });
                 } catch(e) { console.error('Erreur chargement inns_cathedrals-03:', e); }
             }
-            const testIds = ['inns_cathedrals-17', 'inns_cathedrals-11', 'inns_cathedrals-12', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08'];
+            const testIds = ['base-24', 'base-03', 'base-12', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08'];
             this.tiles = testIds.map(id => {
                 const found = normalDeck.find(t => t.id === id);
                 return found ? { ...found } : null;
