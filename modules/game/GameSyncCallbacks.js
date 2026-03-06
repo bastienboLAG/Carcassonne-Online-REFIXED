@@ -272,6 +272,12 @@ export class GameSyncCallbacks {
             this.onTileDestroyed(tileId, playerName, action);
         };
 
+        // ── Tuile donnée directement par l'hôte (après implaçable) ─────────
+        gs.onYourTurn = (tileId) => {
+            console.log('🎲 [INVITÉ] your-turn reçu:', tileId);
+            this.turnManager.receiveYourTurn(tileId);
+        };
+
         // ── Tuile implaçable traitée par l'hôte ───────────────────────────────
         gs.onUnplaceableHandled = (tileId, playerName, action, isRiver, activePeerId) => {
             console.log('🚫 [SYNC] Tuile implaçable traitée:', tileId);

@@ -24,6 +24,7 @@ export class GameSync {
         this.onUnplaceableConfirm = null;
         this.onUnplaceableHandled = null;
         this.onUnplaceableRedraw  = null;
+        this.onYourTurn           = null;
         this.onDeckReshuffled = null;
     }
 
@@ -55,8 +56,8 @@ export class GameSync {
             'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
-            'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw',
-            'turn-undo-request'
+            'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
+            'turn-undo-request', 'your-turn'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -452,6 +453,14 @@ export class GameSync {
                 if (this.isHost && this.onUnplaceableRedraw) {
                     console.log('🔄 [HÔTE] Demande repiocher reçue de:', data.playerId);
                     this.onUnplaceableRedraw(data.playerId);
+                }
+                break;
+
+            case 'your-turn':
+                // L'hôte donne une tuile directement à cet invité
+                if (!this.isHost && this.onYourTurn) {
+                    console.log('🎲 [INVITÉ] Réception your-turn:', data.tileId);
+                    this.onYourTurn(data.tileId);
                 }
                 break;
 
