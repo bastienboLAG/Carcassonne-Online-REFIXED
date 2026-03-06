@@ -2605,22 +2605,11 @@ function setupEventListeners() {
         const { x, y } = lastPlacedTile;
 
         const container = document.getElementById('board-container');
-        const CELL  = 208;
-        const level = zoomManager ? zoomManager.zoomLevel : 1;
-        // Avec transform-origin: top left, la tuile (x,y) est à (x-1)*CELL*level px dans le container
-        const scrollLeft = (x - 1) * CELL * level - container.clientWidth  / 2 + CELL * level / 2;
-        const scrollTop  = (y - 1) * CELL * level - container.clientHeight / 2 + CELL * level / 2;
-
-        console.log('📌 [ÉPINGLE] lastPlacedTile:', JSON.stringify(lastPlacedTile));
-        console.log('📌 [ÉPINGLE] zoom:', level, '| CELL*zoom:', CELL * level);
-        console.log('📌 [ÉPINGLE] scrollLeft calculé:', scrollLeft, '| scrollTop:', scrollTop);
-        console.log('📌 [ÉPINGLE] container clientW:', container.clientWidth, 'clientH:', container.clientHeight);
-        console.log('📌 [ÉPINGLE] container scrollW:', container.scrollWidth, 'scrollH:', container.scrollHeight);
-
-        container.scrollLeft = scrollLeft;
-        container.scrollTop  = scrollTop;
-
-        console.log('📌 [ÉPINGLE] scrollLeft après:', container.scrollLeft, '| scrollTop après:', container.scrollTop);
+        const CELL = 208;
+        // transform-origin: center — scrollWidth reste 20800 indépendamment du zoom
+        // la position scroll correspond aux coordonnées non-zoomées
+        container.scrollLeft = (x - 1) * CELL - container.clientWidth  / 2 + CELL / 2;
+        container.scrollTop  = (y - 1) * CELL - container.clientHeight / 2 + CELL / 2;
 
         // Flash visuel
         const el = document.querySelector(`.tile[data-pos="${x},${y}"]`);

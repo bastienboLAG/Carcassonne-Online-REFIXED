@@ -110,7 +110,6 @@ html, body {
     grid-template-rows: repeat(100, 208px);
     width: 20800px;
     height: 20800px;
-    transform-origin: top left;
 }
 
 .tile {
