@@ -1136,7 +1136,8 @@ function attachGameSyncCallbacks() {
         onRemoteUndo:     handleRemoteUndo,
         onFinalScores:    (scores, destroyedTilesCount = 0) => finalScoresManager.receiveFromNetwork(scores, destroyedTilesCount),
         onTileDestroyed:  (tileId, pName, action, count = 1) => {
-            if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
+            // N'incrémenter que si la tuile est détruite, pas remélangée
+            if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
             unplaceableManager.showTileDestroyedModal(tileId, pName, false, action);
         },
         onDeckReshuffled: (tiles, idx) => { deck.tiles = tiles; deck.currentIndex = idx; },
@@ -1174,7 +1175,7 @@ function attachGameSyncCallbacks() {
             }
         },
         onUnplaceableHandled: (tileId, pName, action, isRiver, isActivePlayer) => {
-            if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
+            if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
             unplaceableManager.showTileDestroyedModal(tileId, pName, isActivePlayer, action, isRiver);
             if (isActivePlayer) {
                 waitingToRedraw = true;
