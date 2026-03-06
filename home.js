@@ -1468,6 +1468,7 @@ function _showPauseOverlay(name) {
             <h2 style="margin:0 0 8px;font-size:22px;">Partie en pause</h2>
             <p style="margin:0 0 8px;color:#aaa;font-size:15px;"><strong style="color:#fff">${name}</strong> s'est déconnecté(e).</p>
             <p style="margin:0 0 4px;color:#aaa;font-size:13px;">En attente de reconnexion…</p>
+            ${gameCode ? `<p style="margin:12px 0 0;font-size:13px;color:#aaa;">Code de la partie : <strong style="color:#fff;letter-spacing:2px;">${gameCode}</strong></p>` : ''}
             ${hostBtn}
         </div>
     `;
