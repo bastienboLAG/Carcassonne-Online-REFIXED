@@ -13,6 +13,7 @@ export class GameSyncCallbacks {
         tilePreviewUI,
         meepleDisplayUI,
         undoManager,
+        unplaceableManager,
         scoring,
         zoneMerger,
         slotsUI,
@@ -36,8 +37,9 @@ export class GameSyncCallbacks {
         this.deck            = deck;
         this.turnManager     = turnManager;
         this.tilePreviewUI   = tilePreviewUI;
-        this.meepleDisplayUI = meepleDisplayUI;
-        this.undoManager     = undoManager;
+        this.meepleDisplayUI     = meepleDisplayUI;
+        this.undoManager         = undoManager;
+        this.unplaceableManager  = unplaceableManager ?? null;
         this.scoring         = scoring;
         this.zoneMerger      = zoneMerger;
         this.slotsUI         = slotsUI;
@@ -273,10 +275,12 @@ export class GameSyncCallbacks {
         // ── Tuile implaçable traitée par l'hôte ───────────────────────────────
         gs.onUnplaceableHandled = (tileId, playerName, action, isRiver, activePeerId) => {
             console.log('🚫 [SYNC] Tuile implaçable traitée:', tileId);
+            // Fermer la modale implaçable (badge + modale confirmer)
+            if (this.unplaceableManager) this.unplaceableManager.hideUnplaceableBadge();
             // Afficher le verso dans la preview
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
-            // Si c'est notre tour (invité actif) → modale avec repiocher
-            const isActivePlayer = activePeerId === this.multiplayer?.playerId;
+            // Si c'est notre tour (invité actif) → modale avec repiocher, sinon info
+            const isActivePlayer = activePeerId === this.gameSync?.multiplayer?.playerId;
             if (this.onUnplaceableHandled) this.onUnplaceableHandled(tileId, playerName, action, isRiver, isActivePlayer);
         };
 

@@ -184,7 +184,7 @@ eventBus.on('tile-drawn', (data) => {
     // Note: syncTileDraw est fait dans _hostDrawAndSend, pas ici
 
     // Vérifier si la tuile est plaçable (seulement si c'est notre tour)
-    if (isOwnTurnStart && tilePlacement && unplaceableManager) {
+    if (isOwnTurnStart && isMyTurn && tilePlacement && unplaceableManager) {
         const isRiverPhase = tuileEnMain?.id?.startsWith('river-') ?? false;
         const placeable = unplaceableManager.isTilePlaceable(tuileEnMain, tilePlacement.plateau, isRiverPhase);
         if (!placeable) {
@@ -1127,6 +1127,7 @@ function attachGameSyncCallbacks() {
         tilePreviewUI,
         meepleDisplayUI,
         undoManager,
+        unplaceableManager,
         scoring,
         zoneMerger,
         slotsUI,
@@ -1137,14 +1138,6 @@ function attachGameSyncCallbacks() {
         onTileDestroyed:  (tileId, pName, action, count = 1) => {
             if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
             unplaceableManager.showTileDestroyedModal(tileId, pName, false, action);
-        },
-        onUnplaceableHandled: (tileId, pName, action, isRiver, isActivePlayer) => {
-            if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
-            unplaceableManager.showTileDestroyedModal(tileId, pName, isActivePlayer, action, isRiver);
-            if (isActivePlayer) {
-                waitingToRedraw = true;
-                updateTurnDisplay();
-            }
         },
         onDeckReshuffled: (tiles, idx) => { deck.tiles = tiles; deck.currentIndex = idx; },
         onAbbeRecalled: (x, y, key, playerId, points) => {
@@ -2508,9 +2501,11 @@ function setupEventListeners() {
         if (waitingToRedraw && isMyTurn) {
             document.getElementById('tile-destroyed-modal').style.display = 'none';
             if (isHost) {
+                // Hôte : pioche et donne la tuile à lui-même
                 const _t = _hostDrawAndSend();
                 if (_t) turnManager.receiveYourTurn(_t.id);
             }
+            // Invité : la nouvelle tuile arrive via your-turn broadcasté par l'hôte
             waitingToRedraw = false;
             updateTurnDisplay();
             return;
