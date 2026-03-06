@@ -316,6 +316,9 @@ export class TurnManager {
             this.bonusAlreadyUsedThisTurn = false;
             this.isBonusTurn = false;
             this.nextPlayer();
+        } else {
+            // ✅ Tour bonus d'un invité : marquer explicitement isBonusTurn
+            this.isBonusTurn = true;
         }
         this.updateTurnState();
         this.eventBus.emit('turn-changed', {
