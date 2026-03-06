@@ -244,7 +244,7 @@ export class UnplaceableTileManager {
     /**
      * Gestion du clic "Confirmer" sur la modale implaçable
      */
-    handleConfirm(tuileEnMain, gameSync) {
+    handleConfirm(tuileEnMain, gameSync, isActivePlayer = true) {
         const currentPlayer = this.gameState?.getCurrentPlayer();
         const tileId        = tuileEnMain?.id || '?';
         const playerName    = currentPlayer?.name || '?';
@@ -339,8 +339,8 @@ export class UnplaceableTileManager {
             }
         }
 
-        this.showTileDestroyedModal(tileId, playerName, true, action, isRiver);
+        this.showTileDestroyedModal(tileId, playerName, isActivePlayer, action, isRiver);
         if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, action);
-        this.setRedrawMode(true);
+        if (isActivePlayer) this.setRedrawMode(true);
     }
 }

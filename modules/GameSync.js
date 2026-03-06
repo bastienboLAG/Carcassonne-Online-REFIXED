@@ -21,6 +21,7 @@ export class GameSync {
         this.onGameEnded = null;
         this.onPlayerDisconnected = null;
         this.onTileDestroyed = null;
+        this.onUnplaceableConfirm = null;
         this.onDeckReshuffled = null;
     }
 
@@ -52,7 +53,7 @@ export class GameSync {
             'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
-            'turn-end-request',
+            'turn-end-request', 'unplaceable-confirm',
             'turn-undo-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
@@ -141,6 +142,21 @@ export class GameSync {
                 nextPlayerIndex: this.gameState.currentPlayerIndex,
                 gameState: this.gameState.serialize(),
                 isBonusTurn: isBonusTurn
+            });
+        }
+    }
+
+    /**
+     * Invité → hôte : confirme une tuile implaçable
+     */
+    syncUnplaceableConfirm(tileId) {
+        console.log('🚫 [INVITÉ] Tuile implaçable confirmée:', tileId);
+        const hostConn = this.multiplayer.connections[0];
+        if (hostConn && hostConn.open) {
+            hostConn.send({
+                type: 'unplaceable-confirm',
+                playerId: this.multiplayer.playerId,
+                tileId: tileId
             });
         }
     }
@@ -379,6 +395,14 @@ export class GameSync {
                 if (this.isHost && this.onTurnEndRequest) {
                     console.log('⏭️ [HÔTE] Demande fin de tour reçue de:', data.playerId);
                     this.onTurnEndRequest(data.playerId, data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false);
+                }
+                break;
+
+            case 'unplaceable-confirm':
+                // Un invité confirme sa tuile implaçable → l'hôte gère tout
+                if (this.isHost && this.onUnplaceableConfirm) {
+                    console.log('🚫 [HÔTE] Tuile implaçable confirmée par:', data.playerId);
+                    this.onUnplaceableConfirm(data.playerId, data.tileId);
                 }
                 break;
 

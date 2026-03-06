@@ -1240,6 +1240,25 @@ function attachGameSyncCallbacks() {
                 // Broadcaster turn-ended enrichi à tous
                 gameSync.syncTurnEnd(isBonusTurn, _nextTile?.id ?? null);
             };
+
+            // Hôte : traitement d'une tuile implaçable d'un invité
+            gameSync.onUnplaceableConfirm = (playerId, tileId) => {
+                console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
+                if (!unplaceableManager || !tuileEnMain) return;
+                // Exécuter la logique deck (reshuffle ou destroy)
+                unplaceableManager.handleConfirm(tuileEnMain, gameSync, false);
+                // isActivePlayer=false : pas de setRedrawMode ni de modale 'Repiocher' pour l'hôte
+                waitingToRedraw = false;
+                updateTurnDisplay();
+                // Repiocher et envoyer la nouvelle tuile à l'invité
+                const _nextTile = _hostDrawAndSend();
+                if (_nextTile) {
+                    const conn = gameSync.multiplayer.connections.find(c => c.peer === playerId);
+                    if (conn && conn.open) {
+                        conn.send({ type: 'your-turn', tileId: _nextTile.id });
+                    }
+                }
+            };
         }
     }
 }
@@ -2669,7 +2688,15 @@ function setupEventListeners() {
 
     // Confirmer tuile implaçable
     document.getElementById('unplaceable-confirm-btn').onclick = () => {
-        if (unplaceableManager) unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+        if (!unplaceableManager || !tuileEnMain) return;
+        if (isHost) {
+            // Hôte : gère tout localement
+            unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+        } else {
+            // Invité : délègue à l'hôte
+            unplaceableManager.hideUnplaceableBadge();
+            if (gameSync) gameSync.syncUnplaceableConfirm(tuileEnMain.id);
+        }
     };
 
     // Examiner le plateau (ferme la modale implaçable)
