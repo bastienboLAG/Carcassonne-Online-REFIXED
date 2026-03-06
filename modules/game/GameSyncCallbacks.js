@@ -25,6 +25,7 @@ export class GameSyncCallbacks {
         onAbbeRecalled,
         onAbbeRecalledUndo,
         onBonusTurnStarted,
+        onUnplaceableHandled,
         updateTurnDisplay,
         poserTuileSync,
         afficherMessage,
@@ -51,6 +52,7 @@ export class GameSyncCallbacks {
         this.onAbbeRecalled    = onAbbeRecalled;      // (x, y, key, playerId, points) => void
         this.onAbbeRecalledUndo  = onAbbeRecalledUndo;  // (x, y, key, playerId) => void
         this.onBonusTurnStarted  = onBonusTurnStarted ?? null; // (playerId) => void
+        this.onUnplaceableHandled = onUnplaceableHandled ?? null; // (tileId, name, action, isRiver, isActivePlayer) => void
         this.updateTurnDisplay = updateTurnDisplay;   // () => void
         this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
         this.afficherMessage   = afficherMessage;     // (msg) => void
@@ -266,6 +268,16 @@ export class GameSyncCallbacks {
             console.log('🗑️ [SYNC] Tuile détruite:', tileId, 'par', playerName);
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
             this.onTileDestroyed(tileId, playerName, action);
+        };
+
+        // ── Tuile implaçable traitée par l'hôte ───────────────────────────────
+        gs.onUnplaceableHandled = (tileId, playerName, action, isRiver, activePeerId) => {
+            console.log('🚫 [SYNC] Tuile implaçable traitée:', tileId);
+            // Afficher le verso dans la preview
+            if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
+            // Si c'est notre tour (invité actif) → modale avec repiocher
+            const isActivePlayer = activePeerId === this.multiplayer?.playerId;
+            if (this.onUnplaceableHandled) this.onUnplaceableHandled(tileId, playerName, action, isRiver, isActivePlayer);
         };
 
         // ── Deck remélangé ────────────────────────────────────────────────────

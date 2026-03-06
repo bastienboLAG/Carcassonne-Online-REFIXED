@@ -1138,6 +1138,14 @@ function attachGameSyncCallbacks() {
             if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
             unplaceableManager.showTileDestroyedModal(tileId, pName, false, action);
         },
+        onUnplaceableHandled: (tileId, pName, action, isRiver, isActivePlayer) => {
+            if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
+            unplaceableManager.showTileDestroyedModal(tileId, pName, isActivePlayer, action, isRiver);
+            if (isActivePlayer) {
+                waitingToRedraw = true;
+                updateTurnDisplay();
+            }
+        },
         onDeckReshuffled: (tiles, idx) => { deck.tiles = tiles; deck.currentIndex = idx; },
         onAbbeRecalled: (x, y, key, playerId, points) => {
             // Retirer visuellement l'Abbé
@@ -1170,6 +1178,14 @@ function attachGameSyncCallbacks() {
                 // Marquer le toast pour fermeture automatique à la fin du tour bonus
                 const _bonusToast = document.getElementById('disconnect-toast');
                 if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
+            }
+        },
+        onUnplaceableHandled: (tileId, pName, action, isRiver, isActivePlayer) => {
+            if (gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
+            unplaceableManager.showTileDestroyedModal(tileId, pName, isActivePlayer, action, isRiver);
+            if (isActivePlayer) {
+                waitingToRedraw = true;
+                updateTurnDisplay();
             }
         },
         updateTurnDisplay,
@@ -1245,11 +1261,21 @@ function attachGameSyncCallbacks() {
             gameSync.onUnplaceableConfirm = (playerId, tileId) => {
                 console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
                 if (!unplaceableManager || !tuileEnMain) return;
-                // Exécuter la logique deck (reshuffle ou destroy)
-                unplaceableManager.handleConfirm(tuileEnMain, gameSync, false);
-                // isActivePlayer=false : pas de setRedrawMode ni de modale 'Repiocher' pour l'hôte
-                waitingToRedraw = false;
-                updateTurnDisplay();
+
+                // Logique deck uniquement
+                const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+                if (!result) return; // cas chain/endgame déjà géré
+
+                // Broadcaster à tous : verso + modale info (sans repiocher)
+                // L'invité actif recevra en plus un your-turn qui lui permettra de repiocher
+                gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);
+
+                // Affichage hôte : verso + modale informationnelle (pas de repiocher)
+                if (tilePreviewUI) tilePreviewUI.showBackside();
+                if (!result.special) {
+                    unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, false, result.action, result.isRiver);
+                }
+
                 // Repiocher et envoyer la nouvelle tuile à l'invité
                 const _nextTile = _hostDrawAndSend();
                 if (_nextTile) {
@@ -2690,8 +2716,17 @@ function setupEventListeners() {
     document.getElementById('unplaceable-confirm-btn').onclick = () => {
         if (!unplaceableManager || !tuileEnMain) return;
         if (isHost) {
-            // Hôte : gère tout localement
-            unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+            // Hôte : gère le deck + affichage local + broadcast
+            const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+            if (!result) return; // cas chain/endgame déjà géré
+            if (tilePreviewUI) tilePreviewUI.showBackside();
+            if (!result.special) {
+                // Cas normal : afficher modale active + setRedrawMode
+                unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, true, result.action, result.isRiver);
+                gameSync.syncTileDestroyed(result.tileId, result.playerName, result.action);
+                waitingToRedraw = true;
+                updateTurnDisplay();
+            }
         } else {
             // Invité : délègue à l'hôte
             unplaceableManager.hideUnplaceableBadge();

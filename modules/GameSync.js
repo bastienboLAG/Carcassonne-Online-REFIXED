@@ -22,6 +22,7 @@ export class GameSync {
         this.onPlayerDisconnected = null;
         this.onTileDestroyed = null;
         this.onUnplaceableConfirm = null;
+        this.onUnplaceableHandled = null;
         this.onDeckReshuffled = null;
     }
 
@@ -159,6 +160,23 @@ export class GameSync {
                 tileId: tileId
             });
         }
+    }
+
+    /**
+     * Hôte → tous : une tuile implaçable a été traitée
+     * activePeerId = l'invité dont c'était le tour (reçoit en plus un your-turn séparé)
+     */
+    syncUnplaceableHandled(tileId, playerName, action, isRiver, activePeerId) {
+        console.log('🚫 [HÔTE] Broadcast unplaceable-handled:', tileId);
+        this.multiplayer.broadcast({
+            type: 'unplaceable-handled',
+            tileId,
+            playerName,
+            action,
+            isRiver: isRiver ?? false,
+            activePeerId,
+            playerId: this.multiplayer.playerId
+        });
     }
 
     /**
@@ -403,6 +421,14 @@ export class GameSync {
                 if (this.isHost && this.onUnplaceableConfirm) {
                     console.log('🚫 [HÔTE] Tuile implaçable confirmée par:', data.playerId);
                     this.onUnplaceableConfirm(data.playerId, data.tileId);
+                }
+                break;
+
+            case 'unplaceable-handled':
+                // L'hôte a traité une tuile implaçable — mettre à jour l'affichage
+                if (data.playerId !== this.multiplayer.playerId && this.onUnplaceableHandled) {
+                    console.log('🚫 [SYNC] Tuile implaçable traitée reçue:', data.tileId);
+                    this.onUnplaceableHandled(data.tileId, data.playerName, data.action, data.isRiver, data.activePeerId);
                 }
                 break;
 

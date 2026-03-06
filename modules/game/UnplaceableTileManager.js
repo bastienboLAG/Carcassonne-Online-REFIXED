@@ -243,16 +243,16 @@ export class UnplaceableTileManager {
 
     /**
      * Gestion du clic "Confirmer" sur la modale implaçable
+     * Retourne { tileId, playerName, action, isRiver, extraMessage } pour que l'appelant gère l'affichage
+     * Retourne null si un cas spécial a déjà tout géré (river-12, chain destroy, end game)
      */
-    handleConfirm(tuileEnMain, gameSync, isActivePlayer = true) {
+    handleConfirm(tuileEnMain, gameSync) {
         const currentPlayer = this.gameState?.getCurrentPlayer();
         const tileId        = tuileEnMain?.id || '?';
         const playerName    = currentPlayer?.name || '?';
         const action        = this.gameConfig?.unplaceableAction || 'destroy';
 
         this.hideUnplaceableBadge();
-
-        if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
 
         const idx     = (this.deck?.currentIndex ?? 1) - 1;
         const isRiver = idx < 12 && tuileEnMain?.id?.startsWith('river-');
@@ -262,9 +262,7 @@ export class UnplaceableTileManager {
             const isRiver = idx < 12 && tuileEnMain.id?.startsWith('river-');
 
             if (isRiver) {
-                // Vérifier si river-12 → traitement spécial
                 if (tuileEnMain.id === 'river-12') {
-                    // River-12 implaçable → destruction forcée, message adapté
                     console.log('🌊 river-12 implaçable — détruite, fin de rivière');
                     this._destroyTileAtIndex(idx);
                     if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
@@ -273,14 +271,12 @@ export class UnplaceableTileManager {
                     if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, 'destroy');
                     this._seenImplacableRiver.clear();
                     this._riverTilesToTest = null;
-                    this.setRedrawMode(true);
-                    return;
+                    // Cas spécial géré ici — signaler à l'appelant
+                    return { tileId, playerName, action: 'destroy', isRiver: true, special: true };
                 }
 
-                // Vérifier si toutes les tuiles rivière ont été vues → destruction en chaîne
-                if (this._checkRiverAllImplacable(tileId, gameSync)) return;
+                if (this._checkRiverAllImplacable(tileId, gameSync)) return null;
 
-                // Remélange normal dans la rivière
                 console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
                 const sub = this.deck.tiles.slice(idx, 11);
                 for (let i = sub.length - 1; i > 0; i--) {
@@ -292,10 +288,8 @@ export class UnplaceableTileManager {
                 if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
 
             } else {
-                // Phase normale : vérifier si toutes les tuiles restantes sont implaçables
-                if (this._checkNormalAllImplacable(tileId, gameSync)) return;
+                if (this._checkNormalAllImplacable(tileId, gameSync)) return null;
 
-                // Mélanger toutes les tuiles restantes
                 console.log('🔀 Remise de la tuile dans la pioche + mélange');
                 const remaining = this.deck.tiles.slice(idx);
                 for (let i = remaining.length - 1; i > 0; i--) {
@@ -322,25 +316,19 @@ export class UnplaceableTileManager {
                     if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, 'destroy');
                     this._seenImplacableRiver.clear();
                     this._riverTilesToTest = null;
-                    this.setRedrawMode(true);
-                    return;
+                    return { tileId, playerName, action: 'destroy', isRiver: true, special: true };
                 }
-                // Destroy rivière : détruire la tuile courante
-                // currentIndex-- car splice décale les tuiles suivantes d'un cran
                 console.log('🌊 Tuile rivière implaçable — détruite, rivière continue');
                 this._destroyTileAtIndex(idx);
                 this.deck.currentIndex--;
                 if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
             } else {
-                // Destroy normal : détruire la tuile du deck
-                // currentIndex-- car splice décale les tuiles suivantes d'un cran
                 this._destroyTileAtIndex(idx);
                 this.deck.currentIndex--;
             }
         }
 
-        this.showTileDestroyedModal(tileId, playerName, isActivePlayer, action, isRiver);
-        if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, action);
-        if (isActivePlayer) this.setRedrawMode(true);
+        // Cas normal : retourner les infos pour que l'appelant gère l'affichage
+        return { tileId, playerName, action, isRiver };
     }
 }
