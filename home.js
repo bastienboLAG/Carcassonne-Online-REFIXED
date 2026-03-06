@@ -707,6 +707,14 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
             }
         };
 
+        // ✅ Retrait immédiat si un invité déconnecte dans le lobby
+        multiplayer.onPlayerLeft = (peerId) => {
+            console.log('👋 [LOBBY] Joueur déconnecté:', peerId);
+            players = players.filter(p => p.id !== peerId);
+            lobbyUI.setPlayers(players);
+            multiplayer.broadcast({ type: 'players-update', players });
+        };
+
         multiplayer._lobbyHostHandler = null; // sera set après définition
         const _hostLobbyHandler = (data, from) => {
             console.log('📨 [HÔTE] Reçu:', data);
@@ -2931,6 +2939,14 @@ function returnToLobby() {
     multiplayer.onPlayerJoined = (playerId) => {
         console.log('👤 Nouveau joueur connecté (lobby post-retour):', playerId);
         if (heartbeatManager) heartbeatManager._lastPong[playerId] = Date.now();
+    };
+
+    // ✅ Retrait immédiat si un invité déconnecte dans le lobby post-retour
+    multiplayer.onPlayerLeft = (peerId) => {
+        console.log('👋 [LOBBY post-retour] Joueur déconnecté:', peerId);
+        players = players.filter(p => p.id !== peerId);
+        lobbyUI.setPlayers(players);
+        multiplayer.broadcast({ type: 'players-update', players });
     };
 
     // Restaurer onDataReceived au lobbyHandler hôte
