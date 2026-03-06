@@ -152,17 +152,31 @@ export class ZoomManager {
     // ─────────────────────────────────────────────────────────────
 
     _apply(prevLevel) {
-        // Si on a un niveau précédent, compenser le déplacement dû au scale(center)
+        // Si on a un niveau précédent, compenser le déplacement dû au scale(center center)
+        // transform-origin: center signifie que le board scale depuis son centre (10400, 10400)
+        // Le scroll doit être ajusté pour que le point visuel central reste fixe
         if (prevLevel && prevLevel !== this.level) {
-            // Point du board au centre du viewport avant zoom (en coordonnées non-zoomées)
-            const cx = (this.container.scrollLeft + this.container.clientWidth  / 2) / prevLevel;
-            const cy = (this.container.scrollTop  + this.container.clientHeight / 2) / prevLevel;
+            // Centre du board en px CSS (fixe, indépendant du zoom)
+            const boardCenter = 10400;
+
+            // Position actuelle du centre du viewport en px CSS
+            const viewCX = this.container.scrollLeft + this.container.clientWidth  / 2;
+            const viewCY = this.container.scrollTop  + this.container.clientHeight / 2;
+
+            // Distance du centre du viewport au centre du board, avant zoom
+            const dxBefore = viewCX - boardCenter;
+            const dyBefore = viewCY - boardCenter;
+
+            // Après zoom, cette distance est multipliée par (newLevel / prevLevel)
+            const ratio = this.level / prevLevel;
+            const dxAfter = dxBefore * ratio;
+            const dyAfter = dyBefore * ratio;
 
             this.board.style.transform = `scale(${this.level})`;
 
-            // Repositionner le scroll pour garder ce même point au centre
-            this.container.scrollLeft = cx * this.level - this.container.clientWidth  / 2;
-            this.container.scrollTop  = cy * this.level - this.container.clientHeight / 2;
+            // Repositionner pour que le centre visuel reste au même endroit
+            this.container.scrollLeft = boardCenter + dxAfter - this.container.clientWidth  / 2;
+            this.container.scrollTop  = boardCenter + dyAfter - this.container.clientHeight / 2;
         } else {
             this.board.style.transform = `scale(${this.level})`;
         }
