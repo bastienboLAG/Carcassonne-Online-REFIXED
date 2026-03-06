@@ -52,6 +52,10 @@ export class ZoomManager {
 
     /** Attache les listeners et applique le zoom initial */
     init() {
+        // PC — bloquer le scroll natif en capture avant tout le monde
+        this._onWheelCapture = (e) => e.preventDefault();
+        this.container.addEventListener('wheel', this._onWheelCapture, { passive: false, capture: true });
+
         // PC — molette
         this.container.addEventListener('wheel', this._onWheel, { passive: false });
 
@@ -64,6 +68,7 @@ export class ZoomManager {
     }
 
     destroy() {
+        this.container.removeEventListener('wheel', this._onWheelCapture, { capture: true });
         this.container.removeEventListener('wheel',      this._onWheel);
         this.container.removeEventListener('touchstart', this._onTouchStart);
         this.container.removeEventListener('touchmove',  this._onTouchMove);
@@ -145,9 +150,6 @@ export class ZoomManager {
     // ─────────────────────────────────────────────────────────────
 
     _apply() {
-        const cellSize = Math.round(208 * this.level * 100) / 100;
-        document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
-        // Supprimer l'ancien transform s'il reste
-        this.board.style.transform = '';
+        this.board.style.transform = `scale(${this.level})`;
     }
 }

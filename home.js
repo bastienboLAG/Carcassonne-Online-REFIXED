@@ -2595,9 +2595,8 @@ function setupEventListeners() {
     // Recentrer
     document.getElementById('recenter-btn').onclick = () => {
         const container      = document.getElementById('board-container');
-        const CELL = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 208;
-        container.scrollLeft = 50 * CELL - container.clientWidth  / 2;
-        container.scrollTop  = 50 * CELL - container.clientHeight / 2;
+        container.scrollLeft = 10400 - container.clientWidth  / 2;
+        container.scrollTop  = 10400 - container.clientHeight / 2;
     };
 
     // Highlight + centrage de la dernière tuile posée
@@ -2606,9 +2605,22 @@ function setupEventListeners() {
         const { x, y } = lastPlacedTile;
 
         const container = document.getElementById('board-container');
-        const CELL = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 208;
-        container.scrollLeft = (x - 1) * CELL - container.clientWidth  / 2 + CELL / 2;
-        container.scrollTop  = (y - 1) * CELL - container.clientHeight / 2 + CELL / 2;
+        const CELL  = 208;
+        const level = zoomManager ? zoomManager.zoomLevel : 1;
+        // Avec transform-origin: top left, la tuile (x,y) est à (x-1)*CELL*level px dans le container
+        const scrollLeft = (x - 1) * CELL * level - container.clientWidth  / 2 + CELL * level / 2;
+        const scrollTop  = (y - 1) * CELL * level - container.clientHeight / 2 + CELL * level / 2;
+
+        console.log('📌 [ÉPINGLE] lastPlacedTile:', JSON.stringify(lastPlacedTile));
+        console.log('📌 [ÉPINGLE] zoom:', level, '| CELL*zoom:', CELL * level);
+        console.log('📌 [ÉPINGLE] scrollLeft calculé:', scrollLeft, '| scrollTop:', scrollTop);
+        console.log('📌 [ÉPINGLE] container clientW:', container.clientWidth, 'clientH:', container.clientHeight);
+        console.log('📌 [ÉPINGLE] container scrollW:', container.scrollWidth, 'scrollH:', container.scrollHeight);
+
+        container.scrollLeft = scrollLeft;
+        container.scrollTop  = scrollTop;
+
+        console.log('📌 [ÉPINGLE] scrollLeft après:', container.scrollLeft, '| scrollTop après:', container.scrollTop);
 
         // Flash visuel
         const el = document.querySelector(`.tile[data-pos="${x},${y}"]`);
@@ -3010,8 +3022,8 @@ function setupNavigation(container, board) {
         e.preventDefault();
         const x = e.pageX - container.offsetLeft;
         const y = e.pageY - container.offsetTop;
-        container.scrollLeft = scrollLeft - (x - startX);
-        container.scrollTop  = scrollTop  - (y - startY);
+        container.scrollLeft = scrollLeft - (x - startX) * 2;
+        container.scrollTop  = scrollTop  - (y - startY) * 2;
     });
 
     // ── Mobile : drag tactile 1 doigt ─────────────────────────────────────
@@ -3045,9 +3057,8 @@ function setupNavigation(container, board) {
         }, { passive: true });
     }
 
-    const _initCell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 208;
-    container.scrollLeft = 50 * _initCell - container.clientWidth  / 2;
-    container.scrollTop  = 50 * _initCell - container.clientHeight / 2;
+    container.scrollLeft = 10400 - container.clientWidth  / 2;
+    container.scrollTop  = 10400 - container.clientHeight / 2;
 }
 
 // ═══════════════════════════════════════════════════════
