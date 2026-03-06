@@ -23,6 +23,7 @@ export class GameSync {
         this.onTileDestroyed = null;
         this.onUnplaceableConfirm = null;
         this.onUnplaceableHandled = null;
+        this.onUnplaceableRedraw  = null;
         this.onDeckReshuffled = null;
     }
 
@@ -54,7 +55,7 @@ export class GameSync {
             'turn-undo', 'game-ended', 'tile-destroyed', 'deck-reshuffled', 'player-disconnected',
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
-            'turn-end-request', 'unplaceable-confirm',
+            'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw',
             'turn-undo-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
@@ -158,6 +159,20 @@ export class GameSync {
                 type: 'unplaceable-confirm',
                 playerId: this.multiplayer.playerId,
                 tileId: tileId
+            });
+        }
+    }
+
+    /**
+     * Invité → hôte : demande de repiocher après tuile implaçable
+     */
+    syncUnplaceableRedraw() {
+        console.log('🔄 [INVITÉ] Demande repiocher après implaçable');
+        const hostConn = this.multiplayer.connections[0];
+        if (hostConn && hostConn.open) {
+            hostConn.send({
+                type: 'unplaceable-redraw',
+                playerId: this.multiplayer.playerId
             });
         }
     }
@@ -429,6 +444,14 @@ export class GameSync {
                 if (data.playerId !== this.multiplayer.playerId && this.onUnplaceableHandled) {
                     console.log('🚫 [SYNC] Tuile implaçable traitée reçue:', data.tileId);
                     this.onUnplaceableHandled(data.tileId, data.playerName, data.action, data.isRiver, data.activePeerId);
+                }
+                break;
+
+            case 'unplaceable-redraw':
+                // L'invité demande à repiocher après tuile implaçable
+                if (this.isHost && this.onUnplaceableRedraw) {
+                    console.log('🔄 [HÔTE] Demande repiocher reçue de:', data.playerId);
+                    this.onUnplaceableRedraw(data.playerId);
                 }
                 break;
 

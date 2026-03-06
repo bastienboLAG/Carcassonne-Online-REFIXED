@@ -1259,17 +1259,24 @@ function attachGameSyncCallbacks() {
                 const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
                 if (!result) return; // cas chain/endgame déjà géré
 
-                // Broadcaster à tous : verso + modale info (sans repiocher)
-                // L'invité actif recevra en plus un your-turn qui lui permettra de repiocher
+                // Broadcaster à tous : verso + modale
+                // L'invité actif reçoit isActivePlayer=true → bouton Repiocher
+                // L'hôte et les autres reçoivent isActivePlayer=false → modale info
                 gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);
 
-                // Affichage hôte : verso + modale informationnelle (pas de repiocher)
+                // Affichage hôte : verso + modale informationnelle (sans Repiocher)
                 if (tilePreviewUI) tilePreviewUI.showBackside();
                 if (!result.special) {
                     unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, false, result.action, result.isRiver);
                 }
 
-                // Repiocher et envoyer la nouvelle tuile à l'invité
+                // Mémoriser l'invité qui doit repiocher — la pioche se fera via unplaceable-redraw
+                gameSync._pendingUnplaceableRedraw = playerId;
+            };
+
+            // Hôte : l'invité demande à repiocher après tuile implaçable
+            gameSync.onUnplaceableRedraw = (playerId) => {
+                console.log('🔄 [HÔTE] Repiocher après implaçable pour:', playerId);
                 const _nextTile = _hostDrawAndSend();
                 if (_nextTile) {
                     const conn = gameSync.multiplayer.connections.find(c => c.peer === playerId);
@@ -1277,6 +1284,7 @@ function attachGameSyncCallbacks() {
                         conn.send({ type: 'your-turn', tileId: _nextTile.id });
                     }
                 }
+                gameSync._pendingUnplaceableRedraw = null;
             };
         }
     }
@@ -2504,8 +2512,10 @@ function setupEventListeners() {
                 // Hôte : pioche et donne la tuile à lui-même
                 const _t = _hostDrawAndSend();
                 if (_t) turnManager.receiveYourTurn(_t.id);
+            } else {
+                // Invité : demande à l'hôte de piocher
+                if (gameSync) gameSync.syncUnplaceableRedraw();
             }
-            // Invité : la nouvelle tuile arrive via your-turn broadcasté par l'hôte
             waitingToRedraw = false;
             updateTurnDisplay();
             return;
