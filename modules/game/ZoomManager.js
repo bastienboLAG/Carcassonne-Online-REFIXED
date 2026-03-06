@@ -97,10 +97,11 @@ export class ZoomManager {
         if (!this._rafPending) {
             this._rafPending = true;
             requestAnimationFrame(() => {
+                const prevLevel = this.level;
                 this.level = Math.max(this.min, Math.min(this.max, this.level + this._pendingDelta));
                 this._pendingDelta = 0;
                 this._rafPending   = false;
-                this._apply();
+                this._apply(prevLevel);
             });
         }
     }
@@ -133,10 +134,11 @@ export class ZoomManager {
         if (!this._rafPinchPending) {
             this._rafPinchPending = true;
             requestAnimationFrame(() => {
+                const prevLevel = this.level;
                 this.level = Math.max(this.min, Math.min(this.max, this.level + this._pendingPinchDelta));
                 this._pendingPinchDelta = 0;
                 this._rafPinchPending   = false;
-                this._apply();
+                this._apply(prevLevel);
             });
         }
     }
@@ -149,7 +151,20 @@ export class ZoomManager {
     // Application du transform
     // ─────────────────────────────────────────────────────────────
 
-    _apply() {
-        this.board.style.transform = `scale(${this.level})`;
+    _apply(prevLevel) {
+        // Si on a un niveau précédent, compenser le déplacement dû au scale(center)
+        if (prevLevel && prevLevel !== this.level) {
+            // Point du board au centre du viewport avant zoom (en coordonnées non-zoomées)
+            const cx = (this.container.scrollLeft + this.container.clientWidth  / 2) / prevLevel;
+            const cy = (this.container.scrollTop  + this.container.clientHeight / 2) / prevLevel;
+
+            this.board.style.transform = `scale(${this.level})`;
+
+            // Repositionner le scroll pour garder ce même point au centre
+            this.container.scrollLeft = cx * this.level - this.container.clientWidth  / 2;
+            this.container.scrollTop  = cy * this.level - this.container.clientHeight / 2;
+        } else {
+            this.board.style.transform = `scale(${this.level})`;
+        }
     }
 }
