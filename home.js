@@ -2604,12 +2604,15 @@ function setupEventListeners() {
         if (!lastPlacedTile) return;
         const { x, y } = lastPlacedTile;
 
-        const container = document.getElementById('board-container');
-        const CELL = 208;
-        // transform-origin: center — scrollWidth reste 20800 indépendamment du zoom
-        // la position scroll correspond aux coordonnées non-zoomées
-        container.scrollLeft = (x - 1) * CELL - container.clientWidth  / 2 + CELL / 2;
-        container.scrollTop  = (y - 1) * CELL - container.clientHeight / 2 + CELL / 2;
+        const container  = document.getElementById('board-container');
+        const CELL        = 208;
+        const level       = zoomManager ? zoomManager.zoomLevel : 1;
+        const boardCenter = 10400; // 50 * 208
+        // Avec transform-origin: center, la tuile est décalée depuis le centre du board
+        const tileCX = (x - 1) * CELL + CELL / 2; // centre tuile en px non-zoomés
+        const tileCY = (y - 1) * CELL + CELL / 2;
+        container.scrollLeft = boardCenter + (tileCX - boardCenter) * level - container.clientWidth  / 2;
+        container.scrollTop  = boardCenter + (tileCY - boardCenter) * level - container.clientHeight / 2;
 
         // Flash visuel
         const el = document.querySelector(`.tile[data-pos="${x},${y}"]`);
