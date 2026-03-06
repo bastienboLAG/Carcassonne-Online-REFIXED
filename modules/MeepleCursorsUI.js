@@ -134,8 +134,8 @@ export class MeepleCursorsUI {
         container.style.gridColumn = x;
         container.style.gridRow = y;
         container.style.position = 'relative';
-        container.style.width = '208px';
-        container.style.height = '208px';
+        container.style.width = 'var(--cell-size, 208px)';
+        container.style.height = 'var(--cell-size, 208px)';
         container.style.pointerEvents = 'none';
         container.style.zIndex = '100';
         
@@ -288,8 +288,8 @@ export class MeepleCursorsUI {
             overlay.style.gridColumn = x;
             overlay.style.gridRow    = y;
             overlay.style.position   = 'relative';
-            overlay.style.width      = '208px';
-            overlay.style.height     = '208px';
+            overlay.style.width      = 'var(--cell-size, 208px)';
+            overlay.style.height     = 'var(--cell-size, 208px)';
             overlay.style.pointerEvents = 'none';
             overlay.style.zIndex     = '101';
 

@@ -26,8 +26,8 @@ export class MeepleDisplayUI {
             container.style.gridColumn = x;
             container.style.gridRow = y;
             container.style.position = 'relative';
-            container.style.width = '208px';
-            container.style.height = '208px';
+            container.style.width = 'var(--cell-size, 208px)';
+            container.style.height = 'var(--cell-size, 208px)';
             container.style.pointerEvents = 'none';
             container.style.zIndex = '50';
             this.boardElement.appendChild(container);

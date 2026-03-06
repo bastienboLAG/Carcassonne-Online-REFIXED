@@ -2595,8 +2595,9 @@ function setupEventListeners() {
     // Recentrer
     document.getElementById('recenter-btn').onclick = () => {
         const container      = document.getElementById('board-container');
-        container.scrollLeft = 10400 - container.clientWidth  / 2;
-        container.scrollTop  = 10400 - container.clientHeight / 2;
+        const CELL = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 208;
+        container.scrollLeft = 50 * CELL - container.clientWidth  / 2;
+        container.scrollTop  = 50 * CELL - container.clientHeight / 2;
     };
 
     // Highlight + centrage de la dernière tuile posée
@@ -2605,7 +2606,7 @@ function setupEventListeners() {
         const { x, y } = lastPlacedTile;
 
         const container = document.getElementById('board-container');
-        const CELL = 208;
+        const CELL = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 208;
         container.scrollLeft = (x - 1) * CELL - container.clientWidth  / 2 + CELL / 2;
         container.scrollTop  = (y - 1) * CELL - container.clientHeight / 2 + CELL / 2;
 
@@ -3009,8 +3010,8 @@ function setupNavigation(container, board) {
         e.preventDefault();
         const x = e.pageX - container.offsetLeft;
         const y = e.pageY - container.offsetTop;
-        container.scrollLeft = scrollLeft - (x - startX) * 2;
-        container.scrollTop  = scrollTop  - (y - startY) * 2;
+        container.scrollLeft = scrollLeft - (x - startX);
+        container.scrollTop  = scrollTop  - (y - startY);
     });
 
     // ── Mobile : drag tactile 1 doigt ─────────────────────────────────────
@@ -3044,8 +3045,9 @@ function setupNavigation(container, board) {
         }, { passive: true });
     }
 
-    container.scrollLeft = 10400 - container.clientWidth  / 2;
-    container.scrollTop  = 10400 - container.clientHeight / 2;
+    const _initCell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size')) || 208;
+    container.scrollLeft = 50 * _initCell - container.clientWidth  / 2;
+    container.scrollTop  = 50 * _initCell - container.clientHeight / 2;
 }
 
 // ═══════════════════════════════════════════════════════

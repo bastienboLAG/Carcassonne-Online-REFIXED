@@ -1,3 +1,7 @@
+:root {
+    --cell-size: 208px;
+}
+
 /* style.css */
 html, body {
     margin: 0;
@@ -106,15 +110,16 @@ html, body {
 
 #board {
     display: grid;
-    grid-template-columns: repeat(100, 208px);
-    grid-template-rows: repeat(100, 208px);
-    width: 20800px;
-    height: 20800px;
+    grid-template-columns: repeat(100, var(--cell-size, 208px));
+    grid-template-rows: repeat(100, var(--cell-size, 208px));
+    width: calc(100 * var(--cell-size, 208px));
+    height: calc(100 * var(--cell-size, 208px));
+    transform-origin: unset;
 }
 
 .tile {
-    width: 208px;
-    height: 208px;
+    width: var(--cell-size, 208px);
+    height: var(--cell-size, 208px);
     pointer-events: none;
 }
 

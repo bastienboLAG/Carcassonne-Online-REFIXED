@@ -145,6 +145,9 @@ export class ZoomManager {
     // ─────────────────────────────────────────────────────────────
 
     _apply() {
-        this.board.style.transform = `scale(${this.level})`;
+        const cellSize = Math.round(208 * this.level * 100) / 100;
+        document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+        // Supprimer l'ancien transform s'il reste
+        this.board.style.transform = '';
     }
 }
