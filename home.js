@@ -868,7 +868,11 @@ async function _doJoin(isSpectator = false) {
             if (data.type === 'player-order-update') {
                 players = data.players; lobbyUI.setPlayers(players);
             }
-            if (data.type === 'return-to-lobby') returnToLobby();
+            if (data.type === 'return-to-lobby') {
+                // Mettre à jour players avec la liste propre de l'hôte avant retour au lobby
+                if (data.players) players = data.players;
+                returnToLobby();
+            }
             if (data.type === 'option-change') {
                 if (data.option === 'unplaceable' || data.option === 'start') {
                     const radio = document.querySelector(`input[name="${data.option}"][value="${data.value}"]`);
@@ -2917,7 +2921,8 @@ function returnToLobby() {
     });
 
     if (isHost && multiplayer.peer?.open) {
-        multiplayer.broadcast({ type: 'return-to-lobby' });
+        // ✅ Inclure la liste propre pour que les invités ne voient pas les déconnectés
+        multiplayer.broadcast({ type: 'return-to-lobby', players });
     }
 
     document.getElementById('back-to-lobby-btn').style.display = 'none';
