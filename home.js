@@ -1504,7 +1504,7 @@ async function _tryReconnect() {
         };
 
     } catch (err) {
-        console.warn('⚠️ Reconnexion échouée, nouvelle tentative dans 5s:', err.message);
+        console.log('⚠️ Reconnexion échouée, nouvelle tentative dans 5s:', err.message);
         _autoReconnectTimer = setTimeout(_tryReconnect, 5000);
     }
 }
