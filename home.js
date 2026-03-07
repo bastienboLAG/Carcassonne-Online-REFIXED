@@ -1441,6 +1441,64 @@ function _excludeDisconnectedPlayer(disconnectedName) {
     afficherToast(`👋 ${disconnectedName} a été exclu(e) de la partie.`);
 }
 
+// ── Auto-reconnexion invité ─────────────────────────────────────────────────
+let _autoReconnectTimer = null;
+
+function _startAutoReconnect() {
+    _stopAutoReconnect();
+    _tryReconnect();
+}
+
+function _stopAutoReconnect() {
+    if (_autoReconnectTimer) {
+        clearTimeout(_autoReconnectTimer);
+        _autoReconnectTimer = null;
+    }
+}
+
+async function _tryReconnect() {
+    if (!gameCode || !playerName || !gameState) return;
+    console.log('🔄 Tentative de reconnexion à:', gameCode);
+
+    try {
+        // Détruire l'ancien peer proprement
+        if (multiplayer.peer) {
+            try { multiplayer.peer.destroy(); } catch(e) {}
+            multiplayer.peer = null;
+        }
+        multiplayer.connections = [];
+        multiplayer._connectedPeers.clear();
+
+        // Créer un nouveau peer et rejoindre
+        await multiplayer.joinGame(gameCode);
+
+        // Envoyer player-info — l'hôte nous reconnaîtra par le pseudo
+        multiplayer.broadcast({
+            type: 'player-info',
+            name: playerName,
+            color: playerColor,
+            isSpectator: false
+        });
+
+        console.log('✅ Reconnexion réussie');
+        _stopAutoReconnect();
+
+        // Rebrancher GameSync sur le nouveau peer
+        if (gameSync) gameSync.init();
+
+        // Rebrancher onHostDisconnected sur le nouveau peer
+        multiplayer.onHostDisconnected = () => {
+            if (!gameState) return;
+            console.log('🔌 Connexion hôte perdue — nouvelle tentative...');
+            _startAutoReconnect();
+        };
+
+    } catch (err) {
+        console.warn('⚠️ Reconnexion échouée, nouvelle tentative dans 5s:', err.message);
+        _autoReconnectTimer = setTimeout(_tryReconnect, 5000);
+    }
+}
+
 function _showPauseOverlay(name) {
     let overlay = document.getElementById('pause-overlay');
     if (!overlay) {
@@ -1856,6 +1914,15 @@ function _postStartSetup() {
         };
         multiplayer.onPlayerLeft = handleDisconnect;
         _startHeartbeat(handleDisconnect);
+
+        // ── Auto-reconnexion invité ───────────────────────────────────────────
+        if (!isHost) {
+            multiplayer.onHostDisconnected = () => {
+                if (!gameState) return; // pas en partie, ignorer
+                console.log('🔌 Connexion hôte perdue — tentative de reconnexion automatique...');
+                _startAutoReconnect();
+            };
+        }
 
         // ── Reconnexion / nouvelle connexion en cours de partie ──────────────
         multiplayer.onPlayerJoined = (playerId) => {
@@ -2880,6 +2947,7 @@ function setupEventListeners() {
 // ═══════════════════════════════════════════════════════
 function returnToInitialLobby(message = null) {
     console.log('🔙 Retour au lobby initial...');
+    _stopAutoReconnect();
 
     // Réinitialiser l'état
     players      = [];
@@ -2915,6 +2983,7 @@ function returnToInitialLobby(message = null) {
 
 function returnToLobby() {
     console.log('🔙 Retour au lobby...');
+    _stopAutoReconnect();
     stopGameTimer();
     ['game-timer', 'mobile-game-timer'].forEach(id => {
         const el = document.getElementById(id);

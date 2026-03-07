@@ -14,6 +14,7 @@ export class Multiplayer {
         this._connectedPeers = new Set(); // Pour dédupliquer les connexions par peer ID
         this.onHeartbeatPing = null; // Callback quand on reçoit un ping
         this.onHeartbeatPong = null; // Callback quand on reçoit un pong
+        this.onHostDisconnected = null; // Callback quand l'hôte se déconnecte (côté invité)
     }
 
     /**
@@ -171,6 +172,10 @@ export class Multiplayer {
             this._connectedPeers.delete(peerId);
             if (this.onPlayerLeft) {
                 this.onPlayerLeft(peerId);
+            }
+            // Si on est invité et que c'est l'hôte qui déco → callback dédié
+            if (!this.isHost && this.onHostDisconnected) {
+                this.onHostDisconnected();
             }
         };
 
