@@ -100,7 +100,15 @@ export class Multiplayer {
 
             this.peer.on('error', (err) => {
                 console.error('❌ Erreur de connexion:', err);
-                reject(err);
+                // Si la Promise est déjà résolue (connexion établie),
+                // une erreur réseau ultérieure → traiter comme déconnexion hôte
+                if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error') {
+                    if (this.onHostDisconnected) {
+                        this.onHostDisconnected();
+                    }
+                } else {
+                    reject(err);
+                }
             });
         });
     }

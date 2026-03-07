@@ -1461,6 +1461,9 @@ async function _tryReconnect() {
     console.log('🔄 Tentative de reconnexion à:', gameCode);
 
     try {
+        // Désactiver onHostDisconnected pendant la tentative pour éviter boucle
+        multiplayer.onHostDisconnected = null;
+
         // Détruire l'ancien peer proprement
         if (multiplayer.peer) {
             try { multiplayer.peer.destroy(); } catch(e) {}
