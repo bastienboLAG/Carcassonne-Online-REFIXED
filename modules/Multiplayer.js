@@ -112,7 +112,7 @@ export class Multiplayer {
                     }
                 } else {
                     // Erreur pendant la tentative de connexion initiale
-                    _originalReject(err);
+                    reject(err);
                 }
             });
         });
