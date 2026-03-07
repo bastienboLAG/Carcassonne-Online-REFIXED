@@ -84,6 +84,8 @@ export class Multiplayer {
             this.peer = new Peer(undefined, peerConfig);
             this.isHost = false;
 
+            let _joinResolved = false;
+
             this.peer.on('open', (id) => {
                 this.playerId = id;
                 console.log('🔌 Connexion à la partie:', hostId);
@@ -93,6 +95,7 @@ export class Multiplayer {
                 // resolve() dans le conn.on('open') de _handleConnection
                 conn.once('open', () => {
                     console.log('✅ Connecté à l\'hôte !');
+                    _joinResolved = true;
                     resolve();
                 });
                 this._handleConnection(conn);
@@ -100,14 +103,16 @@ export class Multiplayer {
 
             this.peer.on('error', (err) => {
                 console.error('❌ Erreur de connexion:', err);
-                // Si la Promise est déjà résolue (connexion établie),
-                // une erreur réseau ultérieure → traiter comme déconnexion hôte
-                if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error') {
-                    if (this.onHostDisconnected) {
-                        this.onHostDisconnected();
+                if (_joinResolved) {
+                    // Connexion déjà établie : erreur réseau → déconnexion hôte
+                    if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error') {
+                        if (this.onHostDisconnected) {
+                            this.onHostDisconnected();
+                        }
                     }
                 } else {
-                    reject(err);
+                    // Erreur pendant la tentative de connexion initiale
+                    _originalReject(err);
                 }
             });
         });
