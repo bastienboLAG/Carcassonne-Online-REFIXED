@@ -838,14 +838,18 @@ async function _doJoin(isSpectator = false) {
                 });
             }
             if (data.type === 'game-in-progress') {
-                // La partie est déjà commencée — annuler l'envoi automatique
-                // et demander à l'invité s'il veut jouer ou observer
                 clearTimeout(window._pendingPlayerInfoTimer);
-                window._waitingForRoleChoice = true;
-                _showRoleChoiceModal((chosenIsSpectator) => {
-                    window._waitingForRoleChoice = false;
-                    multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: chosenIsSpectator });
-                });
+                if (window._isAutoReconnecting) {
+                    // Auto-reconnexion : on sait qu'on est joueur, pas besoin de choisir
+                    multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: false });
+                } else {
+                    // Connexion manuelle : demander joueur ou spectateur
+                    window._waitingForRoleChoice = true;
+                    _showRoleChoiceModal((chosenIsSpectator) => {
+                        window._waitingForRoleChoice = false;
+                        multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: chosenIsSpectator });
+                    });
+                }
             }
             if (data.type === 'players-update') {
                 players = data.players;
@@ -1446,6 +1450,7 @@ let _autoReconnectTimer = null;
 
 function _startAutoReconnect() {
     _stopAutoReconnect();
+    window._isAutoReconnecting = true;
     _tryReconnect();
 }
 
@@ -1454,6 +1459,7 @@ function _stopAutoReconnect() {
         clearTimeout(_autoReconnectTimer);
         _autoReconnectTimer = null;
     }
+    window._isAutoReconnecting = false;
 }
 
 async function _tryReconnect() {
@@ -1485,6 +1491,7 @@ async function _tryReconnect() {
 
         console.log('✅ Reconnexion réussie');
         _stopAutoReconnect();
+        window._isAutoReconnecting = false;
 
         // Rebrancher GameSync sur le nouveau peer
         if (gameSync) gameSync.init();
@@ -1942,12 +1949,19 @@ function _postStartSetup() {
                 const name = data.name;
                 const allPlayerColors = ['black','red','pink','green','blue','yellow'];
 
-                // Chercher un joueur déconnecté avec le même pseudo
+                // Chercher un joueur déconnecté OU actif avec le même pseudo
+                // (l'auto-reconnexion peut arriver avant le timeout heartbeat)
                 const disconnectedEntry = gameState.findDisconnectedByName(name);
+                const activeEntry = !disconnectedEntry
+                    ? gameState.players.find(p => p.name === name && p.id !== from)
+                    : null;
+                const reconnectOldPeerId = disconnectedEntry
+                    ? disconnectedEntry[0]
+                    : activeEntry?.id ?? null;
 
-                if (disconnectedEntry) {
+                if (reconnectOldPeerId) {
                     // ── Reconnexion ──────────────────────────────────────────
-                    const [oldPeerId] = disconnectedEntry;
+                    const [oldPeerId] = [reconnectOldPeerId];
                     gameState.reconnectPlayer(oldPeerId, from);
                     players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
                     // Mettre à jour placedMeeples pour que l'ancien playerId soit remplacé
