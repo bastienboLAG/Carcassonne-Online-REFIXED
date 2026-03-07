@@ -841,6 +841,7 @@ async function _doJoin(isSpectator = false) {
                 clearTimeout(window._pendingPlayerInfoTimer);
                 if (window._isAutoReconnecting) {
                     // Auto-reconnexion : on sait qu'on est joueur, pas besoin de choisir
+                    window._isAutoReconnecting = false;
                     multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: false });
                 } else {
                     // Connexion manuelle : demander joueur ou spectateur
@@ -1490,8 +1491,9 @@ async function _tryReconnect() {
         });
 
         console.log('✅ Reconnexion réussie');
-        _stopAutoReconnect();
-        window._isAutoReconnecting = false;
+        // Ne pas remettre _isAutoReconnecting=false ici — le flag doit rester true
+        // jusqu'à ce que game-in-progress soit traité (pour éviter la modale)
+        if (_autoReconnectTimer) { clearTimeout(_autoReconnectTimer); _autoReconnectTimer = null; }
 
         // Rebrancher GameSync sur le nouveau peer
         if (gameSync) gameSync.init();
