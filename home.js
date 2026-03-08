@@ -2245,6 +2245,13 @@ function _postStartSetup() {
                             // Reconnexion : mettre à jour l'id uniquement
                             existingByIdentity.id = p.id;
                             existingByIdentity.disconnected = false;
+                            // Si c'est nous, corriger multiplayer.playerId immédiatement
+                            if (!isHost && p.name === playerName && p.color === playerColor
+                                    && p.id !== multiplayer.playerId) {
+                                console.log('🔧 [players-update] Correction playerId:', multiplayer.playerId, '→', p.id);
+                                multiplayer.playerId = p.id;
+                                if (turnManager) turnManager.updateTurnState();
+                            }
                         } else {
                             // Vraiment nouveau joueur
                             gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
