@@ -500,7 +500,10 @@ export class GameSync {
                 break;
             
             case 'turn-undo':
-                if (this.onTurnUndo && data.playerId !== this.multiplayer.playerId) {
+                // Toujours appliquer, même si c'est notre propre undo (cas reconnexion :
+                // l'invité a posé une tuile, s'est reconnecté, et demande un undo —
+                // le broadcast revient à lui mais doit quand même mettre à jour le visuel)
+                if (this.onTurnUndo) {
                     console.log('⏪ [SYNC] Annulation reçue:', data.action);
                     this.onTurnUndo(data.action);
                 }
