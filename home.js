@@ -1609,6 +1609,12 @@ function applyFullStateSync(data) {
         slotsUI.createCentralSlot();
     }
 
+    // Vider le board visuellement avant de reconstruire (évite les doublons si reconnexion)
+    const boardEl = document.getElementById('board');
+    if (boardEl) {
+        boardEl.querySelectorAll('.tile').forEach(el => el.remove());
+    }
+
     // Reconstruire plateau — données + affichage visuel uniquement
     plateau.placedTiles = {};
     for (const [key, tileData] of Object.entries(data.plateau)) {
