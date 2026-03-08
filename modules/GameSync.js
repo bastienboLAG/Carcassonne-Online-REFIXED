@@ -409,9 +409,9 @@ export class GameSync {
                 break;
 
             case 'tile-rotated':
-                // ✅ Étape 1 : invité purement réactif — applique la rotation à la réception du broadcast hôte
-                // même si c'est lui l'émetteur (l'hôte relaie à tous)
-                if (!this.isHost && this.onTileRotated) {
+                // Hôte : applique visuellement si c'est un invité qui a tourné (pour voir dans son preview)
+                // Invité : applique toujours — l'hôte relaie le broadcast y compris à l'émetteur
+                if (this.onTileRotated && data.playerId !== this.multiplayer.playerId) {
                     console.log('🔄 [SYNC] Rotation reçue:', data.rotation);
                     this.onTileRotated(data.rotation);
                 }

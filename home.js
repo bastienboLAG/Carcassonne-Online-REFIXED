@@ -2598,17 +2598,17 @@ function setupEventListeners() {
         if (!tuileEnMain || tuilePosee) return;
 
         const currentImg = document.getElementById('current-tile-img');
-        // ✅ Étape 1 : invité purement réactif pour la rotation
-        // On calcule la rotation pour l'envoyer, mais on n'applique pas localement —
-        // l'hôte relaie le broadcast à tous y compris nous, et onTileRotated l'applique.
         const nextRotation = (tuileEnMain.rotation + 90) % 360;
-        if (gameSync) {
+        if (gameSync && !isHost) {
+            // ✅ Étape 1 : invité purement réactif — envoie seulement, applique à la réception du broadcast
             gameSync.syncTileRotation(nextRotation);
         } else {
-            // Hôte ou mode solo : applique directement
+            // Hôte ou solo : applique immédiatement + broadcast
             tuileEnMain.rotation = nextRotation;
-            currentImg.style.transform = `rotate(${nextRotation}deg)`;
+            const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
+            currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
             eventBus.emit('tile-rotated', { rotation: nextRotation });
+            if (gameSync) gameSync.syncTileRotation(nextRotation);
         }
     });
 
@@ -2927,14 +2927,15 @@ function setupEventListeners() {
             e.preventDefault();
             if (!isMyTurn) return;
             if (!tuileEnMain || tuilePosee) return;
-            // ✅ Étape 1 : même logique que desktop — l'invité envoie, attend le retour hôte
             const nextRot = (tuileEnMain.rotation + 90) % 360;
-            if (gameSync) {
+            if (gameSync && !isHost) {
+                // ✅ Étape 1 : invité purement réactif
                 gameSync.syncTileRotation(nextRot);
             } else {
                 tuileEnMain.rotation = nextRot;
                 updateMobileTilePreview();
                 eventBus.emit('tile-rotated', { rotation: nextRot });
+                if (gameSync) gameSync.syncTileRotation(nextRot);
             }
         }, { passive: false });
 

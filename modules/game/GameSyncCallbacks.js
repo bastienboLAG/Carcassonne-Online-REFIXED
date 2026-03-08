@@ -88,10 +88,11 @@ export class GameSyncCallbacks {
 
         // ── Rotation d'une tuile ──────────────────────────────────────────────
         gs.onTileRotated = (rotation) => {
-            // ✅ Étape 1 : setter en absolu (pas en delta) — fiable même si messages reçus en rafale
+            // Accumule le CSS +90 pour éviter l'animation à rebours (270°→0° via CSS absolu)
             const currentImg = document.getElementById('current-tile-img');
             if (currentImg) {
-                currentImg.style.transform = `rotate(${rotation}deg)`;
+                const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
+                currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
             }
             this.eventBus.emit('tile-rotated', { rotation });
         };
