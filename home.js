@@ -1964,7 +1964,12 @@ function _postStartSetup() {
                 if (reconnectOldPeerId) {
                     // ── Reconnexion ──────────────────────────────────────────
                     const [oldPeerId] = [reconnectOldPeerId];
-                    gameState.reconnectPlayer(oldPeerId, from);
+                    // reconnectPlayer ne fonctionne que si le joueur est dans disconnectedPlayers.
+                    // Pour une reconnexion rapide (avant timeout heartbeat), on met à jour directement.
+                    if (!gameState.reconnectPlayer(oldPeerId, from)) {
+                        const gsp = gameState.players.find(p => p.id === oldPeerId);
+                        if (gsp) gsp.id = from;
+                    }
                     players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
                     // Mettre à jour placedMeeples pour que l'ancien playerId soit remplacé
                     Object.values(placedMeeples).forEach(m => {
