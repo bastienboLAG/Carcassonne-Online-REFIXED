@@ -52,7 +52,7 @@ export class UndoManager {
             tileToZone: new Map(this.zoneMerger.tileToZone), // Copie de la map
             placedMeeples: this.deepCopy(placedMeeples),
             playerMeeples: this.gameState.players.map(p => ({
-                id: p.id,
+                id: p.id, name: p.name, color: p.color,
                 meeples: p.meeples,
                 hasAbbot: p.hasAbbot,
                 hasLargeMeeple: p.hasLargeMeeple,
@@ -96,7 +96,7 @@ export class UndoManager {
             tileToZone: new Map(this.zoneMerger.tileToZone), // Copie de la map
             placedMeeples: this.deepCopy(placedMeeples),
             playerMeeples: this.gameState.players.map(p => ({
-                id: p.id,
+                id: p.id, name: p.name, color: p.color,
                 meeples: p.meeples,
                 hasAbbot: p.hasAbbot,
                 hasLargeMeeple: p.hasLargeMeeple,
@@ -249,7 +249,9 @@ export class UndoManager {
         
         // Restaurer compteur de meeples des joueurs
         snapshot.playerMeeples.forEach(saved => {
-            const player = this.gameState.players.find(p => p.id === saved.id);
+            // Chercher par id d'abord, puis par nom+couleur (fallback reconnexion : peerId change)
+            const player = this.gameState.players.find(p => p.id === saved.id)
+                        || this.gameState.players.find(p => p.name === saved.name && p.color === saved.color);
             if (player) {
                 player.meeples  = saved.meeples;
                 if (saved.hasAbbot       !== undefined) player.hasAbbot       = saved.hasAbbot;
