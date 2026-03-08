@@ -1290,6 +1290,9 @@ function attachGameSyncCallbacks() {
 
                 if (undoManager) undoManager.markMeeplePlaced(x, y, position, key);
 
+                // Appliquer visuellement côté hôte (broadcast ne revient pas à l'expéditeur)
+                if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
+
                 gameSync.multiplayer.broadcast({
                     type: 'meeple-placed',
                     x, y, position, meepleType,
@@ -1355,8 +1358,8 @@ function attachGameSyncCallbacks() {
                     }
                 }
 
-                // Vérifier bonus bâtisseur
-                if (gameConfig.extensions?.tradersBuilders && lastPlacedTile) {
+                // Vérifier bonus bâtisseur (BuilderRules._lastPlacedTile est mis à jour via event tile-placed)
+                if (gameConfig.extensions?.tradersBuilders) {
                     const builderRulesInst = ruleRegistry.rules?.get('builders');
                     if (builderRulesInst) {
                         const bonus = builderRulesInst.checkBonusTrigger(playerId);
