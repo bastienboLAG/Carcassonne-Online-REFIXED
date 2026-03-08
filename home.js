@@ -1582,6 +1582,7 @@ let _autoReconnectTimer = null;
 function _startAutoReconnect() {
     _stopAutoReconnect();
     window._isAutoReconnecting = true;
+    _showReconnectOverlay();
     _tryReconnect();
 }
 
@@ -1680,6 +1681,50 @@ function _hidePauseOverlay() {
     if (overlay) overlay.style.display = 'none';
 }
 
+function _showReconnectOverlay() {
+    let overlay = document.getElementById('reconnect-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'reconnect-overlay';
+        overlay.style.cssText = `
+            position:fixed; inset:0; background:rgba(0,0,0,0.75);
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            z-index:9500; color:#fff; font-family:inherit;
+        `;
+        document.body.appendChild(overlay);
+    }
+    const codeHtml = gameCode
+        ? `<p style="margin:20px 0 0;font-size:13px;color:#aaa;">Code : <strong style="color:#fff;letter-spacing:2px;">${gameCode}</strong></p>`
+        : '';
+    overlay.innerHTML = `
+        <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="font-size:48px;margin-bottom:12px;">🔌</div>
+            <h2 style="margin:0 0 8px;font-size:22px;">Connexion perdue</h2>
+            <p style="margin:0 0 16px;color:#aaa;font-size:15px;">Reconnexion en cours…</p>
+            <div style="display:flex;justify-content:center;gap:8px;">
+                <span style="width:10px;height:10px;border-radius:50%;background:#4a90e2;animation:rc-bounce 1.2s infinite ease-in-out;"></span>
+                <span style="width:10px;height:10px;border-radius:50%;background:#4a90e2;animation:rc-bounce 1.2s infinite ease-in-out 0.2s;"></span>
+                <span style="width:10px;height:10px;border-radius:50%;background:#4a90e2;animation:rc-bounce 1.2s infinite ease-in-out 0.4s;"></span>
+            </div>
+            ${codeHtml}
+        </div>
+        <style>
+            @keyframes rc-bounce {
+                0%,80%,100% { transform:scale(0.6); opacity:0.5; }
+                40%          { transform:scale(1.0); opacity:1;   }
+            }
+        </style>
+    `;
+    _hidePauseOverlay();
+    overlay.style.display = 'flex';
+}
+
+function _hideReconnectOverlay() {
+    const overlay = document.getElementById('reconnect-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+
 /**
  * Construire et envoyer l'état complet à un joueur qui (re)joint
  */
@@ -1777,6 +1822,9 @@ function applyFullStateSync(data) {
     // Restaurer tuilePosee
     tuilePosee = data.tuilePosee ?? false;
     if (turnManager) turnManager.tilePlaced = tuilePosee;
+
+    // Masquer l'overlay de reconnexion si affiché
+    _hideReconnectOverlay();
 
     // Mettre à jour isMyTurn AVANT d'afficher la tuile ou le verso
     if (turnManager) turnManager.updateTurnState();
