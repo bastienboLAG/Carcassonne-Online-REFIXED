@@ -193,6 +193,10 @@ export class GameSyncCallbacks {
         // ── Mise à jour du compteur de meeples ───────────────────────────────
         gs.onMeepleCountUpdate = (playerId, meeples, hasAbbot, hasLargeMeeple, hasBuilder, hasPig) => {
             console.log('🎭 [SYNC] Mise à jour compteur reçue:', playerId, meeples, 'hasAbbot:', hasAbbot, 'hasLarge:', hasLargeMeeple, 'hasBuilder:', hasBuilder, 'hasPig:', hasPig);
+            // L'hôte est source de vérité pour les compteurs de meeples :
+            // il les gère directement via onMeeplePlacedRequest et le scoring.
+            // Un meeple-count-update entrant (émis par un invité) ne doit pas écraser son état.
+            if (this.isHost) return;
             const player = this.gameState.players.find(p => p.id === playerId);
             if (player) {
                 player.meeples = meeples;
