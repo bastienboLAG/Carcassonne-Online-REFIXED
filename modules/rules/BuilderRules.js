@@ -240,7 +240,7 @@ export class BuilderRules {
     // ─────────────────────────────────────────────────────────────
 
     _checkBonusTrigger(data) {
-        if (data.skipSync || data.fromUndo) return;
+        if (data.fromUndo) return; // skipSync ne doit PAS bloquer — c'est juste un flag réseau
         this._lastPlacedTile = { x: data.x, y: data.y };
     }
 
