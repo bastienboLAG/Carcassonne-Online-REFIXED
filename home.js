@@ -1313,7 +1313,7 @@ function attachGameSyncCallbacks() {
 
         // Hôte : traitement d'une demande de fin de tour d'un invité
         if (isHost) {
-            gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, _ignored, pendingAbbeData = null) => {
+            gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurnRequest, pendingAbbeData = null) => {
                 console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
 
                 // Appliquer les points Abbé en attente transmis par l'invité
@@ -1326,8 +1326,19 @@ function attachGameSyncCallbacks() {
                     }
                 }
 
-                // Scoring des zones fermées (l'invité ne le fait plus lui-même)
+                // ⭐ Vérifier bonus bâtisseur AVANT le scoring
+                // (après scoring le bâtisseur peut être retiré de placedMeeples si sa zone se ferme)
+                // Un tour bonus ne peut pas en générer un autre
                 let isBonusTurn = false;
+                if (gameConfig.extensions?.tradersBuilders && !isBonusTurnRequest) {
+                    const builderRulesInst = ruleRegistry.rules?.get('builders');
+                    if (builderRulesInst) {
+                        const bonus = builderRulesInst.checkBonusTrigger(playerId);
+                        if (bonus) isBonusTurn = true;
+                    }
+                }
+
+                // Scoring des zones fermées (l'invité ne le fait plus lui-même)
                 if (scoring && zoneMerger) {
                     const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
                     const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, playerId, gameState, newlyClosed);
@@ -1358,14 +1369,7 @@ function attachGameSyncCallbacks() {
                     }
                 }
 
-                // Vérifier bonus bâtisseur (BuilderRules._lastPlacedTile est mis à jour via event tile-placed)
-                if (gameConfig.extensions?.tradersBuilders) {
-                    const builderRulesInst = ruleRegistry.rules?.get('builders');
-                    if (builderRulesInst) {
-                        const bonus = builderRulesInst.checkBonusTrigger(playerId);
-                        if (bonus) isBonusTurn = true;
-                    }
-                }
+
 
                 // Reset undo + avance le tour côté hôte
                 if (undoManager) undoManager.reset();
