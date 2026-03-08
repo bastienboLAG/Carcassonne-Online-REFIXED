@@ -17,6 +17,7 @@ export class GameSync {
         this.onGameStarted = null;
         this.onTileDrawn = null;
         this.onMeeplePlaced = null;
+        this.onMeeplePlacedRequest = null;
         this.onScoreUpdate = null;
         this.onTurnUndo = null;
         this.onGameEnded = null;
@@ -58,7 +59,7 @@ export class GameSync {
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
-            'turn-undo-request', 'your-turn', 'tile-placed-request'
+            'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -227,7 +228,22 @@ export class GameSync {
     }
 
     /**
-     * Synchroniser le placement d'un meeple
+     * Invité → hôte : demande de placement meeple (étape 3 architecture réactive)
+     */
+    syncMeeplePlacementRequest(x, y, position, meepleType) {
+        console.log('🎭 [INVITÉ] Demande placement meeple:', x, y, position, meepleType);
+        const hostConn = this.multiplayer.connections[0];
+        if (hostConn && hostConn.open) {
+            hostConn.send({
+                type: 'meeple-placed-request',
+                x, y, position, meepleType,
+                playerId: this.multiplayer.playerId
+            });
+        }
+    }
+
+    /**
+     * Synchroniser le placement d'un meeple (hôte → tous)
      */
     syncMeeplePlacement(x, y, position, meepleType, color) {
         console.log('🎭 Sync placement meeple:', x, y, position, meepleType);
@@ -404,7 +420,7 @@ export class GameSync {
         // le re-broadcaster aux autres joueurs (topologie étoile, invités non connectés entre eux)
         const relayTypes = [
             'tile-drawn',
-            'meeple-placed', 'meeple-count-update', 'score-update',
+            'meeple-count-update', 'score-update',
             'tile-destroyed', 'deck-reshuffled', 'abbe-recalled', 'abbe-recalled-undo',
             'game-ended'
         ];
@@ -420,6 +436,10 @@ export class GameSync {
         // tile-placed-request : l'hôte valide et broadcast tile-placed à tous
         if (this.isHost && data.type === 'tile-placed-request' && this.onTilePlacedRequest) {
             this.onTilePlacedRequest(data.x, data.y, data.tileId, data.rotation, data.playerId);
+        }
+        // meeple-placed-request : l'hôte valide et broadcast meeple-placed à tous
+        if (this.isHost && data.type === 'meeple-placed-request' && this.onMeeplePlacedRequest) {
+            this.onMeeplePlacedRequest(data.x, data.y, data.position, data.meepleType, data.playerId);
         }
 
         switch (data.type) {
@@ -467,7 +487,7 @@ export class GameSync {
                 // Un invité demande à l'hôte de clore son tour
                 if (this.isHost && this.onTurnEndRequest) {
                     console.log('⏭️ [HÔTE] Demande fin de tour reçue de:', data.playerId);
-                    this.onTurnEndRequest(data.playerId, data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false);
+                    this.onTurnEndRequest(data.playerId, data.nextPlayerIndex, data.gameState, data.isBonusTurn ?? false, data.pendingAbbePoints ?? null);
                 }
                 break;
 
@@ -518,7 +538,12 @@ export class GameSync {
                 break;
 
             case 'meeple-placed':
-                if (this.onMeeplePlaced && data.playerId !== this.multiplayer.playerId) {
+                // ✅ Étape 3 : invité réactif — applique à la réception (y compris echo)
+                // Hôte applique si c'est quelqu'un d'autre
+                if (this.onMeeplePlaced && (
+                    (!this.isHost) ||
+                    (this.isHost && data.playerId !== this.multiplayer.playerId)
+                )) {
                     console.log('🎭 [SYNC] Meeple placé reçu:', data.x, data.y, data.position);
                     this.onMeeplePlaced(data.x, data.y, data.position, data.meepleType, data.color, data.playerId);
                 }

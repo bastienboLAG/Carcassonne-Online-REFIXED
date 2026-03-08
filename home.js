@@ -220,6 +220,13 @@ eventBus.on('turn-ended', (data) => {
     }
 });
 
+// ✅ Étape 3 : echo du placement meeple invité
+eventBus.on('meeple-placed-own', (data) => {
+    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+    updateMobileButtons();
+    updateTurnDisplay();
+});
+
 // ✅ Étape 2 : echo du placement invité — déclencher curseurs meeple
 eventBus.on('tile-placed-own', (data) => {
     const { x, y, tile } = data;
@@ -1265,16 +1272,78 @@ function attachGameSyncCallbacks() {
 
         // Hôte : traitement d'une demande de fin de tour d'un invité
         if (isHost) {
-            gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurn) => {
+            gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, _ignored, pendingAbbeData = null) => {
                 console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
+
+                // Appliquer les points Abbé en attente transmis par l'invité
+                if (pendingAbbeData) {
+                    const p = gameState.players.find(pl => pl.id === pendingAbbeData.playerId);
+                    if (p) {
+                        p.score += pendingAbbeData.points;
+                        p.scoreDetail = p.scoreDetail || {};
+                        p.scoreDetail.monasteries = (p.scoreDetail.monasteries || 0) + pendingAbbeData.points;
+                    }
+                }
+
+                // Scoring des zones fermées (l'invité ne le fait plus lui-même)
+                let isBonusTurn = false;
+                if (scoring && zoneMerger) {
+                    const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
+                    const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, playerId, gameState, newlyClosed);
+                    if (scoringResults.length > 0 || goodsResults.length > 0) {
+                        scoringResults.forEach(({ playerId: pid, points, zoneType }) => {
+                            const p = gameState.players.find(pl => pl.id === pid);
+                            if (p) {
+                                p.score += points;
+                                if (zoneType === 'city')   p.scoreDetail.cities      += points;
+                                else if (zoneType === 'road') p.scoreDetail.roads    += points;
+                                else if (zoneType === 'abbey' || zoneType === 'garden') p.scoreDetail.monasteries += points;
+                            }
+                        });
+                        meeplesToReturn.forEach(key => {
+                            const meeple = placedMeeples[key];
+                            if (!meeple) return;
+                            const p = gameState.players.find(pl => pl.id === meeple.playerId);
+                            if (!p) return;
+                            if (meeple.type === 'Abbot')        { p.hasAbbot = true; }
+                            else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') { p.hasLargeMeeple = true; }
+                            else if (meeple.type === 'Builder') { p.hasBuilder = true; }
+                            else if (meeple.type === 'Pig')     { p.hasPig = true; }
+                            else                                { if (p.meeples < 7) p.meeples++; }
+                            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+                            delete placedMeeples[key];
+                        });
+                        if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
+                    }
+                }
+
+                // Vérifier bonus bâtisseur
+                if (gameConfig.extensions?.tradersBuilders && lastPlacedTile) {
+                    const builderRulesInst = ruleRegistry.rules?.get('builders');
+                    if (builderRulesInst) {
+                        const bonus = builderRulesInst.checkBonusTrigger(playerId);
+                        if (bonus) isBonusTurn = true;
+                    }
+                }
+
                 // Reset undo + avance le tour côté hôte
                 if (undoManager) undoManager.reset();
                 if (turnManager) turnManager.endTurnRemote(isBonusTurn);
+
+                if (isBonusTurn) {
+                    ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
+                }
+
+                // Fin de partie ?
+                if (deck.remaining() <= 0) {
+                    gameSync.syncTurnEnd(false, null);
+                    finalScoresManager.computeAndApply(placedMeeples);
+                    return;
+                }
+
                 // Piocher la prochaine tuile
                 const _nextTile = _hostDrawAndSend();
-                // Donner la tuile au joueur actif
                 if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
-                // Broadcaster turn-ended enrichi à tous
                 gameSync.syncTurnEnd(isBonusTurn, _nextTile?.id ?? null);
             };
 
@@ -2565,29 +2634,34 @@ function afficherSelecteurMeeple(x, y, position, zoneType, mouseX, mouseY) {
 
 function placerMeeple(x, y, position, meepleType) {
     if (!gameState || !multiplayer) return;
+
+    if (gameSync && !isHost) {
+        // ✅ Étape 3 : invité purement réactif — envoie request, attend echo hôte
+        if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+        gameSync.syncMeeplePlacementRequest(x, y, position, meepleType);
+        return;
+    }
+
+    // Hôte ou solo : applique localement
     const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
     if (!success) return;
 
     console.log('🎭 placerMeeple — type:', meepleType, '— zone:', x, y, position);
-    // Si l'Abbé est posé, il n'est plus disponible
     if (meepleType === 'Abbot') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasAbbot = false;
         eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
     }
-    // Si le grand meeple est posé, il n'est plus disponible
     if (meepleType === 'Large' || meepleType === 'Large-Farmer') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasLargeMeeple = false;
         eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
     }
-    // Si le bâtisseur est posé, il n'est plus disponible
     if (meepleType === 'Builder') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasBuilder = false;
         eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
     }
-    // Si le cochon est posé, il n'est plus disponible
     if (meepleType === 'Pig') {
         const player = gameState.players.find(p => p.id === multiplayer.playerId);
         if (player) player.hasPig = false;
@@ -2597,7 +2671,7 @@ function placerMeeple(x, y, position, meepleType) {
     if (undoManager && (isMyTurn || isHost)) {
         undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);
     }
-    if (meepleCursorsUI) meepleCursorsUI.hideCursors(); // retire curseurs ET overlays abbé
+    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
 }
 
 function incrementPlayerMeeples(playerId) {
@@ -2668,6 +2742,24 @@ function setupEventListeners() {
 
         if (!isMyTurn && gameSync) { alert("Ce n'est pas votre tour !"); return; }
         if (!tuilePosee) { alert('Vous devez poser la tuile avant de terminer votre tour !'); return; }
+
+        // ✅ Étape 4 : invité purement réactif — envoie la request, attend turn-ended de l'hôte
+        if (gameSync && !isHost) {
+            if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+            // Transmettre les points Abbé en attente à l'hôte via la request
+            const _pendingAbbe = pendingAbbePoints ? { ...pendingAbbePoints } : null;
+            pendingAbbePoints = null;
+            const hostConn = gameSync.multiplayer.connections[0];
+            if (hostConn && hostConn.open) {
+                hostConn.send({
+                    type: 'turn-end-request',
+                    playerId: multiplayer.playerId,
+                    isBonusTurn: false,
+                    pendingAbbePoints: _pendingAbbe
+                });
+            }
+            return;
+        }
 
         console.log('⏭️ Fin de tour - calcul des scores et passage au joueur suivant');
         gameState.currentTilePlaced = false;
