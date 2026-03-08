@@ -409,11 +409,15 @@ export class GameSync {
                 break;
 
             case 'tile-rotated':
-                // Hôte : applique visuellement si c'est un invité qui a tourné (pour voir dans son preview)
-                // Invité : applique toujours — l'hôte relaie le broadcast y compris à l'émetteur
-                if (this.onTileRotated && data.playerId !== this.multiplayer.playerId) {
-                    console.log('🔄 [SYNC] Rotation reçue:', data.rotation);
-                    this.onTileRotated(data.rotation);
+                // Hôte : applique si c'est un invité qui a tourné
+                // Invité émetteur : applique aussi (l'hôte relaie à tous y compris lui)
+                // Invité spectateur : applique si c'est quelqu'un d'autre
+                if (this.onTileRotated) {
+                    const isEcho = this.isHost && data.playerId === this.multiplayer.playerId;
+                    if (!isEcho) {
+                        console.log('🔄 [SYNC] Rotation reçue:', data.rotation);
+                        this.onTileRotated(data.rotation);
+                    }
                 }
                 break;
 
