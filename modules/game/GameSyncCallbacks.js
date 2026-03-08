@@ -97,30 +97,59 @@ export class GameSyncCallbacks {
             this.eventBus.emit('tile-rotated', { rotation });
         };
 
-        // ── Placement d'une tuile ─────────────────────────────────────────────
+        // ── Demande de placement d'une tuile (invité → hôte, étape 2) ──────────
+        gs.onTilePlacedRequest = (x, y, tileId, rotation, fromPlayerId) => {
+            console.log('📍 [HÔTE] tile-placed-request de:', fromPlayerId, x, y, tileId);
+            const tileData = this.deck.tiles.find(t => t.id === tileId);
+            if (!tileData) return;
+            const tile = new Tile(tileData);
+            tile.rotation = rotation;
+
+            // Appliquer côté hôte
+            this.poserTuileSync(x, y, tile, { skipValidation: false });
+            this.undoManager?.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
+
+            // Broadcast tile-placed à tous (y compris l'émetteur)
+            gs.multiplayer.broadcast({
+                type: 'tile-placed',
+                x, y,
+                tileId: tile.id,
+                rotation: tile.rotation,
+                playerId: fromPlayerId,
+                zoneRegistry: this.zoneMerger.registry.serialize(),
+                tileToZone:   Array.from(this.zoneMerger.tileToZone.entries())
+            });
+        };
+
+        // ── Placement d'une tuile (broadcast reçu) ───────────────────────────
         gs.onTilePlaced = (x, y, tileId, rotation, zoneRegistryData, tileToZoneData) => {
             console.log('📍 [SYNC] Placement reçu:', x, y, tileId, rotation);
             this.gameState.currentTilePlaced = true;
             const tileData = this.deck.tiles.find(t => t.id === tileId);
-            if (tileData) {
-                const tile = new Tile(tileData);
-                tile.rotation = rotation;
-                // skipValidation=true : l'hôte a déjà validé, on ne revalide pas côté invité
-                // skipZoneMerger=true si l'hôte fournit l'état des zones
-                this.poserTuileSync(x, y, tile, {
-                    skipValidation: true,
-                    ...(zoneRegistryData ? { skipZoneMerger: true } : {})
-                });
-                // Appliquer l'état des zones de l'hôte directement
-                if (zoneRegistryData && tileToZoneData) {
-                    this.zoneMerger.registry.deserialize(zoneRegistryData);
-                    this.zoneMerger.tileToZone = new Map(tileToZoneData);
-                    console.log('✅ [SYNC] ZoneRegistry appliqué depuis hôte');
-                }
-                // ✅ L'hôte sauvegarde le snapshot après pose tuile d'un invité (undo centralisé)
-                if (this.undoManager && this.isHost) {
-                    this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
-                }
+            if (!tileData) return;
+
+            const tile = new Tile(tileData);
+            tile.rotation = rotation;
+
+            this.poserTuileSync(x, y, tile, {
+                skipValidation: true,
+                ...(zoneRegistryData ? { skipZoneMerger: true } : {})
+            });
+
+            if (zoneRegistryData && tileToZoneData) {
+                this.zoneMerger.registry.deserialize(zoneRegistryData);
+                this.zoneMerger.tileToZone = new Map(tileToZoneData);
+                console.log('✅ [SYNC] ZoneRegistry appliqué depuis hôte');
+            }
+
+            if (this.undoManager && this.isHost) {
+                this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
+            }
+
+            // ✅ Étape 2 : si c'est notre propre echo (invité émetteur), afficher les curseurs meeple
+            if (!this.isHost && this.turnManager?.isMyTurn) {
+                console.log('📍 [INVITÉ] Echo reçu — affichage curseurs meeple');
+                this.eventBus.emit('tile-placed-own', { x, y, tile });
             }
         };
 

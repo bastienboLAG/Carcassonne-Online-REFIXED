@@ -220,6 +220,24 @@ eventBus.on('turn-ended', (data) => {
     }
 });
 
+// ✅ Étape 2 : echo du placement invité — déclencher curseurs meeple
+eventBus.on('tile-placed-own', (data) => {
+    const { x, y, tile } = data;
+    tuilePosee = true;
+    lastPlacedTile = { x, y };
+    gameState.currentTilePlaced = true;
+    currentTileForPlayer = null;
+    if (unplaceableManager) unplaceableManager.resetSeenImplacable();
+    updateMobileButtons();
+    updateTurnDisplay();
+    if (meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
+        meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
+        if (gameConfig?.extensions?.abbot && !undoManager?.meeplePlacedThisTurn) {
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+        }
+    }
+});
+
 eventBus.on('tile-rotated', (data) => {
     // ✅ Mettre à jour tuileEnMain.rotation pour que SlotsUI recalcule
     // avec la bonne rotation (important côté joueur inactif qui reçoit la rotation via réseau)
@@ -2414,6 +2432,21 @@ function handleRemoteUndo(undoneAction) {
 
 function poserTuile(x, y, tile, isFirst = false) {
     console.log('🎯 poserTuile appelé:', { x, y, tile, isFirst });
+
+    if (gameSync && !isHost) {
+        // ✅ Étape 2 : invité purement réactif — envoie une request, attend le broadcast hôte
+        // L'UI sera mise à jour à la réception de tile-placed (via poserTuileSync)
+        document.querySelectorAll('.slot').forEach(s => s.remove());
+        if (tilePreviewUI) tilePreviewUI.showBackside();
+        tuileEnMain = null;
+        updateMobileTilePreview();
+        updateMobileButtons();
+        updateTurnDisplay();
+        gameSync.syncTilePlacementRequest(x, y, tile);
+        return;
+    }
+
+    // Hôte ou solo : applique localement
     const success = tilePlacement.placeTile(x, y, tile, { isFirst });
     if (!success) return;
 
@@ -2421,9 +2454,8 @@ function poserTuile(x, y, tile, isFirst = false) {
     firstTilePlaced = true;
     lastPlacedTile  = { x, y };
     gameState.currentTilePlaced = true;
-    currentTileForPlayer = null; // Tuile posée, plus besoin pour reconnexion
+    currentTileForPlayer = null;
 
-    // Réinitialiser le suivi des tuiles implaçables après chaque placement réussi
     if (unplaceableManager) unplaceableManager.resetSeenImplacable();
 
     document.querySelectorAll('.slot').forEach(s => s.remove());
@@ -2435,7 +2467,6 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     if (isMyTurn && gameSync && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
         meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
-        // Afficher les Abbés rappelables si extension activée et aucun meeple/abbé posé ce tour
         if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
         }
@@ -2447,7 +2478,7 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     tuileEnMain = null;
     updateMobileTilePreview();
-    updateTurnDisplay(); // Mettre à jour undo (canUndo vient de changer)
+    updateTurnDisplay();
 }
 
 function poserTuileSync(x, y, tile, extraOptions = {}) {

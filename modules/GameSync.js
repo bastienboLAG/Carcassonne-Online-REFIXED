@@ -12,6 +12,7 @@ export class GameSync {
         this.onDeckReceived = null;
         this.onTileRotated = null;
         this.onTilePlaced = null;
+        this.onTilePlacedRequest = null;
         this.onTurnEnded        = null;
         this.onGameStarted = null;
         this.onTileDrawn = null;
@@ -57,7 +58,7 @@ export class GameSync {
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
-            'turn-undo-request', 'your-turn'
+            'turn-undo-request', 'your-turn', 'tile-placed-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -98,7 +99,24 @@ export class GameSync {
     }
 
     /**
-     * Synchroniser le placement d'une tuile
+     * Invité → hôte : demande de placement de tuile (étape 2 architecture réactive)
+     */
+    syncTilePlacementRequest(x, y, tile) {
+        console.log('📍 [INVITÉ] Demande placement:', x, y, tile.id, tile.rotation);
+        const hostConn = this.multiplayer.connections[0];
+        if (hostConn && hostConn.open) {
+            hostConn.send({
+                type: 'tile-placed-request',
+                x, y,
+                tileId: tile.id,
+                rotation: tile.rotation,
+                playerId: this.multiplayer.playerId
+            });
+        }
+    }
+
+    /**
+     * Synchroniser le placement d'une tuile (hôte → tous)
      */
     syncTilePlacement(x, y, tile, zoneMerger) {
         console.log('📍 Sync placement:', x, y, tile.id, tile.rotation);
@@ -385,7 +403,7 @@ export class GameSync {
         // ✅ RELAIS HÔTE : si on est l'hôte et que le message vient d'un invité,
         // le re-broadcaster aux autres joueurs (topologie étoile, invités non connectés entre eux)
         const relayTypes = [
-            'tile-placed', 'tile-drawn',
+            'tile-drawn',
             'meeple-placed', 'meeple-count-update', 'score-update',
             'tile-destroyed', 'deck-reshuffled', 'abbe-recalled', 'abbe-recalled-undo',
             'game-ended'
@@ -398,6 +416,10 @@ export class GameSync {
         if (this.isHost && from && from !== this.multiplayer.playerId && data.type === 'tile-rotated') {
             console.log(`🔀 [HÔTE] Relais tile-rotated de ${from} vers tous`);
             this.multiplayer.broadcast(data);
+        }
+        // tile-placed-request : l'hôte valide et broadcast tile-placed à tous
+        if (this.isHost && data.type === 'tile-placed-request' && this.onTilePlacedRequest) {
+            this.onTilePlacedRequest(data.x, data.y, data.tileId, data.rotation, data.playerId);
         }
 
         switch (data.type) {
@@ -422,8 +444,14 @@ export class GameSync {
                 break;
 
             case 'tile-placed':
-                if (this.onTilePlaced && data.playerId !== this.multiplayer.playerId) {
+                // ✅ Étape 2 : invité réactif — applique à la réception du broadcast hôte (y compris echo)
+                if (this.onTilePlaced && !this.isHost) {
                     console.log('📍 [SYNC] Placement reçu:', data.x, data.y, data.tileId);
+                    this.onTilePlaced(data.x, data.y, data.tileId, data.rotation, data.zoneRegistry, data.tileToZone);
+                }
+                // Hôte : applique si c'est un autre joueur (cas multi-invités futur)
+                if (this.onTilePlaced && this.isHost && data.playerId !== this.multiplayer.playerId) {
+                    console.log('📍 [HÔTE] Placement invité reçu:', data.x, data.y, data.tileId);
                     this.onTilePlaced(data.x, data.y, data.tileId, data.rotation, data.zoneRegistry, data.tileToZone);
                 }
                 break;
