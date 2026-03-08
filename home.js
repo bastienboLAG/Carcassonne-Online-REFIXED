@@ -1679,6 +1679,17 @@ function applyFullStateSync(data) {
     // slotsUI : pas de tuile disponible si tuile déjà posée
     if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!tuileEnMain;
 
+    // ── Synchroniser multiplayer.playerId avec l'id présent dans le gameState reçu ──
+    // Cas de double-reconnexion : joinGame peut avoir créé un 2e peer après l'envoi du player-info,
+    // faisant que multiplayer.playerId ne correspond plus à gameState.players[nous].id.
+    if (!isHost && playerName) {
+        const meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor);
+        if (meInState && meInState.id !== multiplayer.playerId) {
+            console.log('🔧 [SYNC] Correction playerId:', multiplayer.playerId, '→', meInState.id);
+            multiplayer.playerId = meInState.id;
+        }
+    }
+
     // Synchroniser le timer
     if (data.timerElapsed != null) startGameTimerFrom(data.timerElapsed);
 
