@@ -109,6 +109,9 @@ export class GameSyncCallbacks {
             this.poserTuileSync(x, y, tile, { skipValidation: false });
             this.undoManager?.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
 
+            // Marquer la tuile comme posée côté hôte (sinon full-state-sync enverrait tuilePosee:false)
+            this.gameState.currentTilePlaced = true;
+
             // Broadcast tile-placed à tous (y compris l'émetteur)
             gs.multiplayer.broadcast({
                 type: 'tile-placed',
