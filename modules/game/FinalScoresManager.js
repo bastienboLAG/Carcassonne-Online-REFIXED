@@ -111,7 +111,7 @@ export class FinalScoresManager {
             nameCell.innerHTML = `
                 <div class="player-name-cell">
                     <img src="${imgSrc}" alt="${player.color}">
-                    <span>${player.name}</span>
+                    <span style="${player.kicked ? 'opacity:0.45;' : ''}">${player.kicked ? '🚪 ' : ''}${player.name}</span>
                 </div>`;
             row.appendChild(nameCell);
 
@@ -199,7 +199,7 @@ export class FinalScoresManager {
             header.innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;">
                     <img src="assets/Meeples/${colorCap}/Normal.png" style="width:28px;height:28px;">
-                    <span style="color:white;font-weight:bold;font-size:15px;">${player.name}</span>
+                    <span style="color:white;font-weight:bold;font-size:15px;${player.kicked ? 'opacity:0.45;' : ''}">${player.kicked ? '🚪 ' : ''}${player.name}</span>
                     ${isWinner ? '<span style="font-size:16px;">🏆</span>' : ''}
                 </div>
                 <span style="color:${isWinner ? '#f1c40f' : 'white'};font-weight:bold;font-size:20px;">${player.total} pts</span>

@@ -1541,6 +1541,7 @@ function _excludeDisconnectedPlayer(disconnectedName) {
             } else {
                 // Joueur réel : on garde dans gameState pour conserver l'affichage visuel.
                 // TurnManager skippe automatiquement les joueurs disconnected.
+                gameState.players[idx].kicked = true;
                 if (wasCurrentPlayer) {
                     let next = (idx + 1) % gameState.players.length;
                     let attempts = 0;

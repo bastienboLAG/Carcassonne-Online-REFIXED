@@ -309,6 +309,7 @@ export class Scoring {
                 id: p.id,
                 name: p.name,
                 color: p.color,
+                kicked:      p.kicked ?? false,
                 cities:      p.scoreDetail.cities,
                 roads:       p.scoreDetail.roads,
                 monasteries: p.scoreDetail.monasteries,
