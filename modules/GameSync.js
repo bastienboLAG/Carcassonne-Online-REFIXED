@@ -385,7 +385,7 @@ export class GameSync {
         // ✅ RELAIS HÔTE : si on est l'hôte et que le message vient d'un invité,
         // le re-broadcaster aux autres joueurs (topologie étoile, invités non connectés entre eux)
         const relayTypes = [
-            'tile-rotated', 'tile-placed', 'tile-drawn',
+            'tile-placed', 'tile-drawn',
             'meeple-placed', 'meeple-count-update', 'score-update',
             'tile-destroyed', 'deck-reshuffled', 'abbe-recalled', 'abbe-recalled-undo',
             'game-ended'
@@ -393,6 +393,11 @@ export class GameSync {
         if (this.isHost && from && from !== this.multiplayer.playerId && relayTypes.includes(data.type)) {
             console.log(`🔀 [HÔTE] Relais message ${data.type} de ${from} vers les autres`);
             this.multiplayer.broadcastExcept(data, from);
+        }
+        // tile-rotated : relayé à TOUS y compris l'émetteur (invité purement réactif)
+        if (this.isHost && from && from !== this.multiplayer.playerId && data.type === 'tile-rotated') {
+            console.log(`🔀 [HÔTE] Relais tile-rotated de ${from} vers tous`);
+            this.multiplayer.broadcast(data);
         }
 
         switch (data.type) {
@@ -404,7 +409,9 @@ export class GameSync {
                 break;
 
             case 'tile-rotated':
-                if (this.onTileRotated && data.playerId !== this.multiplayer.playerId) {
+                // ✅ Étape 1 : invité purement réactif — applique la rotation à la réception du broadcast hôte
+                // même si c'est lui l'émetteur (l'hôte relaie à tous)
+                if (!this.isHost && this.onTileRotated) {
                     console.log('🔄 [SYNC] Rotation reçue:', data.rotation);
                     this.onTileRotated(data.rotation);
                 }

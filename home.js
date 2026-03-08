@@ -2598,12 +2598,18 @@ function setupEventListeners() {
         if (!tuileEnMain || tuilePosee) return;
 
         const currentImg = document.getElementById('current-tile-img');
-        tuileEnMain.rotation = (tuileEnMain.rotation + 90) % 360;
-        const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
-        currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
-
-        if (gameSync) gameSync.syncTileRotation(tuileEnMain.rotation);
-        eventBus.emit('tile-rotated', { rotation: tuileEnMain.rotation });
+        // ✅ Étape 1 : invité purement réactif pour la rotation
+        // On calcule la rotation pour l'envoyer, mais on n'applique pas localement —
+        // l'hôte relaie le broadcast à tous y compris nous, et onTileRotated l'applique.
+        const nextRotation = (tuileEnMain.rotation + 90) % 360;
+        if (gameSync) {
+            gameSync.syncTileRotation(nextRotation);
+        } else {
+            // Hôte ou mode solo : applique directement
+            tuileEnMain.rotation = nextRotation;
+            currentImg.style.transform = `rotate(${nextRotation}deg)`;
+            eventBus.emit('tile-rotated', { rotation: nextRotation });
+        }
     });
 
     // Bouton "Terminer mon tour" / "Repiocher" / "Détails des scores"
@@ -2921,10 +2927,15 @@ function setupEventListeners() {
             e.preventDefault();
             if (!isMyTurn) return;
             if (!tuileEnMain || tuilePosee) return;
-            tuileEnMain.rotation = (tuileEnMain.rotation + 90) % 360;
-            updateMobileTilePreview();
-            if (gameSync) gameSync.syncTileRotation(tuileEnMain.rotation);
-            eventBus.emit('tile-rotated', { rotation: tuileEnMain.rotation });
+            // ✅ Étape 1 : même logique que desktop — l'invité envoie, attend le retour hôte
+            const nextRot = (tuileEnMain.rotation + 90) % 360;
+            if (gameSync) {
+                gameSync.syncTileRotation(nextRot);
+            } else {
+                tuileEnMain.rotation = nextRot;
+                updateMobileTilePreview();
+                eventBus.emit('tile-rotated', { rotation: nextRot });
+            }
         }, { passive: false });
 
         // ✅ Sur mobile, utiliser touchend au lieu de click
