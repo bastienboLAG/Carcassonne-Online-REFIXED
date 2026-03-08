@@ -9,8 +9,8 @@ export class HeartbeatManager {
         this._interval      = null;
         this._lastPong      = {}; // { peerId: timestamp }
         this._timedOut      = new Set(); // peers déjà signalés
-        this._PING_INTERVAL = 3000;  // 3s (tests: 3s, prod: 5s)
-        this._TIMEOUT       = 30000; // 30s (tests: 15s, prod: 30s)
+        this._PING_INTERVAL = 1000;  // 1s (tests: 3s, prod: 5s)
+        this._TIMEOUT       = 4000; // 4s (tests: 15s, prod: 30s)
     }
 
     start() {
