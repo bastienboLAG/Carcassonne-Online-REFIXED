@@ -1290,6 +1290,9 @@ function attachGameSyncCallbacks() {
 
                 if (undoManager) undoManager.markMeeplePlaced(x, y, position, key);
 
+                // Mettre à jour l'affichage du score côté hôte
+                eventBus.emit('meeple-count-updated', { playerId: fromPlayerId });
+
                 // Appliquer visuellement côté hôte (broadcast ne revient pas à l'expéditeur)
                 if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
 
