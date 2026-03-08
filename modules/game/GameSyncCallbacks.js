@@ -169,16 +169,21 @@ export class GameSyncCallbacks {
             this.turnManager.receiveTileDrawn(tileId, rotation);
         };
 
-        // ── Placement d'un meeple ─────────────────────────────────────────────
+        // ── Placement d'un meeple (broadcast reçu) ───────────────────────────
         gs.onMeeplePlaced = (x, y, position, meepleType, color, playerId) => {
-            console.log('🎭 [SYNC] Meeple placé par un autre joueur');
+            console.log('🎭 [SYNC] Meeple placé reçu');
             const placedMeeples = this.getPlacedMeeples();
             const key = `${x},${y},${position}`;
             placedMeeples[key] = { type: meepleType, color, playerId };
             this.meepleDisplayUI.showMeeple(x, y, position, meepleType, color);
-            // Hôte marque le meeple pour undo centralisé
-            if (this.isHost && this.undoManager) {
-                this.undoManager.markMeeplePlaced(x, y, position, key);
+
+            // ✅ Étape 3 : si c'est notre propre echo, mettre à jour état local + cacher curseurs
+            if (!this.isHost && playerId === gs.multiplayer.playerId) {
+                const player = this.gameState.players.find(p => p.id === playerId);
+                if (player) {
+                    // Le meeple-count-update arrivera juste après et mettra à jour les compteurs
+                }
+                this.eventBus.emit('meeple-placed-own', { x, y, position, meepleType });
             }
         };
 

@@ -1270,6 +1270,44 @@ function attachGameSyncCallbacks() {
             };
         }
 
+        // Hôte : traitement d'une demande de placement meeple d'un invité
+        if (isHost) {
+            gameSync.onMeeplePlacedRequest = (x, y, position, meepleType, fromPlayerId) => {
+                console.log('🎭 [HÔTE] meeple-placed-request de:', fromPlayerId, x, y, position, meepleType);
+                const player = gameState.players.find(p => p.id === fromPlayerId);
+                if (!player) return;
+                const playerColor = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+                const key = `${x},${y},${position}`;
+
+                placedMeeples[key] = { type: meepleType, color: playerColor, playerId: fromPlayerId };
+
+                if (!['Abbot','Large','Large-Farmer','Builder','Pig'].includes(meepleType)) {
+                    if (player.meeples > 0) player.meeples--;
+                } else if (meepleType === 'Abbot')        { player.hasAbbot = false; }
+                else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
+                else if (meepleType === 'Builder')         { player.hasBuilder = false; }
+                else if (meepleType === 'Pig')             { player.hasPig = false; }
+
+                if (undoManager) undoManager.markMeeplePlaced(x, y, position, key);
+
+                gameSync.multiplayer.broadcast({
+                    type: 'meeple-placed',
+                    x, y, position, meepleType,
+                    color: playerColor,
+                    playerId: fromPlayerId
+                });
+                gameSync.multiplayer.broadcast({
+                    type: 'meeple-count-update',
+                    playerId: fromPlayerId,
+                    meeples: player.meeples,
+                    hasAbbot: player.hasAbbot,
+                    hasLargeMeeple: player.hasLargeMeeple,
+                    hasBuilder: player.hasBuilder,
+                    hasPig: player.hasPig
+                });
+            };
+        }
+
         // Hôte : traitement d'une demande de fin de tour d'un invité
         if (isHost) {
             gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, _ignored, pendingAbbeData = null) => {
