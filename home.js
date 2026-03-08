@@ -1482,14 +1482,8 @@ async function _tryReconnect() {
         // Créer un nouveau peer et rejoindre
         await multiplayer.joinGame(gameCode);
 
-        // Envoyer player-info — l'hôte nous reconnaîtra par le pseudo
-        multiplayer.broadcast({
-            type: 'player-info',
-            name: playerName,
-            color: playerColor,
-            isSpectator: false
-        });
-
+        // Ne PAS envoyer player-info ici — l'hôte va envoyer game-in-progress
+        // qui déclenchera l'envoi de player-info depuis le handler (seule source)
         console.log('✅ Reconnexion réussie');
         // Ne pas remettre _isAutoReconnecting=false ici — le flag doit rester true
         // jusqu'à ce que game-in-progress soit traité (pour éviter la modale)
