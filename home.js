@@ -2234,17 +2234,28 @@ function _postStartSetup() {
                     incomingIds.has(gp.id) || (gp.disconnected && gp.color !== 'spectator')
                 );
 
-                // Ajouter les nouveaux joueurs manquants
+                // Ajouter les nouveaux joueurs manquants, ou mettre à jour l'id si reconnexion
                 data.players.forEach(p => {
-                    const existing = gameState.players.find(gp => gp.id === p.id);
-                    if (!existing) {
-                        gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
-                        const newP = gameState.players.find(gp => gp.id === p.id);
-                        if (newP && gameConfig) {
-                            if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
-                            if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
-                            if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
-                            if (gameConfig.extensions?.pig)             newP.hasPig         = true;
+                    const existingById = gameState.players.find(gp => gp.id === p.id);
+                    if (!existingById) {
+                        // Pas trouvé par id — chercher par nom+couleur (cas reconnexion : nouveau peerId)
+                        const existingByIdentity = gameState.players.find(gp =>
+                            gp.name === p.name && gp.color === p.color
+                        );
+                        if (existingByIdentity) {
+                            // Reconnexion : mettre à jour l'id uniquement
+                            existingByIdentity.id = p.id;
+                            existingByIdentity.disconnected = false;
+                        } else {
+                            // Vraiment nouveau joueur
+                            gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
+                            const newP = gameState.players.find(gp => gp.id === p.id);
+                            if (newP && gameConfig) {
+                                if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
+                                if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
+                                if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
+                                if (gameConfig.extensions?.pig)             newP.hasPig         = true;
+                            }
                         }
                     }
                 });
