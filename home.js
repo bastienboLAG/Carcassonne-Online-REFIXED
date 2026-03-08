@@ -1369,8 +1369,6 @@ function attachGameSyncCallbacks() {
                     }
                 }
 
-
-
                 // Reset undo + avance le tour côté hôte
                 if (undoManager) undoManager.reset();
                 if (turnManager) turnManager.endTurnRemote(isBonusTurn);
@@ -2799,7 +2797,7 @@ function setupEventListeners() {
                 hostConn.send({
                     type: 'turn-end-request',
                     playerId: multiplayer.playerId,
-                    isBonusTurn: false,
+                    isBonusTurn: turnManager?.isBonusTurn ?? false,
                     pendingAbbePoints: _pendingAbbe
                 });
             }
