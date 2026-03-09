@@ -48,12 +48,15 @@ export class ScorePanelUI {
         container.innerHTML = '';
         const currentPlayer = this.gameState.getCurrentPlayer();
 
-        // Filtrer les entrées spec dont le nom est déjà présent comme joueur réel
-        const realNames = new Set(
-            this.gameState.players.filter(p => p.color !== 'spectator').map(p => p.name)
+        // Filtrer les entrées spec dont le nom est présent comme joueur actif (non ghost)
+        // Si le fantôme est disconnected/kicked, on garde l'entrée spec (elle représente l'observateur)
+        const activeNames = new Set(
+            this.gameState.players
+                .filter(p => p.color !== 'spectator' && !p.disconnected && !p.kicked)
+                .map(p => p.name)
         );
         const sortedPlayers = [...this.gameState.players]
-            .filter(p => p.color !== 'spectator' || !realNames.has(p.name))
+            .filter(p => p.color !== 'spectator' || !activeNames.has(p.name))
             .sort((a, b) => {
                 if (a.color === 'spectator' && b.color !== 'spectator') return 1;
                 if (a.color !== 'spectator' && b.color === 'spectator') return -1;
@@ -120,11 +123,13 @@ export class ScorePanelUI {
         container.innerHTML = '';
         const currentPlayer = this.gameState.getCurrentPlayer();
 
-        const realNamesMobile = new Set(
-            this.gameState.players.filter(p => p.color !== 'spectator').map(p => p.name)
+        const activeNamesMobile = new Set(
+            this.gameState.players
+                .filter(p => p.color !== 'spectator' && !p.disconnected && !p.kicked)
+                .map(p => p.name)
         );
         const sortedPlayersMobile = [...this.gameState.players]
-            .filter(p => p.color !== 'spectator' || !realNamesMobile.has(p.name))
+            .filter(p => p.color !== 'spectator' || !activeNamesMobile.has(p.name))
             .sort((a, b) => {
                 if (a.color === 'spectator' && b.color !== 'spectator') return 1;
                 if (a.color !== 'spectator' && b.color === 'spectator') return -1;
