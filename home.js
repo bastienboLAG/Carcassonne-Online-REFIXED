@@ -3162,6 +3162,9 @@ function setupEventListeners() {
     if (_menuLeaveBtn) _menuLeaveBtn.onclick = () => {
         _closeMenu();
         if (confirm('Voulez-vous vraiment quitter la partie ?')) {
+            // Neutraliser tous les handlers de déconnexion AVANT de couper
+            multiplayer.onHostDisconnected = null;
+            multiplayer.onPlayerLeft = null;
             _stopAutoReconnect();
             _hideReconnectOverlay();
             const hostId = players.find(p => p.isHost)?.id;
