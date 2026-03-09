@@ -2153,94 +2153,88 @@ function _postStartSetup() {
                     ? disconnectedEntry[0]
                     : activeEntry?.id ?? null;
 
-                if (reconnectOldPeerId) {
-                    const [oldPeerId] = [reconnectOldPeerId];
-                    console.log('🔍 reconnectOldPeerId:', reconnectOldPeerId, '| isSpectator:', data.isSpectator, '| typeof:', typeof data.isSpectator);
+                const isKnown = !!reconnectOldPeerId;
 
-                    if (data.isSpectator) {
-                        // ── Retour en spectateur (déco volontaire ou après kick) ──
-                        // Le fantôme du joueur reste intact dans gameState (kicked/disconnected).
-                        // On ajoute simplement une nouvelle entrée spectateur.
-                        gameState.addPlayer(from, name, 'spectator', false);
-                        players.push({ id: from, name, color: 'spectator', isHost: false });
-                        if (heartbeatManager) {
-                            heartbeatManager._connectedPeers = multiplayer._connectedPeers;
-                            heartbeatManager._lastPong[from] = Date.now();
-                        }
-                        sendFullStateTo(from);
-                        multiplayer.broadcast({ type: 'players-update', players });
-                        afficherToast(`👁 ${name} observe la partie.`);
-                        console.log(`👁 Retour spectateur: ${name}`);
-
-                    } else {
-                        // ── Reconnexion normale ──────────────────────────────────
-                        // reconnectPlayer ne fonctionne que si le joueur est dans disconnectedPlayers.
-                        // Pour une reconnexion rapide (avant timeout heartbeat), on met à jour directement.
-                        if (!gameState.reconnectPlayer(oldPeerId, from)) {
-                            const gsp = gameState.players.find(p => p.id === oldPeerId);
-                            if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
-                        }
-                        players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
-                        // Mettre à jour placedMeeples pour que l'ancien playerId soit remplacé
-                        Object.values(placedMeeples).forEach(m => {
-                            if (m.playerId === oldPeerId) m.playerId = from;
-                        });
-
-                        // Mettre à jour _connectedPeers du heartbeat (sinon timeout immédiat)
-                        if (heartbeatManager) {
-                            heartbeatManager._connectedPeers = multiplayer._connectedPeers;
-                            heartbeatManager._lastPong[from] = Date.now();
-                            heartbeatManager._timedOut.delete(oldPeerId);
-                            delete heartbeatManager._lastPong[oldPeerId];
-                        }
-
-                        // Envoyer l'état complet
-                        sendFullStateTo(from);
-
-                        // Reprendre la partie si elle était en pause pour ce joueur
-                        if (gamePaused) resumeGame('reconnected');
-
-                        afficherToast(`✅ ${name} s'est reconnecté !`);
-                        multiplayer.broadcast({ type: 'players-update', players });
-                        console.log(`🔄 Reconnexion: ${name} (${oldPeerId} → ${from})`);
+                if (!isKnown && !data.isSpectator) {
+                    // ── CAS 1 : Nouveau joueur inconnu ───────────────────────
+                    const takenNow    = gameState.players.map(p => p.color);
+                    const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
+                    if (freePlaying.length === 0) {
+                        multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' });
+                        return;
                     }
-
-                } else {
-                    // ── Nouvelle connexion en cours de partie ─────────────────
-                    let assigned;
-                    if (data.isSpectator) {
-                        assigned = 'spectator';
-                    } else {
-                        const takenNow   = gameState.players.map(p => p.color);
-                        const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
-                        if (freePlaying.length === 0) {
-                            multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' });
-                            return;
-                        }
-                        assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
+                    const assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
+                    gameState.addPlayer(from, name, assigned);
+                    const newP = gameState.players.find(p => p.id === from);
+                    if (newP) {
+                        if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
+                        if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
+                        if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
+                        if (gameConfig.extensions?.pig)             newP.hasPig         = true;
                     }
-
-                    const newPlayer = { id: from, name, color: assigned, isHost: false };
-                    gameState.addPlayer(from, name, assigned, false);
-                    // Initialiser les meeples spéciaux (pas pour spectateur)
-                    if (assigned !== 'spectator') {
-                        const newP = gameState.players.find(p => p.id === from);
-                        if (newP) {
-                            if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
-                            if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
-                            if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
-                            if (gameConfig.extensions?.pig)             newP.hasPig         = true;
-                        }
-                    }
-                    players.push(newPlayer);
-
+                    players.push({ id: from, name, color: assigned, isHost: false });
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
                     eventBus.emit('score-updated');
                     if (scorePanelUI) scorePanelUI.updateMobile();
                     updateTurnDisplay();
-                    const label = assigned === 'spectator' ? '👁 observe la partie' : 'a rejoint la partie';
-                    afficherToast(`👋 ${name} ${label} !`);
+                    afficherToast(`👋 ${name} a rejoint la partie !`);
+                    console.log(`👤 Nouveau joueur: ${name}`);
+
+                } else if (!isKnown && data.isSpectator) {
+                    // ── CAS 2 : Nouveau spectateur inconnu ───────────────────
+                    gameState.addPlayer(from, name, 'spectator');
+                    players.push({ id: from, name, color: 'spectator', isHost: false });
+                    if (heartbeatManager) {
+                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
+                        heartbeatManager._lastPong[from] = Date.now();
+                    }
+                    sendFullStateTo(from);
+                    multiplayer.broadcast({ type: 'players-update', players });
+                    afficherToast(`👁 ${name} observe la partie.`);
+                    console.log(`👁 Nouveau spectateur: ${name}`);
+
+                } else if (isKnown && !data.isSpectator) {
+                    // ── CAS 3 : Joueur connu qui revient jouer ────────────────
+                    const oldPeerId = reconnectOldPeerId;
+                    // Supprimer l'éventuelle entrée spec de ce joueur
+                    const specIdx = gameState.players.findIndex(p => p.name === name && p.color === 'spectator');
+                    if (specIdx !== -1) gameState.players.splice(specIdx, 1);
+                    players = players.filter(p => !(p.name === name && p.color === 'spectator'));
+                    // Restaurer le fantôme
+                    if (!gameState.reconnectPlayer(oldPeerId, from)) {
+                        const gsp = gameState.players.find(p => p.id === oldPeerId);
+                        if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
+                    }
+                    players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
+                    Object.values(placedMeeples).forEach(m => {
+                        if (m.playerId === oldPeerId) m.playerId = from;
+                    });
+                    if (heartbeatManager) {
+                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
+                        heartbeatManager._lastPong[from] = Date.now();
+                        heartbeatManager._timedOut.delete(oldPeerId);
+                        delete heartbeatManager._lastPong[oldPeerId];
+                    }
+                    sendFullStateTo(from);
+                    if (gamePaused) resumeGame('reconnected');
+                    afficherToast(`✅ ${name} s'est reconnecté !`);
+                    multiplayer.broadcast({ type: 'players-update', players });
+                    console.log(`🔄 Reconnexion joueur: ${name} (${oldPeerId} → ${from})`);
+
+                } else {
+                    // ── CAS 4 : Joueur connu qui revient en spectateur ────────
+                    // Le fantôme reste intact — on crée uniquement une entrée spec
+                    gameState.addPlayer(from, name, 'spectator');
+                    players.push({ id: from, name, color: 'spectator', isHost: false });
+                    if (heartbeatManager) {
+                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
+                        heartbeatManager._lastPong[from] = Date.now();
+                    }
+                    sendFullStateTo(from);
+                    multiplayer.broadcast({ type: 'players-update', players });
+                    afficherToast(`👁 ${name} observe la partie.`);
+                    console.log(`👁 Retour spectateur (fantôme conservé): ${name}`);
                 }
                 return;
             }
