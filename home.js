@@ -1387,6 +1387,7 @@ function attachGameSyncCallbacks() {
                 }
 
                 // Reset undo + avance le tour côté hôte
+                gameState.currentTilePlaced = false; // ← remettre à zéro AVANT endTurnRemote (sinon sendFullStateTo envoie tuileEnMain: null)
                 if (undoManager) undoManager.reset();
                 if (turnManager) turnManager.endTurnRemote(isBonusTurn);
 
