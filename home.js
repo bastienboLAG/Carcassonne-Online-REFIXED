@@ -2154,37 +2154,55 @@ function _postStartSetup() {
                     : activeEntry?.id ?? null;
 
                 if (reconnectOldPeerId) {
-                    // ── Reconnexion ──────────────────────────────────────────
                     const [oldPeerId] = [reconnectOldPeerId];
-                    // reconnectPlayer ne fonctionne que si le joueur est dans disconnectedPlayers.
-                    // Pour une reconnexion rapide (avant timeout heartbeat), on met à jour directement.
-                    if (!gameState.reconnectPlayer(oldPeerId, from)) {
-                        const gsp = gameState.players.find(p => p.id === oldPeerId);
-                        if (gsp) gsp.id = from;
+
+                    if (data.isSpectator) {
+                        // ── Retour en spectateur (déco volontaire ou après kick) ──
+                        // Le fantôme du joueur reste intact dans gameState (kicked/disconnected).
+                        // On ajoute simplement une nouvelle entrée spectateur.
+                        gameState.addPlayer(from, name, 'spectator', false);
+                        players.push({ id: from, name, color: 'spectator', isHost: false });
+                        if (heartbeatManager) {
+                            heartbeatManager._connectedPeers = multiplayer._connectedPeers;
+                            heartbeatManager._lastPong[from] = Date.now();
+                        }
+                        sendFullStateTo(from);
+                        multiplayer.broadcast({ type: 'players-update', players });
+                        afficherToast(`👁 ${name} observe la partie.`);
+                        console.log(`👁 Retour spectateur: ${name}`);
+
+                    } else {
+                        // ── Reconnexion normale ──────────────────────────────────
+                        // reconnectPlayer ne fonctionne que si le joueur est dans disconnectedPlayers.
+                        // Pour une reconnexion rapide (avant timeout heartbeat), on met à jour directement.
+                        if (!gameState.reconnectPlayer(oldPeerId, from)) {
+                            const gsp = gameState.players.find(p => p.id === oldPeerId);
+                            if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
+                        }
+                        players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
+                        // Mettre à jour placedMeeples pour que l'ancien playerId soit remplacé
+                        Object.values(placedMeeples).forEach(m => {
+                            if (m.playerId === oldPeerId) m.playerId = from;
+                        });
+
+                        // Mettre à jour _connectedPeers du heartbeat (sinon timeout immédiat)
+                        if (heartbeatManager) {
+                            heartbeatManager._connectedPeers = multiplayer._connectedPeers;
+                            heartbeatManager._lastPong[from] = Date.now();
+                            heartbeatManager._timedOut.delete(oldPeerId);
+                            delete heartbeatManager._lastPong[oldPeerId];
+                        }
+
+                        // Envoyer l'état complet
+                        sendFullStateTo(from);
+
+                        // Reprendre la partie si elle était en pause pour ce joueur
+                        if (gamePaused) resumeGame('reconnected');
+
+                        afficherToast(`✅ ${name} s'est reconnecté !`);
+                        multiplayer.broadcast({ type: 'players-update', players });
+                        console.log(`🔄 Reconnexion: ${name} (${oldPeerId} → ${from})`);
                     }
-                    players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
-                    // Mettre à jour placedMeeples pour que l'ancien playerId soit remplacé
-                    Object.values(placedMeeples).forEach(m => {
-                        if (m.playerId === oldPeerId) m.playerId = from;
-                    });
-
-                    // Mettre à jour _connectedPeers du heartbeat (sinon timeout immédiat)
-                    if (heartbeatManager) {
-                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
-                        heartbeatManager._lastPong[from] = Date.now();
-                        heartbeatManager._timedOut.delete(oldPeerId);
-                        delete heartbeatManager._lastPong[oldPeerId];
-                    }
-
-                    // Envoyer l'état complet
-                    sendFullStateTo(from);
-
-                    // Reprendre la partie si elle était en pause pour ce joueur
-                    if (gamePaused) resumeGame('reconnected');
-
-                    afficherToast(`✅ ${name} s'est reconnecté !`);
-                    multiplayer.broadcast({ type: 'players-update', players });
-                    console.log(`🔄 Reconnexion: ${name} (${oldPeerId} → ${from})`);
 
                 } else {
                     // ── Nouvelle connexion en cours de partie ─────────────────
