@@ -1491,6 +1491,25 @@ function stopGameTimer() {
  * Déclencher la pause (hôte uniquement)
  * Affiche l'overlay, démarre le timer, broadcaster aux invités
  */
+/**
+ * Construit la liste players enrichie pour le broadcast players-update :
+ * inclut les fantômes kicked de gameState afin que les invités puissent
+ * afficher l'icône 🚪 et ne pas les effacer de leur gameState.
+ */
+function buildPlayersForBroadcast() {
+    if (!gameState) return players;
+    const enriched = [...players];
+    gameState.players.forEach(gp => {
+        if (gp.kicked && gp.color !== 'spectator') {
+            // Ajouter seulement s'il n'est pas déjà dans la liste
+            if (!enriched.find(p => p.id === gp.id)) {
+                enriched.push({ id: gp.id, name: gp.name, color: gp.color, isHost: false, kicked: true });
+            }
+        }
+    });
+    return enriched;
+}
+
 function pauseGame(disconnectedName) {
     if (!isHost || gamePaused) return;
     gamePaused = true;
@@ -1553,6 +1572,9 @@ function _excludeDisconnectedPlayer(disconnectedName) {
                 }
             }
             players = players.filter(p => p.id !== peerId);
+
+            // Notifier tous les invités du statut kicked pour qu'ils affichent 🚪 immédiatement
+            multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
 
             if (gameSync) gameSync.syncGameResumed('timeout');
 
@@ -2093,7 +2115,7 @@ function _postStartSetup() {
                 // Spectateur : suppression silencieuse, pas de pause
                 gameState.players.splice(gameState.players.findIndex(p => p.id === peerId), 1);
                 players = players.filter(p => p.id !== peerId);
-                if (gameSync) multiplayer.broadcast({ type: 'players-update', players });
+                if (gameSync) multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                 if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
                 afficherToast(`👁 ${disconnectingPlayer.name} a quitté.`);
                 eventBus.emit('score-updated');
@@ -2217,6 +2239,12 @@ function _postStartSetup() {
                         if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
                     }
                     players = players.map(p => p.id === oldPeerId ? { ...p, id: from, disconnected: false, kicked: false } : p);
+                    // Si oldPeerId avait déjà disparu de players (ex: spec intermédiaire déco),
+                    // reconstruire l'entrée depuis gameState
+                    if (!players.find(p => p.id === from)) {
+                        const gsp2 = gameState.players.find(p => p.id === from);
+                        if (gsp2) players.push({ id: from, name: gsp2.name, color: gsp2.color, isHost: false });
+                    }
                     Object.values(placedMeeples).forEach(m => {
                         if (m.playerId === oldPeerId) m.playerId = from;
                     });
@@ -2229,7 +2257,7 @@ function _postStartSetup() {
                     sendFullStateTo(from);
                     if (gamePaused) resumeGame('reconnected');
                     afficherToast(`✅ ${name} s'est reconnecté !`);
-                    multiplayer.broadcast({ type: 'players-update', players });
+                    multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                     console.log(`🔄 Reconnexion joueur: ${name} (${oldPeerId} → ${from})`);
 
                 } else {
@@ -2242,7 +2270,7 @@ function _postStartSetup() {
                         heartbeatManager._lastPong[from] = Date.now();
                     }
                     sendFullStateTo(from);
-                    multiplayer.broadcast({ type: 'players-update', players });
+                    multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                     eventBus.emit('score-updated');
                     if (scorePanelUI) scorePanelUI.updateMobile();
                     updateTurnDisplay();
@@ -2294,6 +2322,9 @@ function _postStartSetup() {
                                 if (gameConfig.extensions?.pig)             newP.hasPig         = true;
                             }
                         }
+                    } else if (p.kicked) {
+                        // L'hôte signale explicitement ce joueur comme kicked → propager le flag
+                        existingById.kicked = true;
                     }
                 });
 
