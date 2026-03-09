@@ -1784,7 +1784,7 @@ function sendFullStateTo(targetPeerId) {
         zoneRegistry: zoneMerger.registry,
         tileToZone:   zoneMerger.tileToZone,
         placedMeeples,
-        tuileEnMain: tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer),
+        tuileEnMain: (() => { const cp = gameState.getCurrentPlayer(); const isHostTurn = cp?.id === multiplayer.peerId; if (isHostTurn) return tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer); return gameState.currentTilePlaced ? null : currentTileForPlayer; })(),
         tuilePosee: gameState.currentTilePlaced,
         gameConfig,
         timerElapsed: gameTimerStart ? Math.floor((Date.now() - gameTimerStart) / 1000) : 0
