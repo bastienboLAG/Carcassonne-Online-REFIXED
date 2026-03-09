@@ -2258,6 +2258,9 @@ function _postStartSetup() {
                     if (gamePaused) resumeGame('reconnected');
                     afficherToast(`✅ ${name} s'est reconnecté !`);
                     multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
+                    updateTurnDisplay();
                     console.log(`🔄 Reconnexion joueur: ${name} (${oldPeerId} → ${from})`);
 
                 } else {
