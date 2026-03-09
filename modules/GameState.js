@@ -145,7 +145,9 @@ export class GameState {
                 monasteries: 0,
                 fields: 0,
                 goods: 0
-            }
+            },
+            disconnected: p.disconnected ?? false,
+            kicked:       p.kicked       ?? false
         }));
         this.currentPlayerIndex = data.currentPlayerIndex || 0;
         this.placedTiles = data.placedTiles || {};

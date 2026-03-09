@@ -48,17 +48,25 @@ export class ScorePanelUI {
         container.innerHTML = '';
         const currentPlayer = this.gameState.getCurrentPlayer();
 
-        const sortedPlayers = [...this.gameState.players].sort((a, b) => {
-            if (a.color === 'spectator' && b.color !== 'spectator') return 1;
-            if (a.color !== 'spectator' && b.color === 'spectator') return -1;
-            return 0;
-        });
+        // Filtrer les entrées spec dont le nom est déjà présent comme joueur réel
+        const realNames = new Set(
+            this.gameState.players.filter(p => p.color !== 'spectator').map(p => p.name)
+        );
+        const sortedPlayers = [...this.gameState.players]
+            .filter(p => p.color !== 'spectator' || !realNames.has(p.name))
+            .sort((a, b) => {
+                if (a.color === 'spectator' && b.color !== 'spectator') return 1;
+                if (a.color !== 'spectator' && b.color === 'spectator') return -1;
+                return 0;
+            });
         sortedPlayers.forEach(player => {
             const isActive = currentPlayer && player.id === currentPlayer.id;
+            const isGhost  = player.disconnected || player.kicked;
 
             const card = document.createElement('div');
             card.className = 'player-score-card';
             if (isActive) card.classList.add(isBonusTurn ? 'active-bonus' : 'active');
+            if (isGhost)  card.style.opacity = '0.45';
 
             // En-tête : indicateur tour + nom + score
             const header = document.createElement('div');
@@ -79,7 +87,7 @@ export class ScorePanelUI {
 
             const name = document.createElement('span');
             name.className   = 'player-score-name';
-            name.textContent = player.name;
+            name.textContent = (player.kicked ? '🚪 ' : '') + player.name;
             header.appendChild(name);
 
             if (player.color !== 'spectator') {
@@ -112,21 +120,28 @@ export class ScorePanelUI {
         container.innerHTML = '';
         const currentPlayer = this.gameState.getCurrentPlayer();
 
-        const sortedPlayersMobile = [...this.gameState.players].sort((a, b) => {
-            if (a.color === 'spectator' && b.color !== 'spectator') return 1;
-            if (a.color !== 'spectator' && b.color === 'spectator') return -1;
-            return 0;
-        });
+        const realNamesMobile = new Set(
+            this.gameState.players.filter(p => p.color !== 'spectator').map(p => p.name)
+        );
+        const sortedPlayersMobile = [...this.gameState.players]
+            .filter(p => p.color !== 'spectator' || !realNamesMobile.has(p.name))
+            .sort((a, b) => {
+                if (a.color === 'spectator' && b.color !== 'spectator') return 1;
+                if (a.color !== 'spectator' && b.color === 'spectator') return -1;
+                return 0;
+            });
         sortedPlayersMobile.forEach(player => {
             const isActive = currentPlayer && player.id === currentPlayer.id;
+            const isGhost  = player.disconnected || player.kicked;
 
             const card = document.createElement('div');
             card.className = 'mobile-player-card' + (isActive ? (isBonusTurn ? ' active active-bonus' : ' active') : '');
+            if (isGhost) card.style.opacity = '0.45';
             card.dataset.playerId = player.id;
 
             const name = document.createElement('div');
             name.className   = 'mobile-player-name';
-            name.textContent = player.name;
+            name.textContent = (player.kicked ? '🚪 ' : '') + player.name;
             card.appendChild(name);
 
             if (player.color !== 'spectator') {
