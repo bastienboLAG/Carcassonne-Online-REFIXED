@@ -1832,10 +1832,16 @@ function applyFullStateSync(data) {
 
     // Corriger le playerId AVANT updateTurnState (sinon isMyTurn se base sur l'ancien id)
     if (!isHost && playerName) {
-        const meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor);
+        // Si on revient après avoir été spec, playerColor peut être 'spectator' alors qu'on est joueur
+        // → chercher d'abord par nom+couleur exacte, sinon par nom seul (hors spectateur)
+        let meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor && p.color !== 'spectator');
+        if (!meInState) {
+            meInState = gameState.players.find(p => p.name === playerName && p.color !== 'spectator');
+        }
         if (meInState && meInState.id !== multiplayer.playerId) {
             console.log('🔧 [SYNC] Correction playerId (early):', multiplayer.playerId, '→', meInState.id);
             multiplayer.playerId = meInState.id;
+            playerColor = meInState.color; // remettre à jour la couleur locale
         }
     }
 
@@ -2191,6 +2197,9 @@ function _postStartSetup() {
                     }
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) scorePanelUI.updateMobile();
+                    updateTurnDisplay();
                     afficherToast(`👁 ${name} observe la partie.`);
                     console.log(`👁 Nouveau spectateur: ${name}`);
 
@@ -2206,7 +2215,7 @@ function _postStartSetup() {
                         const gsp = gameState.players.find(p => p.id === oldPeerId);
                         if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
                     }
-                    players = players.map(p => p.id === oldPeerId ? { ...p, id: from } : p);
+                    players = players.map(p => p.id === oldPeerId ? { ...p, id: from, disconnected: false, kicked: false } : p);
                     Object.values(placedMeeples).forEach(m => {
                         if (m.playerId === oldPeerId) m.playerId = from;
                     });
@@ -2233,6 +2242,9 @@ function _postStartSetup() {
                     }
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) scorePanelUI.updateMobile();
+                    updateTurnDisplay();
                     afficherToast(`👁 ${name} observe la partie.`);
                     console.log(`👁 Retour spectateur (fantôme conservé): ${name}`);
                 }
@@ -2262,6 +2274,7 @@ function _postStartSetup() {
                             // Reconnexion : mettre à jour l'id uniquement
                             existingByIdentity.id = p.id;
                             existingByIdentity.disconnected = false;
+                            existingByIdentity.kicked = false;
                             // Si c'est nous, corriger multiplayer.playerId immédiatement
                             if (!isHost && p.name === playerName && p.color === playerColor
                                     && p.id !== multiplayer.playerId) {
