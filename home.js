@@ -2349,9 +2349,11 @@ function _postStartSetup() {
 
             // Départ volontaire d'un invité en cours de partie
             if (data.type === 'leave-game' && isHost && gameState) {
-                _excludeDisconnectedPlayer(
-                    gameState.players.find(p => p.id === from)?.name ?? ''
-                );
+                const leavingPlayer = gameState.players.find(p => p.id === from);
+                if (leavingPlayer) {
+                    leavingPlayer.disconnected = true;
+                    _excludeDisconnectedPlayer(leavingPlayer.name);
+                }
                 return;
             }
 
