@@ -266,6 +266,7 @@ eventBus.on('meeple-placed', (data) => {
 // Nettoyer pendingAbbePoints côté invité quand le tour change
 // (les scores sont déjà dans gameStateData reçu via deserialize)
 eventBus.on('turn-changed', () => {
+    hideToast();
     if (!isMyTurn && pendingAbbePoints) {
         console.log('🧹 pendingAbbePoints nettoyé côté invité au changement de tour');
         pendingAbbePoints = null;
@@ -2083,6 +2084,11 @@ function _postStartSetup() {
     const _lobbySep = document.querySelector('.menu-lobby-separator');
     if (_backBtn)  _backBtn.style.display  = isHost ? 'block' : 'none';
     if (_lobbySep) _lobbySep.style.display = isHost ? 'block' : 'none';
+    // Bouton quitter uniquement pour les invités
+    const _leaveBtn = document.getElementById('menu-leave-btn');
+    const _leaveSep = document.querySelector('.menu-leave-separator');
+    if (_leaveBtn) _leaveBtn.style.display = !isHost ? 'block' : 'none';
+    if (_leaveSep) _leaveSep.style.display = !isHost ? 'block' : 'none';
     // Afficher/masquer tuiles restantes dans le menu
     const _remBtn = document.getElementById('menu-remaining-btn');
     if (_remBtn) _remBtn.style.display = gameConfig.showRemainingTiles ? 'block' : 'none';
@@ -2341,6 +2347,17 @@ function _postStartSetup() {
                 return;
             }
 
+            // Départ volontaire d'un invité en cours de partie
+            if (data.type === 'leave-game' && isHost && gameState) {
+                const leavingPlayer = gameState.players.find(p => p.id === from);
+                if (leavingPlayer) {
+                    // Marquer disconnected pour que _excludeDisconnectedPlayer le trouve
+                    leavingPlayer.disconnected = true;
+                    _excludeDisconnectedPlayer(leavingPlayer.name);
+                }
+                return;
+            }
+
             // Tous les autres messages → handler normal
             if (_prevOnData) _prevOnData(data, from);
         };
@@ -2502,6 +2519,13 @@ function updateTurnDisplay() {
 function afficherMessage(msg) {
     document.getElementById('tile-preview').innerHTML =
         `<p style="text-align: center; color: white;">${msg}</p>`;
+}
+
+function hideToast() {
+    const toast = document.getElementById('disconnect-toast');
+    if (!toast || toast.style.display === 'none') return;
+    toast.style.opacity = '0';
+    setTimeout(() => { toast.style.display = 'none'; }, 400);
 }
 
 function afficherToast(msg, type = 'error') {
@@ -3122,6 +3146,15 @@ function setupEventListeners() {
         _closeMenu();
         if (confirm('Retourner au lobby ? (La partie sera terminée mais les joueurs resteront connectés)')) {
             returnToLobby();
+        }
+    };
+
+    // Quitter la partie (invité uniquement)
+    document.getElementById('menu-leave-btn').onclick = () => {
+        _closeMenu();
+        if (confirm('Voulez-vous vraiment quitter la partie ?')) {
+            multiplayer.send({ type: 'leave-game' });
+            returnToInitialLobby();
         }
     };
 
