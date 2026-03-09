@@ -2259,7 +2259,7 @@ function _postStartSetup() {
                 // Supprimer les joueurs absents de la liste (ex: spectateur parti)
                 // mais uniquement les spectateurs — les joueurs disconnected sont conservés
                 gameState.players = gameState.players.filter(gp =>
-                    incomingIds.has(gp.id) || (gp.disconnected && gp.color !== 'spectator')
+                    incomingIds.has(gp.id) || ((gp.disconnected || gp.kicked) && gp.color !== 'spectator')
                 );
 
                 // Ajouter les nouveaux joueurs manquants, ou mettre à jour l'id si reconnexion
