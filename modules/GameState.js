@@ -44,6 +44,7 @@ export class GameState {
         if (player) {
             player.id = newPeerId;
             player.disconnected = false;
+            player.kicked = false;
         }
         delete this.disconnectedPlayers[oldPeerId];
         return true;

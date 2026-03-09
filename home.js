@@ -2212,7 +2212,8 @@ function _postStartSetup() {
                     players = players.filter(p => !(p.name === name && p.color === 'spectator'));
                     // Restaurer le fantôme
                     if (!gameState.reconnectPlayer(oldPeerId, from)) {
-                        const gsp = gameState.players.find(p => p.id === oldPeerId);
+                        const gsp = gameState.players.find(p => p.id === oldPeerId)
+                                 || gameState.players.find(p => p.name === name && p.color !== 'spectator');
                         if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
                     }
                     players = players.map(p => p.id === oldPeerId ? { ...p, id: from, disconnected: false, kicked: false } : p);

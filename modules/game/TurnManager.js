@@ -51,7 +51,7 @@ export class TurnManager {
         const currentPlayer = this.gameState.getCurrentPlayer();
         const mePlayer = this.gameState.players.find(p => p.id === this.multiplayer.playerId);
         const iAmSpectator = mePlayer?.color === 'spectator';
-        const iAmDisconnected = mePlayer?.disconnected === true;
+        const iAmDisconnected = mePlayer?.disconnected === true || mePlayer?.kicked === true;
         this.isMyTurn = currentPlayer.id === this.multiplayer.playerId && !iAmSpectator && !iAmDisconnected;
         
         console.log('🔄 Mise à jour isMyTurn:', this.isMyTurn, 'Tour de:', currentPlayer.name);
@@ -172,7 +172,8 @@ export class TurnManager {
             attempts++;
         } while (
             (this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' ||
-             this.gameState.players[this.gameState.currentPlayerIndex]?.disconnected === true) &&
+             this.gameState.players[this.gameState.currentPlayerIndex]?.disconnected === true ||
+             this.gameState.players[this.gameState.currentPlayerIndex]?.kicked === true) &&
             attempts < this.gameState.players.length
         );
         
@@ -274,7 +275,8 @@ export class TurnManager {
             let attempts = 0;
             while (
                 (this.gameState.players[this.gameState.currentPlayerIndex]?.color === 'spectator' ||
-                 this.gameState.players[this.gameState.currentPlayerIndex]?.disconnected === true) &&
+                 this.gameState.players[this.gameState.currentPlayerIndex]?.disconnected === true ||
+                 this.gameState.players[this.gameState.currentPlayerIndex]?.kicked === true) &&
                 attempts < this.gameState.players.length
             ) {
                 this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
