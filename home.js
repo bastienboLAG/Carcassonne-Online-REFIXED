@@ -1321,6 +1321,18 @@ function attachGameSyncCallbacks() {
             gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurnRequest, pendingAbbeData = null) => {
                 console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
 
+                // ⭐ Vérification défensive : rejeter si ce n'est pas le tour de ce joueur
+                const currentPlayer = gameState.getCurrentPlayer();
+                if (!currentPlayer || currentPlayer.id !== playerId) {
+                    console.warn('⚠️ [HÔTE] turn-end-request rejeté : pas le tour de', playerId, '(joueur courant:', currentPlayer?.id, ')');
+                    return;
+                }
+                // Rejeter si la tuile n'a pas été posée côté hôte
+                if (!gameState.currentTilePlaced) {
+                    console.warn('⚠️ [HÔTE] turn-end-request rejeté : tuile non posée pour', playerId);
+                    return;
+                }
+
                 // Appliquer les points Abbé en attente transmis par l'invité
                 if (pendingAbbeData) {
                     const p = gameState.players.find(pl => pl.id === pendingAbbeData.playerId);
@@ -1777,6 +1789,12 @@ function _hostDrawAndSend() {
 
 function sendFullStateTo(targetPeerId) {
     if (!isHost || !gameSync) return;
+    const _cp = gameState.getCurrentPlayer();
+    const _isHostTurn = _cp?.id === multiplayer.peerId;
+    const _tuilePayload = _isHostTurn
+        ? (tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer))
+        : (gameState.currentTilePlaced ? null : currentTileForPlayer);
+    console.log('📤 [SYNC] sendFullStateTo', targetPeerId, '— currentPlayer:', _cp?.name, '— tuileEnMain envoyée:', _tuilePayload?.id ?? null, '— currentTilePlaced:', gameState.currentTilePlaced);
     gameSync.syncFullState(targetPeerId, {
         gameState,
         deck,
@@ -1875,6 +1893,7 @@ function applyFullStateSync(data) {
     if (turnManager) turnManager.updateTurnState();
 
     // Tuile en main : reconstruire pour tout le monde (joueur courant, invité, spectateur)
+    console.log('📥 [SYNC] applyFullStateSync — data.tuileEnMain:', data.tuileEnMain, '— tuilePosee:', tuilePosee, '— deck prêt:', !!deck);
     if (data.tuileEnMain && !tuilePosee) {
         const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
         if (td) {
@@ -2951,7 +2970,7 @@ function setupEventListeners() {
         }
 
         if (!isMyTurn && gameSync) { alert("Ce n'est pas votre tour !"); return; }
-        if (!tuilePosee) { alert('Vous devez poser la tuile avant de terminer votre tour !'); return; }
+        if (!tuilePosee && !gameState.currentTilePlaced) { alert('Vous devez poser la tuile avant de terminer votre tour !'); return; }
 
         // ✅ Étape 4 : invité purement réactif — envoie la request, attend turn-ended de l'hôte
         if (gameSync && !isHost) {
