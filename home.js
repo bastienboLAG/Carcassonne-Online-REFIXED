@@ -3162,6 +3162,8 @@ function setupEventListeners() {
     if (_menuLeaveBtn) _menuLeaveBtn.onclick = () => {
         _closeMenu();
         if (confirm('Voulez-vous vraiment quitter la partie ?')) {
+            _stopAutoReconnect();
+            _hideReconnectOverlay();
             const hostId = players.find(p => p.isHost)?.id;
             if (hostId) multiplayer.sendTo(hostId, { type: 'leave-game' });
             returnToInitialLobby();
