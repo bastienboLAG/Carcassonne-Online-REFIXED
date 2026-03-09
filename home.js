@@ -1863,9 +1863,11 @@ function applyFullStateSync(data) {
             meInState = gameState.players.find(p => p.name === playerName && p.color !== 'spectator');
         }
         if (meInState && meInState.id !== multiplayer.playerId) {
-            console.log('🔧 [SYNC] Correction playerId (early):', multiplayer.playerId, '→', meInState.id);
-            multiplayer.playerId = meInState.id;
-            playerColor = meInState.color; // remettre à jour la couleur locale
+            // Le gameState reçu contient l'ancien peerId — on le met à jour avec le nouveau
+            // (et non l'inverse, sinon isMyTurn ne reconnaît pas notre nouveau peerId)
+            console.log('🔧 [SYNC] Correction playerId dans gameState:', meInState.id, '→', multiplayer.playerId);
+            meInState.id = multiplayer.playerId;
+            playerColor = meInState.color;
         }
     }
 
