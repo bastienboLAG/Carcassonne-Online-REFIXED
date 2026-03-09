@@ -2155,6 +2155,7 @@ function _postStartSetup() {
 
                 if (reconnectOldPeerId) {
                     const [oldPeerId] = [reconnectOldPeerId];
+                    console.log('🔍 reconnectOldPeerId:', reconnectOldPeerId, '| isSpectator:', data.isSpectator, '| typeof:', typeof data.isSpectator);
 
                     if (data.isSpectator) {
                         // ── Retour en spectateur (déco volontaire ou après kick) ──
