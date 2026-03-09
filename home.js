@@ -2272,13 +2272,16 @@ function _postStartSetup() {
                         heartbeatManager._connectedPeers = multiplayer._connectedPeers;
                         heartbeatManager._lastPong[from] = Date.now();
                     }
+                    // Kick auto du fantôme : le joueur a choisi de revenir en spec,
+                    // on ferme la modale et on exclut proprement le fantôme.
+                    _excludeDisconnectedPlayer(name);
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                     eventBus.emit('score-updated');
-                    if (scorePanelUI) scorePanelUI.updateMobile();
+                    if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
                     updateTurnDisplay();
                     afficherToast(`👁 ${name} observe la partie.`);
-                    console.log(`👁 Retour spectateur (fantôme conservé): ${name}`);
+                    console.log(`👁 Retour spectateur (fantôme conservé + kick auto): ${name}`);
                 }
                 return;
             }
