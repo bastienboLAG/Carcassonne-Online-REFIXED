@@ -110,6 +110,7 @@ let gameTimerStart     = null;
 // ── Reconnexion / Pause ──────────────────────────────────────────────────────
 const PAUSE_TIMEOUT_MS = 60_000;  // 1 min (tests) → 3 min (prod)
 let gamePaused         = false;
+const _voluntaryLeaves = new Set(); // peerIds ayant quitté volontairement (leave-game)
 let pauseTimerInterval = null;
 let pauseTimerEnd      = null;
 
@@ -2114,6 +2115,12 @@ function _postStartSetup() {
             if (!isHost) return;
             if (!gameState) return;
 
+            // Départ volontaire déjà traité via leave-game → ignorer
+            if (_voluntaryLeaves.has(peerId)) {
+                _voluntaryLeaves.delete(peerId);
+                return;
+            }
+
             const disconnectingPlayer = gameState.players.find(p => p.id === peerId);
             const isSpectator = disconnectingPlayer?.color === 'spectator';
 
@@ -2351,6 +2358,8 @@ function _postStartSetup() {
             if (data.type === 'leave-game' && isHost && gameState) {
                 const leavingPlayer = gameState.players.find(p => p.id === from);
                 if (leavingPlayer) {
+                    // Marquer départ volontaire pour que onPlayerLeft ne déclenche pas pauseGame
+                    _voluntaryLeaves.add(from);
                     leavingPlayer.disconnected = true;
                     _excludeDisconnectedPlayer(leavingPlayer.name);
                 }
