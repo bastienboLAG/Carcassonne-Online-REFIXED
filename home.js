@@ -1524,7 +1524,7 @@ function attachGameSyncCallbacks() {
                 const guestTile = deck.tiles.find(t => t.id === tileId)
                                ?? { id: tileId }; // fallback si déjà remélangée
 
-                const result = unplaceableManager.handleConfirm(guestTile, gameSync);
+                const result = unplaceableManager.handleConfirm(guestTile, gameSync, playerId);
                 if (!result) return; // cas chain/endgame déjà géré
 
                 gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);

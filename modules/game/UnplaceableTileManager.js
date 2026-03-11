@@ -133,7 +133,7 @@ export class UnplaceableTileManager {
      * Vérifier si toutes les tuiles rivière restantes (sauf river-12) ont été vues comme implaçables
      * Si oui, déclencher la destruction en chaîne
      */
-    _checkRiverAllImplacable(currentTileId, gameSync) {
+    _checkRiverAllImplacable(currentTileId, gameSync, activePeerId = null) {
         const idx = this.deck.currentIndex - 1;
 
         // À la première alerte, capturer les IDs des tuiles rivière restantes (sans river-12)
@@ -178,8 +178,12 @@ export class UnplaceableTileManager {
                 ? `La rivière était complètement bloquée. ${count} tuile(s) rivière ont été détruites. River-12 (embouchure) va maintenant être piochée.`
                 : `La rivière était complètement bloquée. ${count} tuile(s) rivière ont été détruites. ${playerName} va piocher l'embouchure.`;
 
-        this.showTileDestroyedModal('?', playerName, true, 'destroy', true, msg(true));
+        this.showTileDestroyedModal('?', playerName, !activePeerId, 'destroy', true, msg(!activePeerId));
         if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles rivière]`, playerName, 'destroy', count);
+        // Si c'est un invité qui a déclenché la chaîne, lui broadcaster waitingToRedraw
+        if (gameSync && activePeerId) {
+            gameSync.syncUnplaceableHandled('?', playerName, 'destroy', true, activePeerId);
+        }
 
         this._seenImplacableRiver.clear();
         this._riverTilesToTest = null;
@@ -251,7 +255,7 @@ export class UnplaceableTileManager {
      * Retourne { tileId, playerName, action, isRiver, extraMessage } pour que l'appelant gère l'affichage
      * Retourne null si un cas spécial a déjà tout géré (river-12, chain destroy, end game)
      */
-    handleConfirm(tuileEnMain, gameSync) {
+    handleConfirm(tuileEnMain, gameSync, activePeerId = null) {
         const currentPlayer = this.gameState?.getCurrentPlayer();
         const tileId        = tuileEnMain?.id || '?';
         const playerName    = currentPlayer?.name || '?';
@@ -280,8 +284,7 @@ export class UnplaceableTileManager {
                     return { tileId, playerName, action: 'destroy', isRiver: true, special: true };
                 }
 
-                if (this._checkRiverAllImplacable(tileId, gameSync)) return null;
-
+                if (this._checkRiverAllImplacable(tileId, gameSync, activePeerId)) return null;
                 console.log('🌊 Tuile rivière implaçable — remélange dans la rivière');
                 const sub = this.deck.tiles.slice(idx, 11);
                 for (let i = sub.length - 1; i > 0; i--) {
