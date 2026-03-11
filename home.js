@@ -1517,24 +1517,23 @@ function attachGameSyncCallbacks() {
             // Hôte : traitement d'une tuile implaçable d'un invité
             gameSync.onUnplaceableConfirm = (playerId, tileId) => {
                 console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
-                if (!unplaceableManager || !tuileEnMain) return;
+                if (!unplaceableManager) return;
 
-                // Logique deck uniquement
-                const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+                // Construire un objet tuile depuis tileId reçu de l'invité
+                // (tuileEnMain est la tuile de l'hôte, pas celle de l'invité)
+                const guestTile = deck.tiles.find(t => t.id === tileId)
+                               ?? { id: tileId }; // fallback si déjà remélangée
+
+                const result = unplaceableManager.handleConfirm(guestTile, gameSync);
                 if (!result) return; // cas chain/endgame déjà géré
 
-                // Broadcaster à tous : verso + modale
-                // L'invité actif reçoit isActivePlayer=true → bouton Repiocher
-                // L'hôte et les autres reçoivent isActivePlayer=false → modale info
                 gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);
 
-                // Affichage hôte : verso + modale informationnelle (sans Repiocher)
                 if (tilePreviewUI) tilePreviewUI.showBackside();
                 if (!result.special) {
                     unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, false, result.action, result.isRiver);
                 }
 
-                // Mémoriser l'invité qui doit repiocher — la pioche se fera via unplaceable-redraw
                 gameSync._pendingUnplaceableRedraw = playerId;
             };
 
