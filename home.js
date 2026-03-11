@@ -1294,8 +1294,7 @@ function attachGameSyncCallbacks() {
                 if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
             }
         },
-        onUnplaceableHandled: (tileId, pName, action, isRiver, activePeerId) => {
-            const isActivePlayer = activePeerId === multiplayer.playerId || activePeerId === multiplayer.peerId;
+        onUnplaceableHandled: (tileId, pName, action, isRiver, isActivePlayer) => {
             if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
             unplaceableManager.showTileDestroyedModal(tileId, pName, isActivePlayer, action, isRiver);
             if (isActivePlayer) {
@@ -3964,6 +3963,16 @@ function setupEventListeners() {
     // OK modale info destruction
     document.getElementById('tile-destroyed-ok-btn').onclick = () => {
         document.getElementById('tile-destroyed-modal').style.display = 'none';
+        if (waitingToRedraw && isMyTurn) {
+            if (isHost) {
+                const _t = _hostDrawAndSend();
+                if (_t) turnManager.receiveYourTurn(_t.id);
+            } else {
+                if (gameSync) gameSync.syncUnplaceableRedraw();
+            }
+            waitingToRedraw = false;
+            updateTurnDisplay();
+        }
     };
 
     // Bouton debug

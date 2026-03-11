@@ -30,7 +30,7 @@
     {
       "id": 4,
       "type": "field",
-      "edges": [],
+      "edges": ["west"],
       "features": {
    	 "adjacentCities": [1]
 		  },
