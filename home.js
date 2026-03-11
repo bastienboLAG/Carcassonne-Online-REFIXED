@@ -396,10 +396,12 @@ function applyPreset(preset) {
         'ext_builder':           'ext-builder',
         'ext_merchants':         'ext-merchants',
         'ext_pig':               'ext-pig',
+        // Dragon & Fée
         'tiles_dragon':          'tiles-dragon',
-        'ext_fairy':             'ext-fairy'
-        // dragon sub-options
-        // (pas de preset unique pour les sous-options dragon),
+        'ext_dragon':            'ext-dragon',
+        'ext_fairy_protection':  'ext-fairy-protection',
+        'ext_fairy_score_turn':  'ext-fairy-score-turn',
+        'ext_fairy_score_zone':  'ext-fairy-score-zone',
     };
     for (const [key, id] of Object.entries(map)) {
         if (preset[key] !== undefined) {
@@ -417,8 +419,10 @@ function applyPreset(preset) {
     // Mettre à jour les coches maîtres selon l'état des enfants
     document.querySelectorAll('.ext-master').forEach(m => { if (m.id) _updateMasterCheckboxSafe(m.id); });
 
-    // Appliquer les contraintes de dépendance (ex: cochon ↔ champs)
+    // Appliquer les contraintes de dépendance
     _updatePigAvailability();
+    _updateInnsCthdAvailability();
+    _updateDragonAvailability();
 
     saveLobbyOptions();
 }
@@ -635,15 +639,16 @@ _updateInnsCthdAvailability();
 // Liaison tiles-dragon <-> ext-fairy : fée requiert les tuiles dragon
 function _updateDragonAvailability() {
     const tilesOn = document.getElementById('tiles-dragon')?.checked ?? false;
-    // Les 4 options dragon sont toutes subordonnées à tiles-dragon
     ['ext-dragon', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
         const cb    = document.getElementById(id);
         const label = cb?.closest('label');
         if (!cb) return;
         if (!tilesOn) {
-            cb.checked = false; cb.disabled = true;
+            cb.checked  = false;
+            cb.disabled = true;
             if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
         } else {
+            // Ne pas toucher à cb.checked — laisser la valeur existante (restaurée par applyPreset)
             cb.disabled = false;
             if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
         }
@@ -1538,9 +1543,16 @@ function attachGameSyncCallbacks() {
                 console.log('🔄 [HÔTE] Repiocher après implaçable pour:', playerId);
                 const _nextTile = _hostDrawAndSend();
                 if (_nextTile) {
-                    const conn = gameSync.multiplayer.connections.find(c => c.peer === playerId);
-                    if (conn && conn.open) {
-                        conn.send({ type: 'your-turn', tileId: _nextTile.id });
+                    const isHostPlayer = playerId === multiplayer.playerId || playerId === multiplayer.peerId;
+                    if (isHostPlayer) {
+                        // C'est le tour de l'hôte — mettre à jour sa propre preview
+                        turnManager.receiveYourTurn(_nextTile.id);
+                    } else {
+                        // Invité — envoyer la tuile directement
+                        const conn = gameSync.multiplayer.connections.find(c => c.peer === playerId);
+                        if (conn && conn.open) {
+                            conn.send({ type: 'your-turn', tileId: _nextTile.id });
+                        }
                     }
                 }
                 gameSync._pendingUnplaceableRedraw = null;
