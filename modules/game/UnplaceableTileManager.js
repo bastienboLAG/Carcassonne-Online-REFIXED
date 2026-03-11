@@ -99,6 +99,11 @@ export class UnplaceableTileManager {
         if (extraMessage) {
             title.textContent = '🌊 Rivière bloquée';
             text.textContent  = extraMessage;
+        } else if (action === 'dragon-reshuffle') {
+            title.textContent = '🐉 Tuile Dragon remélangée';
+            text.textContent  = isActivePlayer
+                ? `La tuile ${tileId} est une tuile Dragon, mais aucun volcan n'a encore été posé. Elle a été remélangée dans la pioche. Cliquez sur Repiocher pour continuer.`
+                : `La tuile ${tileId} est une tuile Dragon, mais aucun volcan n'a encore été posé. Elle a été remélangée dans la pioche. ${playerName} va repiocher.`;
         } else if (action === 'reshuffle') {
             title.textContent = '🎲 Tuile remélangée';
             text.textContent  = isActivePlayer

@@ -61,7 +61,8 @@ export class GameSync {
             'abbe-recalled', 'abbe-recalled-undo',
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
             'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request',
-            'dragon-state-update', 'dragon-move-request', 'fairy-placed-sync'
+            'dragon-state-update', 'dragon-move-request', 'fairy-placed-sync',
+            'dragon-premature-tile'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -592,6 +593,13 @@ export class GameSync {
             case 'fairy-placed-sync':
                 if (!this.isHost) {
                     this.eventBus?.emit('network-fairy-placed', data);
+                }
+                break;
+
+            case 'dragon-premature-tile':
+                // Reçu par les invités : modale info "dragon sans volcan"
+                if (!this.isHost) {
+                    this.eventBus?.emit('network-dragon-premature', data);
                 }
                 break;
             
