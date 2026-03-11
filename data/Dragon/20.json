@@ -14,7 +14,7 @@
     {
       "id": 2,
       "type": "field",
-      "edges": ["north"],
+      "edges": ["north-left", "north-right"],
       "features": {
    	 "adjacentCities": [1]
 		  },
@@ -30,7 +30,7 @@
     {
       "id": 4,
       "type": "field",
-      "edges": ["south"],
+      "edges": ["south-left", "south-right"],
       "features": {
    	 "adjacentCities": [1]
 		  },

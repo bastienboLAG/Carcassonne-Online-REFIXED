@@ -1957,21 +1957,32 @@ function _hostDrawAndSend() {
     }
 
     // ── Extension Dragon : tuile dragon piochée sans volcan ──────────────
-    // On NE repioche PAS automatiquement — on affiche le badge et on attend
-    // que le joueur clique "Repiocher" manuellement (même flow que implaçable).
+    // Flow identique à une tuile implaçable côté hôte :
+    // handleConfirm gère le deck (remélange Fisher-Yates + currentIndex--),
+    // syncDeckReshuffle, puis on affiche la modale et on attend "Repiocher".
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
         _tileHasDragonZone(tileData) && !gameState.dragonPos) {
-        console.log('🐉 [HÔTE] Tuile dragon sans volcan — repioche manuelle:', tileData.id);
+        console.log('🐉 [HÔTE] Tuile dragon sans volcan — flow implaçable:', tileData.id);
+
+        // tuileEnMain doit être set pour que handleConfirm puisse lire la tuile
+        tuileEnMain = tileData;
         currentTileForPlayer = tileData;
+
+        // Sync pioche aux invités (ils voient le verso comme d'habitude)
         gameSync.syncTileDraw(tileData.id, 0);
-        const _cp = gameState.getCurrentPlayer();
-        const _cpName = _cp?.name ?? '?';
-        // Remettre dans la pioche maintenant (côté deck) pour que l'index reste cohérent
-        deck.reshuffleDragonTile();
-        // Broadcaster badge + modale comme tuile implaçable
-        gameSync.syncUnplaceableHandled(tileData.id, _cpName, 'reshuffle', false, _cp?.id);
+
+        // handleConfirm remet la tuile dans le deck au bon endroit + syncDeckReshuffle
+        const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
+        if (!result) return null; // cas chain/endgame géré (ne devrait pas arriver)
+
+        // Broadcaster modale à tous les invités
+        gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action,
+            result.isRiver, gameState.getCurrentPlayer()?.id);
+
+        // Affichage hôte : verso + modale avec bouton Repiocher
         if (tilePreviewUI) tilePreviewUI.showBackside();
-        unplaceableManager?.showTileDestroyedModal(tileData.id, _cpName, false, 'reshuffle', false);
+        unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, true,
+            result.action, false);
         waitingToRedraw = true;
         updateTurnDisplay();
         return tileData;
@@ -1979,7 +1990,6 @@ function _hostDrawAndSend() {
 
     console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', gameState.getCurrentPlayer()?.name);
     currentTileForPlayer = tileData; // Mémoriser pour reconnexion
-    // Sync compteur deck côté invités
     gameSync.syncTileDraw(tileData.id, 0);
     return tileData;
 }
