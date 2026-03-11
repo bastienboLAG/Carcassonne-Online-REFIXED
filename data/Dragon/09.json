@@ -1,0 +1,41 @@
+{
+  "id": "09",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/09.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north"],
+      "features": ["princess"],
+      "meeplePosition": "3"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": [],
+      "features": {
+   	 "adjacentCities": [1,3]
+		  },
+      "meeplePosition": "13"
+    },
+    {
+      "id": 3,
+      "type": "city",
+      "edges": ["east", "south"],
+      "features": ["shield"],
+      "meeplePosition": "24"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": [],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "16"
+    }
+  ]
+
+}

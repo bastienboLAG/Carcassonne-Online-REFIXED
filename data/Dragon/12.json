@@ -1,0 +1,58 @@
+{
+  "id": "12",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/12.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "dragon",
+      "edges": [],
+      "features": [],
+      "meeplePosition": null
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["east-top", "west-top", "north"],
+      "features": [],
+      "meeplePosition": "8"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["west"],
+      "features": [],
+      "meeplePosition": "11"
+    },
+    {
+      "id": 4,
+      "type": "road",
+      "edges": ["east"],
+      "features": [],
+      "meeplePosition": "15"
+    },
+    {
+      "id": 5,
+      "type": "field",
+      "edges": ["west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "17"
+    },
+    {
+      "id": 6,
+      "type": "road",
+      "edges": ["south"],
+      "features": [],
+      "meeplePosition": "23"
+    },
+    {
+      "id": 7,
+      "type": "field",
+      "edges": ["east-bottom", "south-right"],
+      "features": [],
+      "meeplePosition": "25"
+    }
+  ]
+
+}

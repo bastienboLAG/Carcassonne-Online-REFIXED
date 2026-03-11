@@ -30,6 +30,7 @@ import { MeepleCursorsUI } from './modules/MeepleCursorsUI.js';
 import { MeepleSelectorUI }from './modules/MeepleSelectorUI.js';
 import { MeepleDisplayUI } from './modules/MeepleDisplayUI.js';
 import { LobbyUI }         from './modules/ui/LobbyUI.js';
+import { DragonRules }      from './modules/rules/DragonRules.js';
 import { ModalUI }         from './modules/ui/ModalUI.js';
 
 // ═══════════════════════════════════════════════════════
@@ -70,7 +71,7 @@ let gameConfig = {
     playFields:         true,
     showRemainingTiles: true,
     extensions: { base: true, abbot: false, largeMeeple: false, cathedrals: true, inns: true },
-    tileGroups: { base: true, abbot: false, inns_cathedrals: false }
+    tileGroups: { base: true, abbot: false, inns_cathedrals: false, dragon: false }
 };
 
 // ═══════════════════════════════════════════════════════
@@ -103,6 +104,7 @@ let meepleSelectorUI = null;
 let meepleDisplayUI = null;
 
 let unplaceableManager = null;
+let dragonRules = null;   // Extension Princesse & Dragon
 let finalScoresManager = null;
 let gameTimerInterval  = null;
 let gameTimerStart     = null;
@@ -243,6 +245,9 @@ eventBus.on('tile-placed-own', (data) => {
         if (gameConfig?.extensions?.abbot && !undoManager?.meeplePlacedThisTurn) {
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
         }
+        if (gameConfig?.extensions?.fairy && !undoManager?.meeplePlacedThisTurn) {
+            _showFairyTargets();
+        }
     }
 });
 
@@ -290,6 +295,24 @@ eventBus.on('meeple-count-updated', (data) => {
     }
     // Panel mobile mis à jour via ScorePanelUI
     if (scorePanelUI) scorePanelUI.updateMobile();
+});
+
+// ── Extension Dragon : affichage pion dragon ─────────────────────────
+eventBus.on('dragon-moved', (data) => {
+    _renderDragonPiece(data.x, data.y);
+});
+
+eventBus.on('dragon-phase-ended', () => {
+    _renderDragonPiece(gameState?.dragonPos?.x, gameState?.dragonPos?.y);
+});
+
+// ── Extension Fée : affichage pion fée ───────────────────────────────
+eventBus.on('fairy-placed', (data) => {
+    _renderFairyPiece(data.meepleKey);
+});
+
+eventBus.on('fairy-removed', () => {
+    _removeFairyPiece();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -373,6 +396,8 @@ function applyPreset(preset) {
         'ext_builder':           'ext-builder',
         'ext_merchants':         'ext-merchants',
         'ext_pig':               'ext-pig',
+        'tiles_dragon':          'tiles-dragon',
+        'ext_fairy':             'ext-fairy',
     };
     for (const [key, id] of Object.entries(map)) {
         if (preset[key] !== undefined) {
@@ -413,6 +438,8 @@ function saveLobbyOptions() {
         ext_builder:              document.getElementById('ext-builder')?.checked             ?? false,
         ext_merchants:            document.getElementById('ext-merchants')?.checked           ?? false,
         ext_pig:                  document.getElementById('ext-pig')?.checked               ?? false,
+        tiles_dragon:             document.getElementById('tiles-dragon')?.checked           ?? false,
+        ext_fairy:                document.getElementById('ext-fairy')?.checked              ?? false,
         unplaceable:     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
     };
     localStorage.setItem(LS_KEY, JSON.stringify(state));
@@ -512,6 +539,8 @@ function syncAllOptions() {
         'ext-builder':               document.getElementById('ext-builder')?.checked            ?? false,
         'ext-merchants':             document.getElementById('ext-merchants')?.checked          ?? false,
         'ext-pig':                   document.getElementById('ext-pig')?.checked              ?? false,
+        'tiles-dragon':              document.getElementById('tiles-dragon')?.checked          ?? false,
+        'ext-fairy':                 document.getElementById('ext-fairy')?.checked             ?? false,
         'unplaceable':    document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
         'start':          document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
     };
@@ -520,7 +549,7 @@ function syncAllOptions() {
 
 // Sauvegarder les options à chaque changement manuel
 document.querySelectorAll(
-    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig'
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig, #tiles-dragon, #ext-fairy'
 ).forEach(el => el.addEventListener('change', saveLobbyOptions));
 document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
     .forEach(el => el.addEventListener('change', saveLobbyOptions));
@@ -595,6 +624,25 @@ function _updateInnsCthdAvailability() {
 document.getElementById('tiles-inns-cathedrals')?.addEventListener('change', _updateInnsCthdAvailability);
 _updateInnsCthdAvailability();
 
+// Liaison tiles-dragon <-> ext-fairy : fée requiert les tuiles dragon
+function _updateDragonAvailability() {
+    const tilesOn = document.getElementById('tiles-dragon')?.checked ?? false;
+    const cb      = document.getElementById('ext-fairy');
+    const label   = cb?.closest('label');
+    if (!cb) return;
+    if (!tilesOn) {
+        cb.checked = false; cb.disabled = true;
+        if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
+    } else {
+        cb.disabled = false;
+        if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
+    }
+    _updateMasterCheckboxSafe('all-dragon');
+    saveLobbyOptions();
+}
+document.getElementById('tiles-dragon')?.addEventListener('change', _updateDragonAvailability);
+_updateDragonAvailability();
+
 // ── Coches maîtres (bidirectionnelles) ────────────────────────────────
 // Un groupe est défini par data-group="<masterId>" sur chaque coche enfant.
 // La coche maître est checked si TOUTES les enfants sont cochées,
@@ -612,13 +660,14 @@ function _onMasterChange(masterId) {
     _updatePigAvailability();
     _updateMerchantsAvailability();
     _updateInnsCthdAvailability();
+    _updateDragonAvailability();
     // Déclencher les side-effects (saveLobbyOptions, sync)
     children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
     saveLobbyOptions();
 }
 
 // IDs de toutes les coches maîtres
-const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-tiles'];
+const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
 
 // Brancher les coches maîtres
 MASTER_IDS.forEach(masterId => {
@@ -698,7 +747,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
-        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig'].forEach(id => {
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-fairy'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
@@ -917,7 +966,7 @@ async function _doJoin(isSpectator = false) {
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
                 const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig'].forEach(id => {
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-fairy'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
@@ -1076,13 +1125,15 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
             inns:            document.getElementById('ext-inns')?.checked            ?? true,
             tradersBuilders: document.getElementById('ext-builder')?.checked         ?? false,
             merchants:       document.getElementById('ext-merchants')?.checked       ?? false,
-            pig:             document.getElementById('ext-pig')?.checked             ?? false
+            pig:             document.getElementById('ext-pig')?.checked             ?? false,
+            fairy:           document.getElementById('ext-fairy')?.checked           ?? false
         },
         tileGroups: {
             base:  true,
             abbot:            document.getElementById('tiles-abbot')?.checked             ?? false,
             inns_cathedrals:  document.getElementById('tiles-inns-cathedrals')?.checked   ?? false,
             traders_builders: document.getElementById('tiles-traders-builders')?.checked  ?? false,
+            dragon:           document.getElementById('tiles-dragon')?.checked            ?? false,
             river: document.querySelector('input[name="start"]:checked')?.value === 'river'
         }
     };
@@ -1128,6 +1179,20 @@ function initializeGameModules() {
     meepleDisplayUI.init();
 
     undoManager = new UndoManager(eventBus, gameState, plateau, zoneMerger);
+
+    // Extension Princesse & Dragon
+    if (gameConfig.extensions?.dragon || gameConfig.tileGroups?.dragon) {
+        dragonRules = new DragonRules({
+            gameState,
+            plateau:      plateau.tiles ?? plateau._tiles ?? plateau,
+            placedMeeples,
+            eventBus,
+            ruleRegistry
+        });
+        console.log('🐉 [Dragon] DragonRules initialisé');
+    } else {
+        dragonRules = null;
+    }
 
     // ✅ Modules extraits de home.js
     unplaceableManager = new UnplaceableTileManager({
@@ -1388,6 +1453,28 @@ function attachGameSyncCallbacks() {
 
                 // Reset undo + avance le tour côté hôte
                 gameState.currentTilePlaced = false; // ← remettre à zéro AVANT endTurnRemote (sinon sendFullStateTo envoie tuileEnMain: null)
+
+                // ── Extension Dragon : migration volcano en fin de tour ──
+                if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingVolcanoPos) {
+                    const { x: vx, y: vy } = gameState._pendingVolcanoPos;
+                    dragonRules.onVolcanoPlaced(vx, vy);
+                    gameState._pendingVolcanoPos = null;
+                    _broadcastDragonState();
+                }
+
+                // ── Extension Dragon : démarrer phase dragon si tuile dragon posée ──
+                if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingDragonTile) {
+                    const { playerIndex } = gameState._pendingDragonTile;
+                    gameState._pendingDragonTile = null;
+                    if (undoManager) undoManager.reset();
+                    const started = dragonRules.onDragonTilePlaced(playerIndex);
+                    if (started) {
+                        _broadcastDragonState();
+                        gameSync.syncDragonPhaseStarted(gameState.dragonPhase);
+                        return; // phase dragon prend le relais — pas de pioche maintenant
+                    }
+                }
+
                 if (undoManager) undoManager.reset();
                 if (turnManager) turnManager.endTurnRemote(isBonusTurn);
 
@@ -1444,9 +1531,70 @@ function attachGameSyncCallbacks() {
                 }
                 gameSync._pendingUnplaceableRedraw = null;
             };
+
+            // Hôte : déplacement dragon demandé par un invité
+            gameSync.multiplayer.onDataReceived = ((originalHandler) => (data, from) => {
+                if (data.type === 'dragon-move-request') {
+                    const mover = gameState.players[gameState.dragonPhase.moverIndex];
+                    if (!gameState.dragonPhase.active || mover?.id !== from) {
+                        console.warn('⚠️ [Dragon] dragon-move-request rejeté de', from);
+                        return;
+                    }
+                    // Snapshot undo pour ce déplacement
+                    if (undoManager) undoManager.saveTurnStart(placedMeeples);
+
+                    const { eaten } = dragonRules.executeDragonMove(data.x, data.y);
+                    eaten.forEach(({ key }) => {
+                        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+                    });
+                    _broadcastDragonState();
+                    if (gameState.dragonPhase.active) {
+                        _startDragonTurnUI();
+                    } else {
+                        _onDragonPhaseEnded();
+                    }
+                    return;
+                }
+                if (originalHandler) originalHandler(data, from);
+            })(gameSync.multiplayer.onDataReceived);
         }
     }
 }
+
+// Invités : écouter dragon-state-update et dragon-phase-started
+eventBus.on('network-dragon-state-update', (data) => {
+    if (isHost) return;
+    gameState.dragonPos   = data.dragonPos;
+    gameState.dragonPhase = { ...gameState.dragonPhase, ...data.dragonPhase };
+    gameState.fairyState  = data.fairyState;
+    // Mettre à jour les scores/meeples des joueurs
+    if (data.players) {
+        data.players.forEach(pd => {
+            const p = gameState.players.find(pl => pl.id === pd.id);
+            if (p) Object.assign(p, pd);
+        });
+    }
+    _updateDragonOverlay();
+    if (gameState.dragonPhase.active) {
+        _startDragonTurnUI();
+    } else {
+        _clearDragonCursors();
+    }
+    eventBus.emit('score-updated');
+});
+
+eventBus.on('network-fairy-placed', (data) => {
+    if (isHost) return;
+    if (!dragonRules) return;
+    // Mettre à jour l'état fairy dans gameState
+    gameState.fairyState.ownerId   = data.ownerId;
+    gameState.fairyState.meepleKey = data.meepleKey;
+    gameState.players.forEach(p => { p.hasFairy = false; });
+    const owner = gameState.players.find(p => p.id === data.ownerId);
+    if (owner) owner.hasFairy = true;
+    // Afficher la fée
+    _renderFairyPiece(data.meepleKey);
+});
 
 // ═══════════════════════════════════════════════════════
 // DÉMARRAGE — HÔTE
@@ -1775,17 +1923,314 @@ function _hideReconnectOverlay() {
  */
 function _hostDrawAndSend() {
     if (!deck || !gameSync) return null;
-    const tileData = deck.draw();
+    let tileData = deck.draw();
     if (!tileData) {
         console.log('⚠️ Pioche vide !');
         eventBus.emit('deck-empty');
         return null;
     }
+
+    // ── Extension Dragon : remettre une tuile dragon dans la pioche si pas de volcan posé ──
+    // Une tuile dragon ne peut être jouée qu'après qu'un volcan ait été posé.
+    if (gameConfig.tileGroups?.dragon) {
+        while (tileData && _tileHasDragonZone(tileData) && !gameState.dragonPos) {
+            console.log('🐉 [HÔTE] Tuile dragon piochée sans volcan — remélange:', tileData.id);
+            tileData = deck.reshuffleDragonTile();
+            if (!tileData) {
+                console.log('⚠️ Pioche vide après remélange dragon !');
+                eventBus.emit('deck-empty');
+                return null;
+            }
+        }
+    }
+
     console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', gameState.getCurrentPlayer()?.name);
     currentTileForPlayer = tileData; // Mémoriser pour reconnexion
     // Sync compteur deck côté invités
     gameSync.syncTileDraw(tileData.id, 0);
     return tileData;
+}
+
+/**
+ * Indique si une tuile contient une zone dragon (déclencheur de phase dragon).
+ */
+function _tileHasDragonZone(tileData) {
+    return tileData?.zones?.some(z => z.type === 'dragon') ?? false;
+}
+
+/**
+ * Indique si une tuile contient une zone volcano.
+ */
+function _tileHasVolcanoZone(tileData) {
+    return tileData?.zones?.some(z => z.type === 'volcano') ?? false;
+}
+
+// ═══════════════════════════════════════════════════════
+// EXTENSION DRAGON — réseau & UI
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Broadcast l'état dragon complet à tous les invités.
+ */
+function _broadcastDragonState() {
+    if (!gameSync) return;
+    multiplayer.broadcast({
+        type: 'dragon-state-update',
+        dragonPos:   gameState.dragonPos,
+        dragonPhase: gameState.dragonPhase,
+        fairyState:  gameState.fairyState,
+        players:     gameState.players.map(p => ({
+            id: p.id, meeples: p.meeples, hasAbbot: p.hasAbbot,
+            hasLargeMeeple: p.hasLargeMeeple, hasBuilder: p.hasBuilder,
+            hasPig: p.hasPig, score: p.score
+        }))
+    });
+}
+
+/**
+ * Affiche les curseurs de déplacement du dragon pour le joueur actif du tour dragon.
+ * Appelé côté hôte ou invité selon moverIndex.
+ */
+function _startDragonTurnUI() {
+    const phase = gameState.dragonPhase;
+    if (!phase.active) return;
+
+    const mover = gameState.players[phase.moverIndex];
+    const isMyDragonTurn = mover?.id === multiplayer.playerId;
+
+    _updateDragonOverlay();
+
+    if (isMyDragonTurn && dragonRules) {
+        const validMoves = dragonRules.getValidDragonMoves();
+        _showDragonMoveCursors(validMoves);
+    }
+}
+
+/**
+ * Affiche/met à jour le bandeau d'info phase dragon.
+ */
+function _updateDragonOverlay() {
+    const phase = gameState.dragonPhase;
+    if (!phase.active) {
+        const overlay = document.getElementById('dragon-phase-overlay');
+        if (overlay) overlay.style.display = 'none';
+        return;
+    }
+    const mover = gameState.players[phase.moverIndex];
+    let overlay = document.getElementById('dragon-phase-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'dragon-phase-overlay';
+        overlay.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);' +
+            'background:rgba(180,30,30,0.92);color:#fff;padding:8px 20px;border-radius:8px;' +
+            'font-weight:bold;z-index:1000;pointer-events:none;text-align:center;';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'block';
+    const isMyDragonTurn = mover?.id === multiplayer.playerId;
+    overlay.textContent = isMyDragonTurn
+        ? `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`
+        : `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
+}
+
+/**
+ * Affiche les curseurs de déplacement du dragon sur les tuiles adjacentes valides.
+ */
+function _showDragonMoveCursors(validMoves) {
+    _clearDragonCursors();
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    validMoves.forEach(({ x, y }) => {
+        const tileEl = boardEl.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (!tileEl) return;
+        const cursor = document.createElement('div');
+        cursor.className = 'dragon-move-cursor';
+        cursor.dataset.dx = x;
+        cursor.dataset.dy = y;
+        cursor.style.cssText = 'position:absolute;inset:0;background:rgba(200,50,0,0.35);' +
+            'border:3px solid #c83200;cursor:pointer;z-index:50;display:flex;' +
+            'align-items:center;justify-content:center;font-size:28px;border-radius:4px;';
+        cursor.textContent = '🐉';
+        cursor.addEventListener('click', () => _onDragonMoveClick(x, y));
+        tileEl.style.position = 'relative';
+        tileEl.appendChild(cursor);
+    });
+}
+
+function _clearDragonCursors() {
+    document.querySelectorAll('.dragon-move-cursor').forEach(el => el.remove());
+}
+
+/**
+ * Clic sur un curseur de déplacement dragon.
+ */
+function _onDragonMoveClick(x, y) {
+    if (!dragonRules || !gameState.dragonPhase.active) return;
+    const mover = gameState.players[gameState.dragonPhase.moverIndex];
+    if (mover?.id !== multiplayer.playerId) return;
+
+    _clearDragonCursors();
+
+    if (isHost) {
+        // Sauvegarder snapshot undo pour ce déplacement
+        if (undoManager) undoManager.saveTurnStart(placedMeeples);
+
+        const { eaten } = dragonRules.executeDragonMove(x, y);
+        // Retirer visuellement les meeples mangés
+        eaten.forEach(({ key }) => {
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+        });
+        _broadcastDragonState();
+        if (eaten.length > 0) {
+            afficherToast(`🐉 Le dragon a mangé ${eaten.length} meeple(s) !`, 'dragon');
+        }
+        if (gameState.dragonPhase.active) {
+            _startDragonTurnUI();
+        } else {
+            _onDragonPhaseEnded();
+        }
+    } else {
+        // Invité : envoyer la demande à l'hôte
+        const hostConn = gameSync.multiplayer.connections[0];
+        if (hostConn?.open) {
+            hostConn.send({ type: 'dragon-move-request', x, y, playerId: multiplayer.playerId });
+        }
+    }
+}
+
+/**
+ * Fin de phase dragon — reprendre le tour normal.
+ */
+function _onDragonPhaseEnded() {
+    _clearDragonCursors();
+    _updateDragonOverlay();
+    afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
+
+    if (!isHost) return;
+
+    // Piocher la prochaine tuile pour le joueur qui suit le joueur déclencheur
+    if (deck.remaining() <= 0) {
+        if (gameSync) gameSync.syncTurnEnd();
+        finalScoresManager.computeAndApply(placedMeeples);
+        return;
+    }
+    if (turnManager) turnManager.endTurnRemote(false);
+    const _nextTile = _hostDrawAndSend();
+    if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
+    if (gameSync) gameSync.syncTurnEnd(false, _nextTile?.id ?? null);
+    updateTurnDisplay();
+}
+
+// ── Rendu pion Dragon ─────────────────────────────────────────────────
+
+/**
+ * Affiche le pion dragon centré sur la tuile (x, y).
+ * Crée ou déplace l'élément existant.
+ */
+function _renderDragonPiece(x, y) {
+    if (x == null || y == null) return;
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    // Retirer l'ancien pion dragon s'il est sur une autre tuile
+    const existing = document.getElementById('dragon-piece');
+    if (existing) existing.remove();
+
+    // Trouver ou créer le conteneur meeple de la tuile cible
+    let container = boardEl.querySelector(`.meeple-container[data-pos="${x},${y}"]`);
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'meeple-container';
+        container.dataset.pos = `${x},${y}`;
+        container.style.gridColumn = x;
+        container.style.gridRow    = y;
+        container.style.position   = 'relative';
+        container.style.width      = '208px';
+        container.style.height     = '208px';
+        container.style.pointerEvents = 'none';
+        container.style.zIndex     = '50';
+        boardEl.appendChild(container);
+    }
+
+    const img = document.createElement('img');
+    img.id  = 'dragon-piece';
+    img.src = './assets/Meeples/Dragon.png';
+    // Position 13 = centre (row=2, col=2) → offsetX=offsetY=104px
+    img.style.position  = 'absolute';
+    img.style.left      = '104px';
+    img.style.top       = '104px';
+    img.style.transform = 'translate(-50%, -50%)';
+    // Scale 0.40 → ~113×62px (défini dans MeepleConfig mais on utilise la valeur directe ici)
+    img.style.width     = '113px';
+    img.style.height    = '62px';
+    img.style.zIndex    = '60';  // au-dessus des meeples (z-index 50)
+    img.style.pointerEvents = 'none';
+
+    container.appendChild(img);
+}
+
+// ── Rendu pion Fée ────────────────────────────────────────────────────
+
+/**
+ * Affiche la fée décalée par rapport au meeple auquel elle est attachée.
+ * @param {string} meepleKey  "x,y,position"
+ */
+function _renderFairyPiece(meepleKey) {
+    _removeFairyPiece();
+    if (!meepleKey) return;
+
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    const parts = meepleKey.split(',');
+    const mx = Number(parts[0]);
+    const my = Number(parts[1]);
+    const pos = Number(parts[2]);
+
+    // Calculer la position du meeple attaché (grille 5×5, 208px par tuile)
+    const row = Math.floor((pos - 1) / 5);
+    const col = (pos - 1) % 5;
+    const baseX = 20.8 + col * 41.6;
+    const baseY = 20.8 + row * 41.6;
+
+    // Décalage fixe : -18px horizontalement, -20px verticalement (en haut à gauche du meeple)
+    const fairyX = baseX - 18;
+    const fairyY = baseY - 20;
+
+    let container = boardEl.querySelector(`.meeple-container[data-pos="${mx},${my}"]`);
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'meeple-container';
+        container.dataset.pos = `${mx},${my}`;
+        container.style.gridColumn = mx;
+        container.style.gridRow    = my;
+        container.style.position   = 'relative';
+        container.style.width      = '208px';
+        container.style.height     = '208px';
+        container.style.pointerEvents = 'none';
+        container.style.zIndex     = '50';
+        boardEl.appendChild(container);
+    }
+
+    const img = document.createElement('img');
+    img.id  = 'fairy-piece';
+    img.src = './assets/Meeples/Fairy.png';
+    img.style.position  = 'absolute';
+    img.style.left      = `${fairyX}px`;
+    img.style.top       = `${fairyY}px`;
+    img.style.transform = 'translate(-50%, -50%)';
+    // Scale 0.55 → ~39×62px
+    img.style.width     = '39px';
+    img.style.height    = '62px';
+    img.style.zIndex    = '61';
+    img.style.pointerEvents = 'none';
+
+    container.appendChild(img);
+}
+
+function _removeFairyPiece() {
+    document.getElementById('fairy-piece')?.remove();
 }
 
 function sendFullStateTo(targetPeerId) {
@@ -1864,6 +2309,16 @@ function applyFullStateSync(data) {
     for (const [key, meeple] of Object.entries(placedMeeples)) {
         const [x, y, position] = key.split(',');
         if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
+    }
+
+    // Reconstruire pion dragon et fée si extension active
+    if (gameConfig.tileGroups?.dragon) {
+        if (gameState.dragonPos) {
+            _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+        }
+        if (gameState.fairyState?.meepleKey) {
+            _renderFairyPiece(gameState.fairyState.meepleKey);
+        }
     }
 
     // Restaurer tuilePosee
@@ -1972,9 +2427,12 @@ async function startGame() {
         gameState.players.forEach(p => { p.hasPig = true; });
         console.log('✅ [HOST] hasPig initialisé');
     }
+    // Extension Dragon : pas de flag joueur à init (le dragon n'appartient à personne)
+    // Extension Fairy : la fée n'est pas encore distribuée, sera posée en cours de partie
 
     gameSync = new GameSync(multiplayer, gameState, null);
     gameSync.init();
+    gameSync.eventBus = eventBus; // pour dragon-state-update et autres events réseau
 
     turnManager = new TurnManager(eventBus, gameState, deck, multiplayer, isHost);
     turnManager.init();
@@ -2653,6 +3111,9 @@ function _applyUndoLocally(undoneAction) {
             if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
                 meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
             }
+            if (gameConfig.extensions?.fairy) {
+                _showFairyTargets();
+            }
         }
 
     } else if (undoneAction.type === 'tile') {
@@ -2769,10 +3230,27 @@ function poserTuile(x, y, tile, isFirst = false) {
         if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
         }
+        if (gameConfig.extensions?.fairy && !undoManager?.meeplePlacedThisTurn) {
+            _showFairyTargets();
+        }
     }
 
     if (undoManager && isMyTurn && isHost) {
         undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
+    }
+
+    // ── Extension Dragon : détecter volcano et zone dragon ──────────────
+    if (gameConfig.tileGroups?.dragon && dragonRules) {
+        if (_tileHasVolcanoZone(tile)) {
+            // Migration du dragon en fin de tour — on note la position en attente
+            gameState._pendingVolcanoPos = { x, y };
+            console.log('🌋 [Dragon] Volcano posé en (' + x + ',' + y + ') — migration en fin de tour');
+        }
+        if (_tileHasDragonZone(tile)) {
+            // Phase dragon déclenchée après la phase meeple
+            gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
+            console.log('🐉 [Dragon] Tuile dragon posée — phase dragon en attente après meeple');
+        }
     }
 
     tuileEnMain = null;
@@ -2858,6 +3336,82 @@ function _countAbbePoints(x, y) {
 // ═══════════════════════════════════════════════════════
 // MEEPLES
 // ═══════════════════════════════════════════════════════
+// ── Fée : affichage des cibles et placement ───────────────────────────
+
+/**
+ * Affiche des curseurs sur tous les meeples du joueur actif
+ * auxquels la fée peut s'attacher. Cliquable comme les curseurs abbé.
+ */
+function _showFairyTargets() {
+    if (!dragonRules || !gameState) return;
+    const targets = dragonRules.getFairyTargets(multiplayer.playerId);
+    if (targets.length === 0) return;
+
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    targets.forEach(({ key }) => {
+        const parts = key.split(',');
+        const fx = Number(parts[0]);
+        const fy = Number(parts[1]);
+        const fp = Number(parts[2]);
+
+        const row = Math.floor((fp - 1) / 5);
+        const col = (fp - 1) % 5;
+        const offsetX = 20.8 + col * 41.6;
+        const offsetY = 20.8 + row * 41.6;
+
+        let container = boardEl.querySelector(`.meeple-container[data-pos="${fx},${fy}"]`);
+        if (!container) return;
+
+        const cursor = document.createElement('div');
+        cursor.className = 'fairy-cursor';
+        cursor.dataset.key = key;
+        cursor.style.cssText =
+            `position:absolute;` +
+            `left:${offsetX - 18}px;top:${offsetY - 20}px;` +
+            `width:39px;height:62px;` +
+            `transform:translate(-50%,-50%);` +
+            `cursor:pointer;z-index:62;` +
+            `border-radius:50%;background:rgba(255,220,0,0.35);` +
+            `border:2px dashed gold;`;
+
+        const icon = document.createElement('img');
+        icon.src = './assets/Meeples/Fairy.png';
+        icon.style.cssText = 'width:100%;height:100%;pointer-events:none;opacity:0.8;';
+        cursor.appendChild(icon);
+
+        cursor.addEventListener('click', () => _handleFairyPlacement(key));
+        container.appendChild(cursor);
+    });
+}
+
+function _clearFairyCursors() {
+    document.querySelectorAll('.fairy-cursor').forEach(el => el.remove());
+}
+
+/**
+ * Le joueur actif attache la fée au meeple désigné par meepleKey.
+ */
+function _handleFairyPlacement(meepleKey) {
+    _clearFairyCursors();
+    if (!dragonRules) return;
+
+    dragonRules.placeFairy(multiplayer.playerId, meepleKey);
+    _renderFairyPiece(meepleKey);
+
+    if (gameSync) {
+        multiplayer.broadcast({
+            type: 'fairy-placed-sync',
+            ownerId:   multiplayer.playerId,
+            meepleKey,
+        });
+    }
+
+    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+    updateTurnDisplay();
+}
+
 function afficherSelecteurMeeple(x, y, position, zoneType, mouseX, mouseY) {
     meepleSelectorUI.show(x, y, position, zoneType, mouseX, mouseY, placerMeeple);
 }
@@ -2994,6 +3548,14 @@ function setupEventListeners() {
         console.log('⏭️ Fin de tour - calcul des scores et passage au joueur suivant');
         gameState.currentTilePlaced = false;
 
+        // ── Extension Dragon : migration volcano en fin de tour ──────────
+        if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingVolcanoPos) {
+            const { x: vx, y: vy } = gameState._pendingVolcanoPos;
+            dragonRules.onVolcanoPlaced(vx, vy);
+            gameState._pendingVolcanoPos = null;
+            _broadcastDragonState();
+        }
+
         // ⭐ Vérifier le bonus bâtisseur AVANT le scoring
         // (après scoring le bâtisseur peut être retiré de placedMeeples si zone fermée)
         let builderBonusTriggered = false;
@@ -3073,6 +3635,18 @@ function setupEventListeners() {
         // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
         // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()
         if (undoManager) undoManager.reset();
+
+        // ── Extension Dragon : démarrer la phase dragon si tuile dragon posée ──
+        if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingDragonTile) {
+            const { playerIndex } = gameState._pendingDragonTile;
+            gameState._pendingDragonTile = null;
+            const started = dragonRules.onDragonTilePlaced(playerIndex);
+            if (started) {
+                _broadcastDragonState();
+                _startDragonTurnUI();
+                return; // on ne passe pas au joueur suivant — la phase dragon prend le relais
+            }
+        }
 
         // ✅ Vérifier fin de partie AVANT nextPlayer() :
         // nextPlayer() appelle drawTile() qui consomme une tuile.

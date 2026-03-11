@@ -66,6 +66,26 @@ export const MEEPLE_CONFIG = {
         panelMobile: 0.18,
         selector:    0.30,
     },
+
+    // ── Pions Extension Princesse & Dragon (pas des meeples joueurs) ────
+    // Dragon : image paysage 283x156 — affiché centré sur la tuile
+    // scale plate 0.40 → ~113x62px
+    'Dragon': {
+        w: 283, h: 156,
+        plate:       0.40,
+        panel:       0.00,
+        panelMobile: 0.00,
+        selector:    0.00,
+    },
+    // Fairy : image portrait 71x112 — décalée par rapport au meeple attaché
+    // scale plate 0.55 → ~39x62px, taille proche d'un meeple normal
+    'Fairy': {
+        w: 71, h: 112,
+        plate:       0.55,
+        panel:       0.00,
+        panelMobile: 0.00,
+        selector:    0.44,
+    },
 };
 
 /**

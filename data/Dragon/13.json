@@ -1,0 +1,39 @@
+{
+  "id": "13",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/13.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north"],
+      "features": [],
+      "meeplePosition": "3"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["west", "east", "south"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "15"
+    },
+    {
+      "id": 3,
+      "type": "garden",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "12"
+    },
+    {
+      "id": 4,
+      "type": "dragon",
+      "edges": [],
+      "features": [],
+      "meeplePosition": null
+    }
+  ]
+
+}

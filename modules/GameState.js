@@ -3,34 +3,107 @@
  */
 export class GameState {
     constructor() {
-        this.players = []; // Liste des joueurs
-        this.currentPlayerIndex = 0; // Index du joueur actuel
-        this.disconnectedPlayers = {}; // { peerId: { player, index, disconnectedAt } }
-        this.placedTiles = {}; // Tuiles posées sur le plateau
-        this.deck = []; // Pioche (seulement côté hôte)
-        this.destroyedTilesCount = 0; // Compteur global de tuiles détruites
-        this.currentTilePlaced = false; // Le joueur courant a-t-il posé sa tuile ce tour ?
+        this.players = [];
+        this.currentPlayerIndex = 0;
+        this.disconnectedPlayers = {};
+        this.placedTiles = {};
+        this.deck = [];
+        this.destroyedTilesCount = 0;
+        this.currentTilePlaced = false;
+
+        // ── Extension Princesse & Dragon ────────────────────────────────
+        this.dragonPos = null; // { x, y } | null — position du dragon sur le plateau
+
+        this.dragonPhase = {
+            active: false,
+            movesRemaining: 0,
+            moverIndex: 0,
+            visitedTiles: [],        // [[x,y], ...] — sérialisable
+            triggeringPlayerIndex: 0
+        };
+
+        this.fairyState = {
+            ownerId: null,    // playerId du propriétaire de la fée
+            meepleKey: null,  // clé "x,y,position" du meeple attaché
+        };
     }
 
-    /**
-     * Marquer un joueur comme déconnecté (sans le supprimer)
-     */
+    // ── Dragon ───────────────────────────────────────────────────────────
+
+    placeOrMoveDragon(x, y) {
+        this.dragonPos = { x, y };
+    }
+
+    startDragonPhase(triggeringPlayerIndex) {
+        this.dragonPhase.active = true;
+        this.dragonPhase.movesRemaining = 6;
+        this.dragonPhase.triggeringPlayerIndex = triggeringPlayerIndex;
+        this.dragonPhase.moverIndex = triggeringPlayerIndex;
+        this.dragonPhase.visitedTiles = this.dragonPos
+            ? [[this.dragonPos.x, this.dragonPos.y]]
+            : [];
+    }
+
+    moveDragon(x, y) {
+        this.dragonPos = { x, y };
+        this.dragonPhase.visitedTiles.push([x, y]);
+        this.dragonPhase.movesRemaining--;
+
+        if (this.dragonPhase.movesRemaining > 0) {
+            let next = this.dragonPhase.moverIndex;
+            let attempts = 0;
+            do {
+                next = (next + 1) % this.players.length;
+                attempts++;
+            } while (
+                attempts < this.players.length &&
+                (this.players[next]?.color === 'spectator' ||
+                 this.players[next]?.disconnected === true ||
+                 this.players[next]?.kicked === true)
+            );
+            this.dragonPhase.moverIndex = next;
+        }
+    }
+
+    endDragonPhase() {
+        this.dragonPhase.active = false;
+        this.dragonPhase.movesRemaining = 0;
+        this.dragonPhase.visitedTiles = [];
+    }
+
+    isDragonVisited(x, y) {
+        return this.dragonPhase.visitedTiles.some(([vx, vy]) => vx === x && vy === y);
+    }
+
+    // ── Fée ──────────────────────────────────────────────────────────────
+
+    placeFairy(ownerId, meepleKey) {
+        this.fairyState.ownerId   = ownerId;
+        this.fairyState.meepleKey = meepleKey;
+    }
+
+    removeFairy() {
+        this.fairyState.ownerId   = null;
+        this.fairyState.meepleKey = null;
+    }
+
+    isFairyOnTile(x, y) {
+        if (!this.fairyState.meepleKey) return false;
+        const parts = this.fairyState.meepleKey.split(',');
+        return Number(parts[0]) === x && Number(parts[1]) === y;
+    }
+
+    // ── Joueurs ──────────────────────────────────────────────────────────
+
     markDisconnected(peerId) {
         const index = this.players.findIndex(p => p.id === peerId);
         if (index === -1) return null;
         const player = { ...this.players[index] };
-        this.disconnectedPlayers[peerId] = {
-            player,
-            index,
-            disconnectedAt: Date.now()
-        };
+        this.disconnectedPlayers[peerId] = { player, index, disconnectedAt: Date.now() };
         this.players[index].disconnected = true;
         return { player, index };
     }
 
-    /**
-     * Reconnecter un joueur (par pseudo)
-     */
     findDisconnectedByName(name) {
         return Object.entries(this.disconnectedPlayers).find(
             ([, data]) => data.player.name === name
@@ -50,9 +123,6 @@ export class GameState {
         return true;
     }
 
-    /**
-     * Ajouter un joueur
-     */
     addPlayer(playerId, playerName, color) {
         this.players.push({
             id: playerId,
@@ -60,38 +130,24 @@ export class GameState {
             color: color,
             score: 0,
             meeples: 7,
-            hasAbbot:       false, // Initialisé à false, mis à true si extension Abbé activée
-            hasLargeMeeple: false, // Grand meeple (Auberges & Cathédrales)
-            hasBuilder:     false, // Bâtisseur (Marchands & Bâtisseurs)
-            hasPig:         false, // Cochon (Marchands & Bâtisseurs)
-            goods: { cloth: 0, wheat: 0, wine: 0 }, // Jetons marchandises
-            scoreDetail: {
-                cities: 0,
-                roads: 0,
-                monasteries: 0,
-                fields: 0,
-                goods: 0
-            }
+            hasAbbot:       false,
+            hasLargeMeeple: false,
+            hasBuilder:     false,
+            hasPig:         false,
+            hasFairy:       false,
+            goods: { cloth: 0, wheat: 0, wine: 0 },
+            scoreDetail: { cities: 0, roads: 0, monasteries: 0, fields: 0, goods: 0 }
         });
     }
 
-    /**
-     * Retirer un joueur
-     */
     removePlayer(playerId) {
         this.players = this.players.filter(p => p.id !== playerId);
     }
 
-    /**
-     * Obtenir le joueur actuel
-     */
     getCurrentPlayer() {
         return this.players[this.currentPlayerIndex];
     }
 
-    /**
-     * Passer au joueur suivant
-     */
     nextPlayer() {
         let attempts = 0;
         do {
@@ -103,56 +159,56 @@ export class GameState {
         );
     }
 
-    /**
-     * Vérifier si c'est le tour d'un joueur
-     */
     isPlayerTurn(playerId) {
-        const currentPlayer = this.getCurrentPlayer();
-        return currentPlayer && currentPlayer.id === playerId;
+        return this.getCurrentPlayer()?.id === playerId;
     }
 
-    /**
-     * Sérialiser l'état pour l'envoyer
-     */
     serialize() {
         return {
-            players: this.players,
+            players:            this.players,
             currentPlayerIndex: this.currentPlayerIndex,
-            placedTiles: this.placedTiles,
-            disconnectedPlayers: this.disconnectedPlayers,
-            currentTilePlaced: this.currentTilePlaced
+            placedTiles:        this.placedTiles,
+            disconnectedPlayers:this.disconnectedPlayers,
+            currentTilePlaced:  this.currentTilePlaced,
+            dragonPos:          this.dragonPos,
+            dragonPhase:        this.dragonPhase,
+            fairyState:         this.fairyState,
         };
     }
 
-    /**
-     * Restaurer l'état depuis des données reçues
-     */
     deserialize(data) {
-        // Copier les joueurs (objets plain)
         this.players = (data.players || []).map(p => ({
-            id: p.id,
-            name: p.name,
-            color: p.color,
-            score: p.score || 0,
-            meeples: p.meeples ?? 7,
+            id:             p.id,
+            name:           p.name,
+            color:          p.color,
+            score:          p.score          || 0,
+            meeples:        p.meeples        ?? 7,
             hasAbbot:       p.hasAbbot       ?? false,
             hasLargeMeeple: p.hasLargeMeeple ?? false,
             hasBuilder:     p.hasBuilder     ?? false,
             hasPig:         p.hasPig         ?? false,
-            goods: p.goods ?? { cloth: 0, wheat: 0, wine: 0 },
-            scoreDetail: p.scoreDetail || {
-                cities: 0,
-                roads: 0,
-                monasteries: 0,
-                fields: 0,
-                goods: 0
-            },
-            disconnected: p.disconnected ?? false,
-            kicked:       p.kicked       ?? false
+            hasFairy:       p.hasFairy       ?? false,
+            goods:          p.goods          ?? { cloth: 0, wheat: 0, wine: 0 },
+            scoreDetail:    p.scoreDetail    || { cities: 0, roads: 0, monasteries: 0, fields: 0, goods: 0 },
+            disconnected:   p.disconnected   ?? false,
+            kicked:         p.kicked         ?? false,
         }));
-        this.currentPlayerIndex = data.currentPlayerIndex || 0;
-        this.placedTiles = data.placedTiles || {};
+        this.currentPlayerIndex  = data.currentPlayerIndex  || 0;
+        this.placedTiles         = data.placedTiles         || {};
         this.disconnectedPlayers = data.disconnectedPlayers || {};
-        this.currentTilePlaced = data.currentTilePlaced ?? false;
+        this.currentTilePlaced   = data.currentTilePlaced   ?? false;
+
+        this.dragonPos = data.dragonPos ?? null;
+        this.dragonPhase = {
+            active:                data.dragonPhase?.active                ?? false,
+            movesRemaining:        data.dragonPhase?.movesRemaining        ?? 0,
+            moverIndex:            data.dragonPhase?.moverIndex            ?? 0,
+            visitedTiles:          data.dragonPhase?.visitedTiles          ?? [],
+            triggeringPlayerIndex: data.dragonPhase?.triggeringPlayerIndex ?? 0,
+        };
+        this.fairyState = {
+            ownerId:   data.fairyState?.ownerId   ?? null,
+            meepleKey: data.fairyState?.meepleKey ?? null,
+        };
     }
 }

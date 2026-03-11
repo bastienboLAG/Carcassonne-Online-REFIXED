@@ -1,0 +1,46 @@
+{
+  "id": "25",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/25.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west", "north"],
+      "features": [],
+      "meeplePosition": "7"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["east-top", "south-left"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "22"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["south", "east"],
+      "features": [],
+      "meeplePosition": "15"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["east-bottom", "south-right"],
+      "features": [],
+      "meeplePosition": "25"
+    },
+    {
+      "id": 5,
+      "type": "portal",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "24"
+    }
+  ]
+
+}

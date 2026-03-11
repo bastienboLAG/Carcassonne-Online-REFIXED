@@ -1,0 +1,278 @@
+/**
+ * DragonRules — Extension Princesse & Dragon
+ *
+ * Responsabilités :
+ *   - Détecter les zones volcano/dragon sur une tuile posée
+ *   - Calculer les tuiles adjacentes valides pour le déplacement du dragon
+ *   - Manger les meeples sur la tuile cible
+ *   - Gérer la fée (attacher, voler, blocage dragon)
+ *   - Gérer la princess (retirer un meeple d'une ville)
+ */
+
+import { isDragonEdible, isFairyAttachable } from './DragonConfig.js';
+
+export class DragonRules {
+    /**
+     * @param {object} params
+     * @param {GameState}        params.gameState
+     * @param {object}           params.plateau        — map `x,y` → tileData
+     * @param {object}           params.placedMeeples  — map `x,y,position` → meeple
+     * @param {EventBus}         params.eventBus
+     * @param {RuleRegistry}     params.ruleRegistry
+     */
+    constructor({ gameState, plateau, placedMeeples, eventBus, ruleRegistry }) {
+        this.gameState    = gameState;
+        this.plateau      = plateau;
+        this.placedMeeples = placedMeeples;
+        this.eventBus     = eventBus;
+        this.ruleRegistry = ruleRegistry;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Détection de zones sur une tuile
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Indique si une tuile contient une zone de type donné.
+     * @param {object} tile
+     * @param {string} type  'volcano' | 'dragon' | 'princess' | 'portal'
+     */
+    tileHasZone(tile, type) {
+        return tile?.zones?.some(z => z.type === type) ?? false;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Volcano
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Appelé quand une tuile volcano est posée (ou en fin de tour si migration).
+     * Place/migre le dragon sur cette tuile.
+     * Ne déclenche PAS la phase dragon.
+     */
+    onVolcanoPlaced(x, y) {
+        console.log(`🌋 [Dragon] Volcano posé en (${x},${y}) — dragon migre`);
+        this.gameState.placeOrMoveDragon(x, y);
+        this.eventBus.emit('dragon-moved', { x, y, phase: 'volcano' });
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Dragon — déclenchement
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Appelé quand une tuile dragon est posée.
+     * Démarre la phase dragon si le dragon est sur le plateau.
+     * @param {number} triggeringPlayerIndex
+     * @returns {boolean} true si la phase a démarré
+     */
+    onDragonTilePlaced(triggeringPlayerIndex) {
+        if (!this.gameState.dragonPos) {
+            console.warn('[Dragon] Tuile dragon posée mais dragon pas encore sur le plateau — ignoré');
+            return false;
+        }
+        console.log(`🐉 [Dragon] Phase dragon démarrée par joueur index ${triggeringPlayerIndex}`);
+        this.gameState.startDragonPhase(triggeringPlayerIndex);
+        this.eventBus.emit('dragon-phase-started', {
+            pos: this.gameState.dragonPos,
+            moverIndex: this.gameState.dragonPhase.moverIndex,
+        });
+        return true;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Dragon — déplacement
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calcule les tuiles adjacentes valides pour le déplacement du dragon.
+     * Une tuile est valide si :
+     *   - elle existe sur le plateau
+     *   - elle n'a pas encore été visitée ce cycle
+     *   - elle ne contient pas la fée
+     * @returns {Array<{x,y}>}
+     */
+    getValidDragonMoves() {
+        const { x, y } = this.gameState.dragonPos;
+        const candidates = [
+            { x: x,     y: y - 1 }, // nord
+            { x: x + 1, y: y     }, // est
+            { x: x,     y: y + 1 }, // sud
+            { x: x - 1, y: y     }, // ouest
+        ];
+
+        return candidates.filter(({ x: cx, y: cy }) => {
+            const key = `${cx},${cy}`;
+            if (!this.plateau[key]) return false;                        // tuile inexistante
+            if (this.gameState.isDragonVisited(cx, cy)) return false;   // déjà visitée
+            if (this.gameState.isFairyOnTile(cx, cy)) return false;     // fée présente
+            return true;
+        });
+    }
+
+    /**
+     * Exécute un déplacement du dragon vers (x,y).
+     * Mange les meeples présents, met à jour l'état.
+     * @param {number} x
+     * @param {number} y
+     * @returns {{ eaten: Array<{key, meeple}> }} liste des meeples mangés
+     */
+    executeDragonMove(x, y) {
+        const eaten = this._eatMeeplesAt(x, y);
+        this.gameState.moveDragon(x, y);
+
+        this.eventBus.emit('dragon-moved', {
+            x, y,
+            phase: 'move',
+            eaten,
+            movesRemaining: this.gameState.dragonPhase.movesRemaining,
+            moverIndex:     this.gameState.dragonPhase.moverIndex,
+        });
+
+        // Vérifier si la phase doit se terminer
+        const validMoves = this.getValidDragonMoves();
+        if (this.gameState.dragonPhase.movesRemaining <= 0 || validMoves.length === 0) {
+            this._endDragonPhase(validMoves.length === 0 ? 'blocked' : 'exhausted');
+        }
+
+        return { eaten };
+    }
+
+    /**
+     * Mange tous les meeples éligibles sur la tuile (x,y).
+     * Si la fée est sur ce meeple, elle est retirée aussi.
+     * @returns {Array<{key, meeple}>}
+     */
+    _eatMeeplesAt(x, y) {
+        const eaten = [];
+        const keysToDelete = [];
+
+        for (const [key, meeple] of Object.entries(this.placedMeeples)) {
+            const parts = key.split(',');
+            const mx = Number(parts[0]);
+            const my = Number(parts[1]);
+            if (mx !== x || my !== y) continue;
+            if (!isDragonEdible(meeple.type)) continue;
+
+            eaten.push({ key, meeple });
+            keysToDelete.push(key);
+
+            // Rendre le meeple au joueur
+            const player = this.gameState.players.find(p => p.id === meeple.playerId);
+            if (player) {
+                this._returnMeeple(player, meeple.type);
+            }
+
+            // Si la fée était attachée à ce meeple, la retirer
+            if (this.gameState.fairyState.meepleKey === key) {
+                console.log(`🧚 [Fée] Meeple mangé — fée retirée`);
+                this.gameState.removeFairy();
+                this.eventBus.emit('fairy-removed', { reason: 'dragon-ate-meeple' });
+            }
+        }
+
+        keysToDelete.forEach(k => delete this.placedMeeples[k]);
+        return eaten;
+    }
+
+    /**
+     * Rend un meeple à son joueur selon le type.
+     */
+    _returnMeeple(player, type) {
+        switch (type) {
+            case 'Abbot':        player.hasAbbot       = true; break;
+            case 'Large':
+            case 'Large-Farmer': player.hasLargeMeeple = true; break;
+            case 'Builder':      player.hasBuilder     = true; break;
+            case 'Pig':          player.hasPig         = true; break;
+            default:             if (player.meeples < 7) player.meeples++; break;
+        }
+    }
+
+    _endDragonPhase(reason) {
+        console.log(`🐉 [Dragon] Fin de phase — raison: ${reason}`);
+        this.gameState.endDragonPhase();
+        this.eventBus.emit('dragon-phase-ended', { reason });
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Fée
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Calcule les meeples sur lesquels le joueur peut poser/voler la fée.
+     * @param {string} playerId
+     * @returns {Array<{key, meeple}>}
+     */
+    getFairyTargets(playerId) {
+        return Object.entries(this.placedMeeples)
+            .filter(([, m]) => m.playerId === playerId && isFairyAttachable(m.type))
+            .map(([key, meeple]) => ({ key, meeple }));
+    }
+
+    /**
+     * Pose ou vole la fée.
+     * @param {string} playerId
+     * @param {string} meepleKey
+     */
+    placeFairy(playerId, meepleKey) {
+        const prev = this.gameState.fairyState.ownerId;
+        this.gameState.placeFairy(playerId, meepleKey);
+
+        // Mettre à jour hasFairy sur les joueurs
+        this.gameState.players.forEach(p => { p.hasFairy = false; });
+        const owner = this.gameState.players.find(p => p.id === playerId);
+        if (owner) owner.hasFairy = true;
+
+        this.eventBus.emit('fairy-placed', { playerId, meepleKey, stolenFrom: prev });
+        console.log(`🧚 [Fée] Posée sur ${meepleKey} par joueur ${playerId}${prev && prev !== playerId ? ` (volée à ${prev})` : ''}`);
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Princess
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Quand une tuile princess est posée sur une ville,
+     * le joueur actif PEUT retirer un meeple ennemi de cette ville.
+     * Retourne les clés de meeples éligibles dans les zones city adjacentes.
+     * @param {number} x
+     * @param {number} y
+     * @param {object} tile
+     * @param {string} currentPlayerId
+     * @returns {Array<string>} clés de meeples éjectables
+     */
+    getPrincessTargets(x, y, tile, currentPlayerId) {
+        const targets = [];
+        const princessZones = tile.zones.filter(z => z.type === 'city' && z.features?.includes?.('princess'));
+
+        for (const zone of princessZones) {
+            // Trouver tous les meeples dans cette zone city (via zoneMerger si disponible)
+            // Pour l'instant : chercher les meeples sur cette tuile dans une zone city
+            for (const [key, meeple] of Object.entries(this.placedMeeples)) {
+                const parts = key.split(',');
+                if (Number(parts[0]) !== x || Number(parts[1]) !== y) continue;
+                if (meeple.playerId === currentPlayerId) continue; // pas ses propres meeples
+                targets.push(key);
+            }
+        }
+
+        return targets;
+    }
+
+    /**
+     * Exécute l'éjection princess d'un meeple.
+     * @param {string} meepleKey
+     */
+    executePrincess(meepleKey) {
+        const meeple = this.placedMeeples[meepleKey];
+        if (!meeple) return;
+
+        const player = this.gameState.players.find(p => p.id === meeple.playerId);
+        if (player) this._returnMeeple(player, meeple.type);
+
+        delete this.placedMeeples[meepleKey];
+        this.eventBus.emit('princess-ejected', { meepleKey, meeple });
+        console.log(`👸 [Princess] Meeple éjecté : ${meepleKey}`);
+    }
+}

@@ -85,6 +85,22 @@ export class Deck {
             }
         }
 
+        // ── Groupe Dragon (optionnel) ────────────────────────────────────
+        if (tileGroups.dragon) {
+            const dragonIds = ['01','02','03','04','05','06','07','08','09','10',
+                               '11','12','13','14','15','16','17','18','19','20',
+                               '21','22','23','24','25','26','27','28','29'];
+            for (const id of dragonIds) {
+                try {
+                    const res  = await fetch(`./data/Dragon/${id}.json`);
+                    const data = await res.json();
+                    normalTiles.push(data);
+                } catch (e) {
+                    console.error(`Erreur tuile Dragon/${id}:`, e);
+                }
+            }
+        }
+
         // ── Calcul du total ─────────────────────────────────────────────
         const allTileData = [...riverTiles, ...normalTiles];
         if (testMode) {
@@ -141,7 +157,7 @@ export class Deck {
                     normalDeck.push({ id: 'inns_cathedrals-03', zones: data.zones, imagePath: data.image });
                 } catch(e) { console.error('Erreur chargement inns_cathedrals-03:', e); }
             }
-            const testIds = ['inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08', 'inns_cathedrals-08'];
+            const testIds = ['base-23', 'base-23', 'base-23', 'inns_cathedrals-03', 'base-23'];
             this.tiles = testIds.map(id => {
                 const found = normalDeck.find(t => t.id === id);
                 return found ? { ...found } : null;
@@ -161,6 +177,48 @@ export class Deck {
         }
 
         console.log(`📦 Deck chargé: ${this.tiles.length} tuiles (total: ${this.totalTiles})`);
+    }
+
+    /**
+     * Vérifie si une tuile contient une zone dragon (déclencheur phase dragon).
+     * @param {object} tile
+     * @returns {boolean}
+     */
+    _tileHasDragonZone(tile) {
+        return tile?.zones?.some(z => z.type === 'dragon') ?? false;
+    }
+
+    /**
+     * Appelé par l'hôte quand une tuile dragon est piochée sans volcan actif.
+     * Remet la tuile dans la pioche à une position aléatoire et la mélange.
+     * Pioche la suivante et la retourne (ne contient plus de zone dragon garantie
+     * car un seul reshuf suffit — si 2 dragons consécutifs, on reshuf à nouveau
+     * jusqu'à tomber sur une tuile non-dragon).
+     * @returns {object|null} la prochaine tuile valide, ou null si pioche vide
+     */
+    reshuffleDragonTile() {
+        // La tuile dragon est à currentIndex - 1 (vient d'être piochée)
+        const dragonTileIndex = this.currentIndex - 1;
+        const dragonTile = this.tiles[dragonTileIndex];
+
+        // Retirer la tuile dragon du deck (on va la réinsérer)
+        this.tiles.splice(dragonTileIndex, 1);
+        this.currentIndex--;  // on recule car on a retiré avant currentIndex
+
+        // Insérer à une position aléatoire APRÈS currentIndex
+        const remaining = this.tiles.length - this.currentIndex;
+        if (remaining === 0) {
+            // Plus rien derrière, remettre quand même (pioche "vide" dans la pratique)
+            this.tiles.push(dragonTile);
+        } else {
+            const insertAt = this.currentIndex + Math.floor(Math.random() * remaining);
+            this.tiles.splice(insertAt, 0, dragonTile);
+        }
+
+        console.log(`🐉 [Deck] Tuile dragon remélangée à l'index ${this.currentIndex + Math.floor(Math.random() * remaining)}`);
+
+        // Piocher la prochaine tuile (peut aussi être dragon — l'appelant doit reboucler)
+        return this.draw();
     }
 
     _shuffleArray(arr) {

@@ -1,0 +1,23 @@
+{
+  "id": "02",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/02.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north", "east", "south", "west"],
+      "features": [],
+      "meeplePosition": "9"
+    },
+    {
+      "id": 2,
+      "type": "volcano",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "18"
+    }
+  ]
+
+}

@@ -180,13 +180,16 @@
                         <span>Meeple Cochon</span>
                     </label>
                 </details>
-            </div>
-
-            <div class="config-section">
-                <h3>
-                    Tuiles
-                    <input type="checkbox" id="all-tiles" class="ext-master" title="Tout activer/désactiver">
-                </h3>
+                <details>
+                    <summary>
+                        <strong>Princesse &amp; Dragon</strong>
+                        <input type="checkbox" id="all-dragon" class="ext-master" title="Tout activer/désactiver">
+                    </summary>
+                    <label class="toggle-option">
+                        <input type="checkbox" id="ext-fairy" data-group="all-dragon">
+                        <span>Meeple Fée (×3)</span>
+                    </label>
+                </details>
                 <label class="toggle-option">
                     <input type="checkbox" id="tiles-base" checked onclick="return false;" style="cursor:default;">
                     <span>Base (72 tuiles) <em style="color:rgba(255,255,255,0.4)">(obligatoires)</em></span>
@@ -202,6 +205,10 @@
                 <label class="toggle-option">
                     <input type="checkbox" id="tiles-traders-builders" data-group="all-tiles">
                     <span>Marchands &amp; Bâtisseurs (+24 tuiles)</span>
+                </label>
+                <label class="toggle-option">
+                    <input type="checkbox" id="tiles-dragon" data-group="all-tiles">
+                    <span>Princesse &amp; Dragon (+29 tuiles)</span>
                 </label>
             </div>
 
@@ -247,8 +254,6 @@
                 <button id="menu-rules-btn" class="menu-item-btn">📜 Règles de cette partie</button>
                 <hr class="menu-separator menu-lobby-separator" style="display:none;">
                 <button id="back-to-lobby-btn" class="menu-item-btn menu-item-danger" style="display:none;">↩️ Retour lobby</button>
-                <hr class="menu-separator menu-leave-separator" style="display:none;">
-                <button id="menu-leave-btn" class="menu-item-btn menu-item-danger" style="display:none;">🚪 Quitter la partie</button>
             </div>
         </div>
 

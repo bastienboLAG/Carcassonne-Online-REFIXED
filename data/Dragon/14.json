@@ -1,0 +1,32 @@
+{
+  "id": "14",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/14.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["west", "north"],
+      "features": [],
+      "meeplePosition": "7"
+    },
+    {
+      "id": 2,
+      "type": "field",
+      "edges": ["east", "south"],
+      "features": {
+   	 "adjacentCities": [1]
+		  },
+      "meeplePosition": "19"
+    },
+    {
+      "id": 3,
+      "type": "dragon",
+      "edges": [],
+      "features": [],
+      "meeplePosition": null
+    }
+  ]
+
+}

@@ -7,6 +7,7 @@ export class GameSync {
         this.gameState = gameState;
         this.isHost = multiplayer.isHost;
         this.originalHandler = originalHandler; // Handler du lobby à préserver
+        this.eventBus = null; // Assigné depuis home.js après construction
         
         // Callbacks pour les actions de jeu
         this.onDeckReceived = null;
@@ -59,7 +60,8 @@ export class GameSync {
             'game-paused', 'game-resumed', 'full-state-sync', 'rejoin-accepted', 'rejoin-rejected',
             'abbe-recalled', 'abbe-recalled-undo',
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
-            'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request'
+            'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request',
+            'dragon-state-update', 'dragon-move-request', 'fairy-placed-sync'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -577,6 +579,19 @@ export class GameSync {
                 if (this.onGameEnded && data.playerId !== this.multiplayer.playerId) {
                     console.log('🏁 [SYNC] Fin de partie reçue');
                     this.onGameEnded(data.scores, data.destroyedTilesCount ?? 0);
+                }
+                break;
+
+            case 'dragon-state-update':
+                // Relayé par l'hôte à tous les invités — les invités mettent à jour leur état dragon
+                if (!this.isHost) {
+                    this.eventBus?.emit('network-dragon-state-update', data);
+                }
+                break;
+
+            case 'fairy-placed-sync':
+                if (!this.isHost) {
+                    this.eventBus?.emit('network-fairy-placed', data);
                 }
                 break;
             

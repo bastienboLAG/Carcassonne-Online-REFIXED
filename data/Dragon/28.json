@@ -1,0 +1,38 @@
+{
+  "id": "28",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/28.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "city",
+      "edges": ["north"],
+      "features": [],
+      "meeplePosition": "3"
+    },
+    {
+      "id": 2,
+      "type": "city",
+      "edges": ["west"],
+      "features": [],
+      "meeplePosition": "11"
+    },
+    {
+      "id": 3,
+      "type": "field",
+      "edges": ["south", "east"],
+      "features": {
+   	 "adjacentCities": [1,2]
+		  },
+      "meeplePosition": "23"
+    },
+    {
+      "id": 4,
+      "type": "volcano",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "14"
+    }
+  ]
+}

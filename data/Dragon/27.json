@@ -1,0 +1,36 @@
+{
+  "id": "27",
+  "quantity": 1,
+  "extension": "Dragon",
+  "image": "./assets/Dragon/C2/27.png",
+  "zones": [
+    {
+      "id": 1,
+      "type": "field",
+      "edges": ["north", "west-top", "east", "south-right"],
+      "features": [],
+      "meeplePosition": "19"
+    },
+    {
+      "id": 2,
+      "type": "volcano",
+      "edges": [],
+      "features": [],
+      "meeplePosition": "8"
+    },
+    {
+      "id": 3,
+      "type": "road",
+      "edges": ["west", "south"],
+      "features": [],
+      "meeplePosition": "17"
+    },
+    {
+      "id": 4,
+      "type": "field",
+      "edges": ["west-bottom", "south-left"],
+      "features": [],
+      "meeplePosition": "21"
+    }
+  ]
+}
