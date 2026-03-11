@@ -397,7 +397,9 @@ function applyPreset(preset) {
         'ext_merchants':         'ext-merchants',
         'ext_pig':               'ext-pig',
         'tiles_dragon':          'tiles-dragon',
-        'ext_fairy':             'ext-fairy',
+        'ext_fairy':             'ext-fairy'
+        // dragon sub-options
+        // (pas de preset unique pour les sous-options dragon),
     };
     for (const [key, id] of Object.entries(map)) {
         if (preset[key] !== undefined) {
@@ -439,7 +441,10 @@ function saveLobbyOptions() {
         ext_merchants:            document.getElementById('ext-merchants')?.checked           ?? false,
         ext_pig:                  document.getElementById('ext-pig')?.checked               ?? false,
         tiles_dragon:             document.getElementById('tiles-dragon')?.checked           ?? false,
-        ext_fairy:                document.getElementById('ext-fairy')?.checked              ?? false,
+        ext_dragon:               document.getElementById('ext-dragon')?.checked              ?? false,
+        ext_fairy_protection:     document.getElementById('ext-fairy-protection')?.checked     ?? false,
+        ext_fairy_score_turn:     document.getElementById('ext-fairy-score-turn')?.checked     ?? false,
+        ext_fairy_score_zone:     document.getElementById('ext-fairy-score-zone')?.checked     ?? false,
         unplaceable:     document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
     };
     localStorage.setItem(LS_KEY, JSON.stringify(state));
@@ -540,7 +545,10 @@ function syncAllOptions() {
         'ext-merchants':             document.getElementById('ext-merchants')?.checked          ?? false,
         'ext-pig':                   document.getElementById('ext-pig')?.checked              ?? false,
         'tiles-dragon':              document.getElementById('tiles-dragon')?.checked          ?? false,
-        'ext-fairy':                 document.getElementById('ext-fairy')?.checked             ?? false,
+        'ext-dragon':                document.getElementById('ext-dragon')?.checked              ?? false,
+        'ext-fairy-protection':      document.getElementById('ext-fairy-protection')?.checked     ?? false,
+        'ext-fairy-score-turn':      document.getElementById('ext-fairy-score-turn')?.checked     ?? false,
+        'ext-fairy-score-zone':      document.getElementById('ext-fairy-score-zone')?.checked     ?? false,
         'unplaceable':    document.querySelector('input[name="unplaceable"]:checked')?.value ?? 'reshuffle',
         'start':          document.querySelector('input[name="start"]:checked')?.value ?? 'unique',
     };
@@ -549,7 +557,7 @@ function syncAllOptions() {
 
 // Sauvegarder les options à chaque changement manuel
 document.querySelectorAll(
-    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig, #tiles-dragon, #ext-fairy'
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig, #tiles-dragon, #ext-dragon, #ext-fairy-protection, #ext-fairy-score-turn, #ext-fairy-score-zone'
 ).forEach(el => el.addEventListener('change', saveLobbyOptions));
 document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
     .forEach(el => el.addEventListener('change', saveLobbyOptions));
@@ -627,16 +635,19 @@ _updateInnsCthdAvailability();
 // Liaison tiles-dragon <-> ext-fairy : fée requiert les tuiles dragon
 function _updateDragonAvailability() {
     const tilesOn = document.getElementById('tiles-dragon')?.checked ?? false;
-    const cb      = document.getElementById('ext-fairy');
-    const label   = cb?.closest('label');
-    if (!cb) return;
-    if (!tilesOn) {
-        cb.checked = false; cb.disabled = true;
-        if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
-    } else {
-        cb.disabled = false;
-        if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
-    }
+    // Les 4 options dragon sont toutes subordonnées à tiles-dragon
+    ['ext-dragon', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
+        const cb    = document.getElementById(id);
+        const label = cb?.closest('label');
+        if (!cb) return;
+        if (!tilesOn) {
+            cb.checked = false; cb.disabled = true;
+            if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
+        } else {
+            cb.disabled = false;
+            if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
+        }
+    });
     _updateMasterCheckboxSafe('all-dragon');
     saveLobbyOptions();
 }
@@ -747,7 +758,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
-        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-fairy'].forEach(id => {
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
@@ -966,7 +977,7 @@ async function _doJoin(isSpectator = false) {
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
                 const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-fairy'].forEach(id => {
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
@@ -1126,7 +1137,10 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
             tradersBuilders: document.getElementById('ext-builder')?.checked         ?? false,
             merchants:       document.getElementById('ext-merchants')?.checked       ?? false,
             pig:             document.getElementById('ext-pig')?.checked             ?? false,
-            fairy:           document.getElementById('ext-fairy')?.checked           ?? false
+            dragon:          document.getElementById('ext-dragon')?.checked              ?? false,
+            fairyProtection: document.getElementById('ext-fairy-protection')?.checked     ?? false,
+            fairyScoreTurn:  document.getElementById('ext-fairy-score-turn')?.checked     ?? false,
+            fairyScoreZone:  document.getElementById('ext-fairy-score-zone')?.checked     ?? false
         },
         tileGroups: {
             base:  true,
@@ -1455,7 +1469,7 @@ function attachGameSyncCallbacks() {
                 gameState.currentTilePlaced = false; // ← remettre à zéro AVANT endTurnRemote (sinon sendFullStateTo envoie tuileEnMain: null)
 
                 // ── Extension Dragon : migration volcano en fin de tour ──
-                if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingVolcanoPos) {
+                if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingVolcanoPos) {
                     const { x: vx, y: vy } = gameState._pendingVolcanoPos;
                     dragonRules.onVolcanoPlaced(vx, vy);
                     gameState._pendingVolcanoPos = null;
@@ -1463,7 +1477,7 @@ function attachGameSyncCallbacks() {
                 }
 
                 // ── Extension Dragon : démarrer phase dragon si tuile dragon posée ──
-                if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingDragonTile) {
+                if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingDragonTile) {
                     const { playerIndex } = gameState._pendingDragonTile;
                     gameState._pendingDragonTile = null;
                     if (undoManager) undoManager.reset();
@@ -1930,18 +1944,25 @@ function _hostDrawAndSend() {
         return null;
     }
 
-    // ── Extension Dragon : remettre une tuile dragon dans la pioche si pas de volcan posé ──
-    // Une tuile dragon ne peut être jouée qu'après qu'un volcan ait été posé.
-    if (gameConfig.tileGroups?.dragon) {
-        while (tileData && _tileHasDragonZone(tileData) && !gameState.dragonPos) {
-            console.log('🐉 [HÔTE] Tuile dragon piochée sans volcan — remélange:', tileData.id);
-            tileData = deck.reshuffleDragonTile();
-            if (!tileData) {
-                console.log('⚠️ Pioche vide après remélange dragon !');
-                eventBus.emit('deck-empty');
-                return null;
-            }
-        }
+    // ── Extension Dragon : tuile dragon piochée sans volcan ──────────────
+    // On NE repioche PAS automatiquement — on affiche le badge et on attend
+    // que le joueur clique "Repiocher" manuellement (même flow que implaçable).
+    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
+        _tileHasDragonZone(tileData) && !gameState.dragonPos) {
+        console.log('🐉 [HÔTE] Tuile dragon sans volcan — repioche manuelle:', tileData.id);
+        currentTileForPlayer = tileData;
+        gameSync.syncTileDraw(tileData.id, 0);
+        const _cp = gameState.getCurrentPlayer();
+        const _cpName = _cp?.name ?? '?';
+        // Remettre dans la pioche maintenant (côté deck) pour que l'index reste cohérent
+        deck.reshuffleDragonTile();
+        // Broadcaster badge + modale comme tuile implaçable
+        gameSync.syncUnplaceableHandled(tileData.id, _cpName, 'reshuffle', false, _cp?.id);
+        if (tilePreviewUI) tilePreviewUI.showBackside();
+        unplaceableManager?.showTileDestroyedModal(tileData.id, _cpName, false, 'reshuffle', false);
+        waitingToRedraw = true;
+        updateTurnDisplay();
+        return tileData;
     }
 
     console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', gameState.getCurrentPlayer()?.name);
@@ -3230,7 +3251,7 @@ function poserTuile(x, y, tile, isFirst = false) {
         if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
         }
-        if (gameConfig.extensions?.fairy && !undoManager?.meeplePlacedThisTurn) {
+        if (gameConfig.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
         }
     }
@@ -3240,7 +3261,7 @@ function poserTuile(x, y, tile, isFirst = false) {
     }
 
     // ── Extension Dragon : détecter volcano et zone dragon ──────────────
-    if (gameConfig.tileGroups?.dragon && dragonRules) {
+    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
         if (_tileHasVolcanoZone(tile)) {
             // Migration du dragon en fin de tour — on note la position en attente
             gameState._pendingVolcanoPos = { x, y };
@@ -3343,7 +3364,7 @@ function _countAbbePoints(x, y) {
  * auxquels la fée peut s'attacher. Cliquable comme les curseurs abbé.
  */
 function _showFairyTargets() {
-    if (!dragonRules || !gameState) return;
+    if (!dragonRules || !gameState || !gameConfig.extensions?.fairy) return;
     const targets = dragonRules.getFairyTargets(multiplayer.playerId);
     if (targets.length === 0) return;
 
@@ -3361,37 +3382,71 @@ function _showFairyTargets() {
         const offsetX = 20.8 + col * 41.6;
         const offsetY = 20.8 + row * 41.6;
 
-        let container = boardEl.querySelector(`.meeple-container[data-pos="${fx},${fy}"]`);
-        if (!container) return;
+        // Créer un overlay sur la tuile (comme abbé rappelable)
+        const overlay = document.createElement('div');
+        overlay.className = 'fairy-cursor-overlay';
+        overlay.style.gridColumn = fx;
+        overlay.style.gridRow    = fy;
+        overlay.style.position   = 'relative';
+        overlay.style.width      = '208px';
+        overlay.style.height     = '208px';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex     = '101';
 
-        const cursor = document.createElement('div');
-        cursor.className = 'fairy-cursor';
-        cursor.dataset.key = key;
-        cursor.style.cssText =
-            `position:absolute;` +
-            `left:${offsetX - 18}px;top:${offsetY - 20}px;` +
-            `width:39px;height:62px;` +
-            `transform:translate(-50%,-50%);` +
-            `cursor:pointer;z-index:62;` +
-            `border-radius:50%;background:rgba(255,220,0,0.35);` +
-            `border:2px dashed gold;`;
+        // Gros bouton circulaire centré sur le meeple
+        const btn = document.createElement('div');
+        btn.className = 'fairy-cursor';
+        btn.dataset.key = key;
+        btn.style.position   = 'absolute';
+        btn.style.left       = `${offsetX}px`;
+        btn.style.top        = `${offsetY}px`;
+        btn.style.width      = '34px';
+        btn.style.height     = '34px';
+        btn.style.borderRadius = '50%';
+        btn.style.border     = '3px solid gold';
+        btn.style.boxShadow  = '0 0 8px 2px rgba(255,215,0,0.7), inset 0 0 4px rgba(0,0,0,0.6)';
+        btn.style.cursor     = 'pointer';
+        btn.style.pointerEvents = 'auto';
+        btn.style.transform  = 'translate(-50%, -50%)';
+        btn.style.display    = 'flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.fontSize   = '18px';
+        btn.style.animation  = 'abbeRecallPulse 1.2s ease-in-out infinite';
+        btn.title = 'Attacher la Fée';
+        btn.textContent = '🧚';
 
-        const icon = document.createElement('img');
-        icon.src = './assets/Meeples/Fairy.png';
-        icon.style.cssText = 'width:100%;height:100%;pointer-events:none;opacity:0.8;';
-        cursor.appendChild(icon);
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Ouvrir le sélecteur meeple avec uniquement la fée
+            meepleSelectorUI.show(fx, fy, fp, 'fairy-attach', e.clientX, e.clientY,
+                (_sx, _sy, _spos, meepleType) => {
+                    if (meepleType === 'Fairy') _handleFairyPlacement(key);
+                }
+            );
+        });
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const t = e.changedTouches[0];
+            meepleSelectorUI.show(fx, fy, fp, 'fairy-attach', t.clientX, t.clientY,
+                (_sx, _sy, _spos, meepleType) => {
+                    if (meepleType === 'Fairy') _handleFairyPlacement(key);
+                }
+            );
+        }, { passive: false });
 
-        cursor.addEventListener('click', () => _handleFairyPlacement(key));
-        container.appendChild(cursor);
+        overlay.appendChild(btn);
+        boardEl.appendChild(overlay);
     });
 }
 
 function _clearFairyCursors() {
-    document.querySelectorAll('.fairy-cursor').forEach(el => el.remove());
+    document.querySelectorAll('.fairy-cursor, .fairy-cursor-overlay').forEach(el => el.remove());
 }
 
 /**
- * Le joueur actif attache la fée au meeple désigné par meepleKey.
+ * Pose la fée sur le meeple désigné — appelé après validation dans le sélecteur.
  */
 function _handleFairyPlacement(meepleKey) {
     _clearFairyCursors();
@@ -3549,7 +3604,7 @@ function setupEventListeners() {
         gameState.currentTilePlaced = false;
 
         // ── Extension Dragon : migration volcano en fin de tour ──────────
-        if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingVolcanoPos) {
+        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingVolcanoPos) {
             const { x: vx, y: vy } = gameState._pendingVolcanoPos;
             dragonRules.onVolcanoPlaced(vx, vy);
             gameState._pendingVolcanoPos = null;
@@ -3637,7 +3692,7 @@ function setupEventListeners() {
         if (undoManager) undoManager.reset();
 
         // ── Extension Dragon : démarrer la phase dragon si tuile dragon posée ──
-        if (gameConfig.tileGroups?.dragon && dragonRules && gameState._pendingDragonTile) {
+        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingDragonTile) {
             const { playerIndex } = gameState._pendingDragonTile;
             gameState._pendingDragonTile = null;
             const started = dragonRules.onDragonTilePlaced(playerIndex);
