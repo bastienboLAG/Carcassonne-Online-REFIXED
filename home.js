@@ -3962,16 +3962,7 @@ function setupEventListeners() {
     // OK modale info destruction
     document.getElementById('tile-destroyed-ok-btn').onclick = () => {
         document.getElementById('tile-destroyed-modal').style.display = 'none';
-        if (waitingToRedraw && isMyTurn) {
-            if (isHost) {
-                const _t = _hostDrawAndSend();
-                if (_t) turnManager.receiveYourTurn(_t.id);
-            } else {
-                if (gameSync) gameSync.syncUnplaceableRedraw();
-            }
-            waitingToRedraw = false;
-            updateTurnDisplay();
-        }
+        updateTurnDisplay(); // rafraîchit le bouton → "Repiocher" si waitingToRedraw && isMyTurn
     };
 
     // Bouton debug
