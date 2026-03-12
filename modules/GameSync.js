@@ -591,7 +591,8 @@ export class GameSync {
                 break;
 
             case 'fairy-placed-sync':
-                if (!this.isHost) {
+                // Invité reçoit depuis l'hôte — ou hôte reçoit depuis un invité
+                if (data.ownerId !== this.multiplayer.playerId) {
                     this.eventBus?.emit('network-fairy-placed', data);
                 }
                 break;

@@ -247,7 +247,7 @@ eventBus.on('tile-placed-own', (data) => {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
         if (gameConfig?.extensions?.abbot && !undoManager?.meeplePlacedThisTurn) {
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
         }
         if (gameConfig?.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
@@ -3164,7 +3164,7 @@ function _applyUndoLocally(undoneAction) {
         );
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
         }
         eventBus.emit('score-updated');
         updateTurnDisplay();
@@ -3176,7 +3176,7 @@ function _applyUndoLocally(undoneAction) {
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
-                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
             }
             if (gameConfig.extensions?.fairyProtection) {
                 _showFairyTargets();
@@ -3311,7 +3311,7 @@ function poserTuile(x, y, tile, isFirst = false) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
         if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
         }
         if (gameConfig.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
@@ -3434,7 +3434,9 @@ function _showFairyTargets() {
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
 
+    const currentFairyKey = gameState.fairyState?.meepleKey ?? null;
     targets.forEach(({ key }) => {
+        if (key === currentFairyKey) return; // fée déjà attachée ici
         const parts = key.split(',');
         const fx = Number(parts[0]);
         const fy = Number(parts[1]);
