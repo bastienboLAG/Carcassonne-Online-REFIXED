@@ -149,7 +149,7 @@ export class MeepleSelectorUI {
             meepleTypes = [
                 { type: 'AbbeRecall', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png`, overlay: '↩️' }
             ];
-            if (this.config?.extensions?.fairyProtection && !this.currentFairyKey) {
+            if (this.config?.extensions?.fairyProtection && this.currentFairyKey !== `${x},${y},${position}`) {
                 meepleTypes.push({ type: 'Fairy', image: `./assets/Meeples/Fairy.png` });
             }
         } else if (zoneType === 'abbey') {
