@@ -1966,6 +1966,14 @@ function _hostDrawAndSend() {
     //   Modale 1 (unplaceable-modal) : info "dragon sans volcan" + bouton Confirmer
     //   → clic Confirmer → remélange Fisher-Yates + syncDeck
     //   Modale 2 (tile-destroyed-modal) : "remélangée, cliquez Repiocher"
+    if (_tileHasDragonZone(tileData)) {
+        const volcanoOnBoard = Object.values(plateau.placedTiles ?? {}).some(t => _tileHasVolcanoZone(t));
+        console.log('🐉 [DIAG] tuile dragon détectée:', tileData.id,
+            '| tileGroups.dragon:', gameConfig.tileGroups?.dragon,
+            '| extensions.dragon:', gameConfig.extensions?.dragon,
+            '| volcanoOnBoard:', volcanoOnBoard,
+            '| placedTiles count:', Object.keys(plateau.placedTiles ?? {}).length);
+    }
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
         _tileHasDragonZone(tileData) &&
         !Object.values(plateau.placedTiles ?? {}).some(t => _tileHasVolcanoZone(t))) {
