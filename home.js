@@ -3753,7 +3753,7 @@ function setupEventListeners() {
 
         // Nettoyer les curseurs et overlays abbé
         _hideAllCursors();
-        else document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
+        document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
 
         // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
         // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()
