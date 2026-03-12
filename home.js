@@ -1611,6 +1611,9 @@ eventBus.on('network-dragon-state-update', (data) => {
         });
     }
     _updateDragonOverlay();
+    if (gameState.dragonPos) {
+        _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+    }
     if (gameState.dragonPhase.active) {
         _startDragonTurnUI();
     } else {
@@ -3410,8 +3413,17 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
     if (!firstTilePlaced) firstTilePlaced = true;
     tuilePosee     = true;
     lastPlacedTile = { x, y };
-    // ✅ Le snapshot est sauvegardé par GameSyncCallbacks après application des zones
-    // Ne pas le sauvegarder ici pour éviter un snapshot avec zones incomplètes
+
+    // ── Extension Dragon : détecter volcano/dragon pour les tuiles reçues du réseau ──
+    // (poserTuile le fait pour le joueur local, poserTuileSync doit le faire pour les autres)
+    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
+        if (_tileHasVolcanoZone(tile)) {
+            gameState._pendingVolcanoPos = { x, y };
+        }
+        if (_tileHasDragonZone(tile)) {
+            gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════
