@@ -1979,23 +1979,52 @@ function _hostDrawAndSend() {
         tuileEnMain = tileData;
         currentTileForPlayer = tileData;
 
+        const _cp          = gameState.getCurrentPlayer();
+        const _cpId        = _cp?.id   ?? null;
+        const _cpName      = _cp?.name ?? '?';
+        const isHostPlayer = _cpId === multiplayer.playerId;
+
         // Sync pioche aux invités (ils voient le verso)
         gameSync.syncTileDraw(tileData.id, 0);
 
-        // Afficher modale 1 côté hôte : info dragon + bouton "Remettre dans la pioche"
-        if (tilePreviewUI) tilePreviewUI.showTile(tileData);
-        _showDragonPrematureModal(tileData.id, gameState.getCurrentPlayer());
+        if (isHostPlayer) {
+            // Tour de l'hôte : modale 1 avec bouton "Remettre dans la pioche"
+            if (tilePreviewUI) tilePreviewUI.showTile(tileData);
+            _showDragonPrematureModal(tileData.id, _cp);
 
-        // Broadcaster modale 1 aux invités (ils voient une modale info sans bouton Repiocher)
-        const _cp = gameState.getCurrentPlayer();
-        gameSync.multiplayer.broadcast({
-            type: 'dragon-premature-tile',
-            tileId:     tileData.id,
-            playerName: _cp?.name ?? '?',
-            playerId:   _cp?.id   ?? null,
-        });
+            // Broadcaster modale 1 aux invités (info sans bouton)
+            gameSync.multiplayer.broadcast({
+                type: 'dragon-premature-tile',
+                tileId:     tileData.id,
+                playerName: _cpName,
+                playerId:   _cpId,
+            });
+        } else {
+            // Tour d'un invité : remélange automatique sans modale 1 côté hôte
+            if (tilePreviewUI) tilePreviewUI.showBackside();
 
-        // Pas de waitingToRedraw ici — c'est géré dans _confirmDragonReshuffle
+            // Remélange Fisher-Yates
+            const idx = deck.currentIndex - 1;
+            const remaining = deck.tiles.slice(idx);
+            for (let i = remaining.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+            }
+            deck.tiles.splice(idx, remaining.length, ...remaining);
+            deck.currentIndex--;
+            gameSync.syncDeckReshuffle(deck.tiles, deck.currentIndex);
+
+            // Broadcaster modale 2 à l'invité actif + info aux autres
+            gameSync.syncUnplaceableHandled(tileData.id, _cpName, 'dragon-reshuffle', false, _cpId);
+
+            // Modale 2 côté hôte : info seulement (pas le tour de l'hôte)
+            unplaceableManager?.showTileDestroyedModal(tileData.id, _cpName, false, 'dragon-reshuffle', false);
+
+            // Mémoriser l'invité pour la repioche
+            gameSync._pendingUnplaceableRedraw = _cpId;
+        }
+
+        // Pas de waitingToRedraw ici — c'est géré dans _confirmDragonReshuffle (tour hôte)
         return tileData;
     }
 
