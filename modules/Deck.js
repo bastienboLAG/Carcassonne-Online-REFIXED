@@ -134,7 +134,21 @@ export class Deck {
         }
 
         // ── Ordre / mélange ──────────────────────────────────────────────
-        if (startType === 'river') {
+        if (startType === 'river' && testMode) {
+            // River + test : ordre forcé pour reproduire un blocage total
+            // 01(source) → 07-06-10-05-02-03-04-08-09-11 → 12(embouchure)
+            const riverTestOrder = [
+                'river-01','river-07','river-06','river-10','river-05',
+                'river-02','river-03','river-04','river-08','river-09',
+                'river-11','river-12'
+            ];
+            const orderedRiver = riverTestOrder.map(id => riverDeck.find(t => t.id === id)).filter(Boolean);
+            this._shuffleArray(normalDeck);
+            this.tiles = [...orderedRiver, ...normalDeck];
+            this.totalTiles = this.tiles.length;
+            console.log(`🌊 [TEST] Mode rivière ordre forcé : ${orderedRiver.map(t => t.id).join(' → ')}`);
+
+        } else if (startType === 'river') {
             // River : source fixe, 2-11 shufflées, embouchure fixe
             const source      = riverDeck.find(t => t.id === 'river-01');
             const embouchure  = riverDeck.find(t => t.id === 'river-12');
@@ -157,7 +171,7 @@ export class Deck {
                     normalDeck.push({ id: 'inns_cathedrals-03', zones: data.zones, imagePath: data.image });
                 } catch(e) { console.error('Erreur chargement inns_cathedrals-03:', e); }
             }
-            const testIds = ['base-23', 'base-03', 'base-23', 'base-23'];
+            const testIds = ['base-23', 'base-23', 'base-23', 'inns_cathedrals-03', 'base-23'];
             this.tiles = testIds.map(id => {
                 const found = normalDeck.find(t => t.id === id);
                 return found ? { ...found } : null;
