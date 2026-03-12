@@ -2567,6 +2567,7 @@ async function startGameForInvite(fullStateData = null) {
 
     gameSync = new GameSync(multiplayer, gameState, originalLobbyHandler);
     gameSync.init();
+    gameSync.eventBus = eventBus;
 
     turnManager = new TurnManager(eventBus, gameState, deck, multiplayer);
     turnManager.init();
