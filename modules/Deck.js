@@ -171,7 +171,7 @@ export class Deck {
                     normalDeck.push({ id: 'inns_cathedrals-03', zones: data.zones, imagePath: data.image });
                 } catch(e) { console.error('Erreur chargement inns_cathedrals-03:', e); }
             }
-            const testIds = ['base-24', 'base-03'];
+            const testIds = ['base-24', 'dragon-10'];
             this.tiles = testIds.map(id => {
                 const found = normalDeck.find(t => t.id === id);
                 return found ? { ...found } : null;
