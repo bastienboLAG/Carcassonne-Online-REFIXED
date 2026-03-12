@@ -3281,6 +3281,27 @@ function handleRemoteUndo(undoneAction) {
         }
     }
 
+    // Synchroniser les flags de l'UndoManager local (côté invité) avec l'état annulé
+    // car l'UndoManager de l'invité n'a pas exécuté undo() lui-même.
+    // On le fait seulement si c'est le tour du joueur local (isMyTurn) pour ne pas
+    // altérer son état quand c'est l'hôte qui fait un undo pendant son propre tour.
+    if (undoManager && isMyTurn) {
+        if (undoneAction.type === 'meeple') {
+            undoManager.meeplePlacedThisTurn = false;
+            undoManager.lastMeeplePlaced     = null;
+        } else if (undoneAction.type === 'tile') {
+            undoManager.tilePlacedThisTurn       = false;
+            undoManager.meeplePlacedThisTurn     = false;
+            undoManager.abbeRecalledThisTurn     = false;
+            undoManager.lastTilePlaced           = null;
+            undoManager.lastMeeplePlaced         = null;
+            undoManager.afterTilePlacedSnapshot  = null;
+        } else if (undoneAction.type === 'abbe-recalled-undo') {
+            undoManager.abbeRecalledThisTurn = false;
+            undoManager.lastAbbeRecalled     = null;
+        }
+    }
+
     // Appliquer visuellement (sans curseurs — ce n'est pas notre tour)
     _applyUndoLocally(undoneAction);
 
