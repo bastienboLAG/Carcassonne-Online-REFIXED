@@ -247,7 +247,7 @@ eventBus.on('tile-placed-own', (data) => {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
         if (gameConfig?.extensions?.abbot && !undoManager?.meeplePlacedThisTurn) {
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
         }
         if (gameConfig?.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
@@ -3163,7 +3163,7 @@ function _applyUndoLocally(undoneAction) {
         );
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
         }
         eventBus.emit('score-updated');
         updateTurnDisplay();
@@ -3171,7 +3171,10 @@ function _applyUndoLocally(undoneAction) {
     }
 
     if (undoneAction.type === 'meeple') {
-        document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
+        // lastMeeplePlaced est null si c'était un placement de fée (pas de meeple DOM à retirer)
+        if (undoneAction.meeple?.key) {
+            document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
+        }
         // Restaurer le rendu de la fée (le snapshot a déjà restauré fairyState)
         if (gameConfig.extensions?.fairyProtection) {
             const fs = gameState.fairyState;
@@ -3184,7 +3187,7 @@ function _applyUndoLocally(undoneAction) {
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
-                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
+                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
             }
             if (gameConfig.extensions?.fairyProtection) {
                 _showFairyTargets();
@@ -3319,7 +3322,7 @@ function poserTuile(x, y, tile, isFirst = false) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
         if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState);
+            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
         }
         if (gameConfig.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
@@ -3533,6 +3536,7 @@ function _handleFairyPlacement(meepleKey) {
 
     dragonRules.placeFairy(multiplayer.playerId, meepleKey);
     _renderFairyPiece(meepleKey);
+    if (undoManager) undoManager.markFairyPlaced();
 
     if (gameSync) {
         multiplayer.broadcast({

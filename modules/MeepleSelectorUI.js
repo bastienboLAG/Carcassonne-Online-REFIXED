@@ -144,6 +144,14 @@ export class MeepleSelectorUI {
             meepleTypes = [
                 { type: 'Fairy', image: `./assets/Meeples/Fairy.png` }
             ];
+        } else if (zoneType === 'abbe-recall') {
+            // Rappel abbé : image abbé avec ↩️ centré + fée si fairyProtection actif et abbé pas déjà lié
+            meepleTypes = [
+                { type: 'AbbeRecall', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png`, overlay: '↩️' }
+            ];
+            if (this.config?.extensions?.fairyProtection && !this.currentFairyKey) {
+                meepleTypes.push({ type: 'Fairy', image: `./assets/Meeples/Fairy.png` });
+            }
         } else if (zoneType === 'abbey') {
             // Abbey → Normal (si dispo) + Abbé (si dispo) + Large (si dispo)
             if (player?.meeples > 0) {
@@ -178,8 +186,28 @@ export class MeepleSelectorUI {
             img.style.width  = width;
             img.style.height = height;
             img.style.display = 'block';
-            
-            option.appendChild(img);
+
+            if (meeple.overlay) {
+                // Wrapper relatif pour superposer l'emoji
+                option.style.position = 'relative';
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'relative';
+                wrapper.style.display  = 'inline-block';
+                wrapper.appendChild(img);
+                const badge = document.createElement('span');
+                badge.textContent = meeple.overlay;
+                badge.style.position  = 'absolute';
+                badge.style.top       = '50%';
+                badge.style.left      = '50%';
+                badge.style.transform = 'translate(-50%, -50%)';
+                badge.style.fontSize  = '16px';
+                badge.style.lineHeight = '1';
+                badge.style.pointerEvents = 'none';
+                wrapper.appendChild(badge);
+                option.appendChild(wrapper);
+            } else {
+                option.appendChild(img);
+            }
             
             option.onmouseenter = () => {
                 option.style.background = 'rgba(255, 215, 0, 0.2)';

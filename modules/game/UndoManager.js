@@ -121,6 +121,14 @@ export class UndoManager {
     }
 
     /**
+     * Marquer que la fée a été déplacée ce tour (pour que l'undo revienne à afterTilePlacedSnapshot)
+     */
+    markFairyPlaced() {
+        this.meeplePlacedThisTurn = true;
+        this.lastMeeplePlaced = null; // pas de meeple à retirer physiquement, le snapshot suffit
+    }
+
+    /**
      * Marquer qu'un Abbé a été rappelé
      */
     markAbbeRecalled(x, y, key, playerId, points) {

@@ -272,11 +272,12 @@ export class MeepleCursorsUI {
      * Mettre en évidence les Abbés rappelables du joueur courant
      * Appelé en phase 2 si extension Abbé activée et Abbé posé sur le plateau
      */
-    showAbbeRecallTargets(placedMeeples, playerId, onRecall, onFairy = null, gameState = null) {
+    showAbbeRecallTargets(placedMeeples, playerId, onRecall, onFairy = null, gameState = null, selectorUI = null) {
         if (!this.config.extensions?.abbot) return;
         this.onAbbeRecall = onRecall;
         this.onFairy = onFairy;
         this.gameState = gameState;
+        this.selectorUI = selectorUI;
 
         // Chercher tous les Abbés du joueur courant sur le plateau
         Object.entries(placedMeeples).forEach(([key, meeple]) => {
@@ -320,20 +321,42 @@ export class MeepleCursorsUI {
 
             btn.onclick = (e) => {
                 e.stopPropagation();
-                const _fairyCb = (this.onFairy && this.gameState?.fairyState?.meepleKey !== key) ? this.onFairy : null;
-                this._showAbbeRecallModal(x, y, key, meeple, e.clientX, e.clientY, _fairyCb);
+                this._openAbbeSelector(x, y, key, meeple, e.clientX, e.clientY);
             };
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const _fairyCbT = (this.onFairy && this.gameState?.fairyState?.meepleKey !== key) ? this.onFairy : null;
-                this._showAbbeRecallModal(x, y, key, meeple, 
-                    e.changedTouches[0].clientX, e.changedTouches[0].clientY, _fairyCbT);
+                this._openAbbeSelector(x, y, key, meeple,
+                    e.changedTouches[0].clientX, e.changedTouches[0].clientY);
             }, { passive: false });
 
             overlay.appendChild(btn);
             this.boardElement.appendChild(overlay);
         });
+    }
+
+    /**
+     * Ouvrir le sélecteur (ou modale fallback) pour un abbé rappelable
+     */
+    _openAbbeSelector(x, y, key, meeple, clientX, clientY) {
+        if (this.selectorUI) {
+            // Passer la fairyKey courante pour que le sélecteur sache si la fée est déjà là
+            this.selectorUI.currentFairyKey = this.gameState?.fairyState?.meepleKey ?? null;
+            const position = parseInt(key.split(',')[2]);
+            this.selectorUI.show(x, y, position, 'abbe-recall', clientX, clientY,
+                (_sx, _sy, _spos, meepleType) => {
+                    if (meepleType === 'AbbeRecall') {
+                        if (this.onAbbeRecall) this.onAbbeRecall(x, y, key, meeple);
+                    } else if (meepleType === 'Fairy') {
+                        if (this.onFairy) this.onFairy(key);
+                    }
+                }
+            );
+        } else {
+            // Fallback modale si selectorUI non disponible
+            const _fairyCb = (this.onFairy && this.gameState?.fairyState?.meepleKey !== key) ? this.onFairy : null;
+            this._showAbbeRecallModal(x, y, key, meeple, clientX, clientY, _fairyCb);
+        }
     }
 
     /**
