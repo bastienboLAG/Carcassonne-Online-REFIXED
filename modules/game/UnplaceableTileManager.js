@@ -79,6 +79,34 @@ export class UnplaceableTileManager {
     }
 
     /**
+     * Badge implaçable spécifique tuile Dragon prématurée (sans volcan).
+     * Identique à showUnplaceableBadge mais avec texte dragon et _dragonMode sur le bouton.
+     */
+    showUnplaceableBadgeDragon(tileId) {
+        const badge      = document.getElementById('unplaceable-badge');
+        const modal      = document.getElementById('unplaceable-modal');
+        const modalText  = document.getElementById('unplaceable-modal-text');
+        const confirmBtn = document.getElementById('unplaceable-confirm-btn');
+        const examineBtn = document.getElementById('unplaceable-examine-btn');
+
+        modalText.textContent =
+            `La tuile "${tileId}" est une tuile Dragon, mais aucun volcan n'a encore été posé sur le plateau. ` +
+            `Elle doit être remélangée dans la pioche.`;
+
+        if (confirmBtn) {
+            confirmBtn.textContent = 'Remettre dans la pioche';
+            confirmBtn._dragonMode = true;
+        }
+        if (examineBtn) examineBtn.style.display = '';
+
+        badge.style.display = 'block';
+        modal.style.display = 'flex';
+
+        badge.onclick = () => { modal.style.display = 'flex'; };
+        examineBtn.onclick = () => { modal.style.display = 'none'; };
+    }
+
+    /**
      * Cacher le badge et la modale implaçable
      */
     hideUnplaceableBadge() {

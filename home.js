@@ -1525,16 +1525,19 @@ function attachGameSyncCallbacks() {
                 console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
                 if (!unplaceableManager) return;
 
-                // Construire un objet tuile depuis tileId reçu de l'invité
-                // (tuileEnMain est la tuile de l'hôte, pas celle de l'invité)
-                const guestTile = deck.tiles.find(t => t.id === tileId)
-                               ?? { id: tileId }; // fallback si déjà remélangée
+                // Cas dragon prématuré : tuile dragon sans volcan posé
+                const guestTileData = deck.tiles.find(t => t.id === tileId) ?? { id: tileId };
+                if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
+                    _tileHasDragonZone(guestTileData) && !gameState.dragonPos) {
+                    _confirmDragonReshuffle(playerId);
+                    return;
+                }
 
+                // Construire un objet tuile depuis tileId reçu de l'invité
+                const guestTile = guestTileData;
                 const result = unplaceableManager.handleConfirm(guestTile, gameSync, playerId);
                 if (tilePreviewUI) tilePreviewUI.showBackside();
                 if (!result) {
-                    // Chain destroy ou endgame — syncUnplaceableHandled déjà envoyé dans _checkRiverAllImplacable
-                    // Mais il faut quand même mémoriser l'invité pour la repioche
                     gameSync._pendingUnplaceableRedraw = playerId;
                     return;
                 }
@@ -1974,7 +1977,7 @@ function _hostDrawAndSend() {
     //   Modale 2 (tile-destroyed-modal) : "remélangée, cliquez Repiocher"
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
         _tileHasDragonZone(tileData) && !gameState.dragonPos) {
-        console.log('🐉 [HÔTE] Tuile dragon sans volcan — modale 1:', tileData.id);
+        console.log('🐉 [HÔTE] Tuile dragon sans volcan — badge implaçable:', tileData.id);
 
         tuileEnMain = tileData;
         currentTileForPlayer = tileData;
@@ -1984,47 +1987,24 @@ function _hostDrawAndSend() {
         const _cpName      = _cp?.name ?? '?';
         const isHostPlayer = _cpId === multiplayer.playerId;
 
-        // Sync pioche aux invités (ils voient le verso)
-        gameSync.syncTileDraw(tileData.id, 0);
-
         if (isHostPlayer) {
-            // Tour de l'hôte : modale 1 avec bouton "Remettre dans la pioche"
+            // Tour de l'hôte : afficher tuile + badge comme pour une tuile implaçable normale
             if (tilePreviewUI) tilePreviewUI.showTile(tileData);
-            _showDragonPrematureModal(tileData.id, _cp);
-
-            // Broadcaster modale 1 aux invités (info sans bouton)
+            gameSync.syncTileDraw(tileData.id, 0);
+            unplaceableManager?.showUnplaceableBadgeDragon(tileData.id);
+        } else {
+            // Tour d'un invité : envoyer la tuile à l'invité + broadcaster dragon-premature
+            if (tilePreviewUI) tilePreviewUI.showBackside();
+            gameSync.syncTileDraw(tileData.id, 0);
+            // L'invité actif recevra dragon-premature-tile → showUnplaceableBadgeDragon
             gameSync.multiplayer.broadcast({
-                type: 'dragon-premature-tile',
+                type:       'dragon-premature-tile',
                 tileId:     tileData.id,
                 playerName: _cpName,
                 playerId:   _cpId,
             });
-        } else {
-            // Tour d'un invité : remélange automatique sans modale 1 côté hôte
-            if (tilePreviewUI) tilePreviewUI.showBackside();
-
-            // Remélange Fisher-Yates
-            const idx = deck.currentIndex - 1;
-            const remaining = deck.tiles.slice(idx);
-            for (let i = remaining.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-            }
-            deck.tiles.splice(idx, remaining.length, ...remaining);
-            deck.currentIndex--;
-            gameSync.syncDeckReshuffle(deck.tiles, deck.currentIndex);
-
-            // Broadcaster modale 2 à l'invité actif + info aux autres
-            gameSync.syncUnplaceableHandled(tileData.id, _cpName, 'dragon-reshuffle', false, _cpId);
-
-            // Modale 2 côté hôte : info seulement (pas le tour de l'hôte)
-            unplaceableManager?.showTileDestroyedModal(tileData.id, _cpName, false, 'dragon-reshuffle', false);
-
-            // Mémoriser l'invité pour la repioche
-            gameSync._pendingUnplaceableRedraw = _cpId;
         }
 
-        // Pas de waitingToRedraw ici — c'est géré dans _confirmDragonReshuffle (tour hôte)
         return tileData;
     }
 
@@ -3450,9 +3430,10 @@ function _showDragonPrematureModal(tileId, currentPlayer) {
 
 /**
  * Effectue le remélange dragon et affiche la modale 2.
- * Appelé quand l'hôte clique "Remettre dans la pioche" (modale 1).
+ * activePeerId = null → c'est le tour de l'hôte
+ * activePeerId = id   → c'est le tour d'un invité (déclenché par onUnplaceableConfirm)
  */
-function _confirmDragonReshuffle() {
+function _confirmDragonReshuffle(activePeerId = null) {
     const modal      = document.getElementById('unplaceable-modal');
     const confirmBtn = document.getElementById('unplaceable-confirm-btn');
     const examineBtn = document.getElementById('unplaceable-examine-btn');
@@ -3461,7 +3442,7 @@ function _confirmDragonReshuffle() {
     if (confirmBtn) { confirmBtn.textContent = 'Confirmer'; confirmBtn._dragonMode = false; }
     if (examineBtn) examineBtn.style.display = '';
 
-    // Remélange Fisher-Yates — identique à handleConfirm(reshuffle)
+    // Remélange Fisher-Yates
     const idx = deck.currentIndex - 1;
     const remaining = deck.tiles.slice(idx);
     for (let i = remaining.length - 1; i > 0; i--) {
@@ -3473,30 +3454,35 @@ function _confirmDragonReshuffle() {
     gameSync.syncDeckReshuffle(deck.tiles, deck.currentIndex);
 
     const _cp          = gameState.getCurrentPlayer();
-    const _cpId        = _cp?.id   ?? null;
+    const _cpId        = activePeerId ?? _cp?.id ?? null;
     const _cpName      = _cp?.name ?? '?';
-    const isHostPlayer = _cpId === multiplayer.playerId;
+    const isHostPlayer = !activePeerId;
 
-    // Broadcaster modale 2 à tous les invités (syncUnplaceableHandled cible l'invité actif)
+    // Broadcaster modale 2 (cible l'invité actif si besoin)
     gameSync.syncUnplaceableHandled(tuileEnMain?.id ?? '?', _cpName, 'dragon-reshuffle', false, _cpId);
 
-    // Modale 2 côté hôte : \"Repiocher\" seulement si c'est le tour de l'hôte
+    // Modale 2 côté hôte
     if (tilePreviewUI) tilePreviewUI.showBackside();
     unplaceableManager.showTileDestroyedModal(tuileEnMain?.id ?? '?', _cpName, isHostPlayer, 'dragon-reshuffle', false);
     if (isHostPlayer) {
         waitingToRedraw = true;
         updateTurnDisplay();
     } else {
-        // L'invité actif va repiocher — mémoriser son ID pour onUnplaceableRedraw
-        gameSync._pendingUnplaceableRedraw = _cpId;
+        gameSync._pendingUnplaceableRedraw = activePeerId;
     }
 }
 
 // Invités : modale info dragon prématuré (modale 2 uniquement — ils n'ont pas le bouton Confirmer)
 eventBus.on('network-dragon-premature', (data) => {
     if (isHost) return;
-    // Afficher une modale info simple (tile-destroyed-modal sans bouton Repiocher)
-    unplaceableManager?.showTileDestroyedModal(data.tileId, data.playerName, false, 'dragon-reshuffle', false);
+    const isActivePlayer = data.playerId === multiplayer.playerId;
+    if (isActivePlayer) {
+        // L'invité actif : badge + modale 1 pour confirmer le remélange
+        unplaceableManager?.showUnplaceableBadgeDragon(data.tileId);
+    } else {
+        // Spectateur / autre invité : modale info seulement
+        unplaceableManager?.showTileDestroyedModal(data.tileId, data.playerName, false, 'dragon-reshuffle', false);
+    }
 });
 
 // ── Fée : affichage des cibles et placement ───────────────────────────
