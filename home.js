@@ -3443,18 +3443,24 @@ function _confirmDragonReshuffle() {
     deck.currentIndex--;
     gameSync.syncDeckReshuffle(deck.tiles, deck.currentIndex);
 
-    const _cp     = gameState.getCurrentPlayer();
-    const _cpId   = _cp?.id   ?? null;
-    const _cpName = _cp?.name ?? '?';
+    const _cp          = gameState.getCurrentPlayer();
+    const _cpId        = _cp?.id   ?? null;
+    const _cpName      = _cp?.name ?? '?';
+    const isHostPlayer = _cpId === multiplayer.playerId;
 
-    // Broadcaster modale 2 à tous les invités
+    // Broadcaster modale 2 à tous les invités (syncUnplaceableHandled cible l'invité actif)
     gameSync.syncUnplaceableHandled(tuileEnMain?.id ?? '?', _cpName, 'dragon-reshuffle', false, _cpId);
 
-    // Modale 2 hôte : "remélangée — cliquez Repiocher"
+    // Modale 2 côté hôte : \"Repiocher\" seulement si c'est le tour de l'hôte
     if (tilePreviewUI) tilePreviewUI.showBackside();
-    unplaceableManager.showTileDestroyedModal(tuileEnMain?.id ?? '?', _cpName, true, 'dragon-reshuffle', false);
-    waitingToRedraw = true;
-    updateTurnDisplay();
+    unplaceableManager.showTileDestroyedModal(tuileEnMain?.id ?? '?', _cpName, isHostPlayer, 'dragon-reshuffle', false);
+    if (isHostPlayer) {
+        waitingToRedraw = true;
+        updateTurnDisplay();
+    } else {
+        // L'invité actif va repiocher — mémoriser son ID pour onUnplaceableRedraw
+        gameSync._pendingUnplaceableRedraw = _cpId;
+    }
 }
 
 // Invités : modale info dragon prématuré (modale 2 uniquement — ils n'ont pas le bouton Confirmer)
