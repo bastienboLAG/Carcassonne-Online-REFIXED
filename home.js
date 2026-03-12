@@ -1343,7 +1343,8 @@ function attachGameSyncCallbacks() {
                         id: p.id, meeples: p.meeples,
                         hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
                         hasBuilder: p.hasBuilder, hasPig: p.hasPig
-                    }))
+                    })),
+                    fairyState: JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null }))
                 };
 
                 // Appliquer visuellement côté hôte
@@ -3164,7 +3165,11 @@ function _applyUndoLocally(undoneAction) {
             undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId
         );
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
-            meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
+            const _lastTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+            const _isVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && _tileHasVolcanoZone(_lastTile));
+            if (!_isVolcano) {
+                meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
+            }
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
         }
         eventBus.emit('score-updated');
@@ -3187,11 +3192,15 @@ function _applyUndoLocally(undoneAction) {
             }
         }
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
-            meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
+            const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+            const _undoIsVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && _tileHasVolcanoZone(_undoTile));
+            if (!_undoIsVolcano) {
+                meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
+            }
             if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
                 meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
             }
-            if (gameConfig.extensions?.fairyProtection) {
+            if (gameConfig.extensions?.fairyProtection && !_undoIsVolcano) {
                 _showFairyTargets();
             }
         }
@@ -3260,6 +3269,16 @@ function handleRemoteUndo(undoneAction) {
                 player.hasPig        = saved.hasPig;
             }
         });
+        // Restaurer et afficher la fée
+        if (s.fairyState !== undefined && gameState.fairyState) {
+            gameState.fairyState.ownerId   = s.fairyState.ownerId;
+            gameState.fairyState.meepleKey = s.fairyState.meepleKey;
+            gameState.players.forEach(p => { p.hasFairy = false; });
+            const fairyOwner = gameState.players.find(p => p.id === s.fairyState.ownerId);
+            if (fairyOwner) fairyOwner.hasFairy = true;
+            if (s.fairyState.meepleKey) _renderFairyPiece(s.fairyState.meepleKey);
+            else _removeFairyPiece();
+        }
     }
 
     // Appliquer visuellement (sans curseurs — ce n'est pas notre tour)
@@ -3986,7 +4005,8 @@ function setupEventListeners() {
                 id: p.id, meeples: p.meeples,
                 hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
                 hasBuilder: p.hasBuilder, hasPig: p.hasPig
-            }))
+            })),
+            fairyState: JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null }))
         };
 
         _applyUndoLocally(undoneAction);
