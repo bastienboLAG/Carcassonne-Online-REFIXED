@@ -84,7 +84,7 @@ export const MEEPLE_CONFIG = {
         plate:       0.55,
         panel:       0.00,
         panelMobile: 0.00,
-        selector:    0.44,
+        selector:    0.35,
     },
 };
 

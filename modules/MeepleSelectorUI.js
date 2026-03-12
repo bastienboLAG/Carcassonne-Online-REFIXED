@@ -200,9 +200,10 @@ export class MeepleSelectorUI {
                 badge.style.top       = '50%';
                 badge.style.left      = '50%';
                 badge.style.transform = 'translate(-50%, -50%)';
-                badge.style.fontSize  = '16px';
+                badge.style.fontSize  = '11px';
                 badge.style.lineHeight = '1';
                 badge.style.pointerEvents = 'none';
+                badge.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';
                 wrapper.appendChild(badge);
                 option.appendChild(wrapper);
             } else {

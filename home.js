@@ -1626,6 +1626,8 @@ eventBus.on('network-fairy-placed', (data) => {
     if (owner) owner.hasFairy = true;
     // Afficher la fée
     _renderFairyPiece(data.meepleKey);
+    // Côté hôte : marquer la fée comme posée ce tour pour que l'undo invité fonctionne
+    if (isHost && undoManager) undoManager.markFairyPlaced();
 });
 
 // ═══════════════════════════════════════════════════════
