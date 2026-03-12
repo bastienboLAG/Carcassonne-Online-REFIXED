@@ -241,12 +241,15 @@ eventBus.on('tile-placed-own', (data) => {
     if (unplaceableManager) unplaceableManager.resetSeenImplacable();
     updateMobileButtons();
     updateTurnDisplay();
+    const _isVolcanoTileOwn = !!(gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.dragon && _tileHasVolcanoZone(tile));
     if (meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
-        meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
+        if (!_isVolcanoTileOwn) {
+            meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
+        }
         if (gameConfig?.extensions?.abbot && !undoManager?.meeplePlacedThisTurn) {
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
         }
-        if (gameConfig?.extensions?.fairy && !undoManager?.meeplePlacedThisTurn) {
+        if (gameConfig?.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
         }
     }
@@ -3175,7 +3178,7 @@ function _applyUndoLocally(undoneAction) {
             if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
                 meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
             }
-            if (gameConfig.extensions?.fairy) {
+            if (gameConfig.extensions?.fairyProtection) {
                 _showFairyTargets();
             }
         }
@@ -3289,8 +3292,24 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     if (gameSync) gameSync.syncTilePlacement(x, y, tile, zoneMerger);
 
+    // ── Extension Dragon : détecter volcano et zone dragon (avant curseurs) ──
+    const _isVolcanoTile = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && _tileHasVolcanoZone(tile));
+    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
+        if (_isVolcanoTile) {
+            gameState._pendingVolcanoPos = { x, y };
+            console.log('🌋 [Dragon] Volcano posé en (' + x + ',' + y + ') — migration en fin de tour');
+        }
+        if (_tileHasDragonZone(tile)) {
+            gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
+            console.log('🐉 [Dragon] Tuile dragon posée — phase dragon en attente après meeple');
+        }
+    }
+
     if (isMyTurn && gameSync && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
-        meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
+        // Volcano : pas de placement de meeple autorisé sur la tuile
+        if (!_isVolcanoTile) {
+            meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
+        }
         if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
             meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall);
         }
@@ -3301,20 +3320,6 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     if (undoManager && isMyTurn && isHost) {
         undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
-    }
-
-    // ── Extension Dragon : détecter volcano et zone dragon ──────────────
-    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
-        if (_tileHasVolcanoZone(tile)) {
-            // Migration du dragon en fin de tour — on note la position en attente
-            gameState._pendingVolcanoPos = { x, y };
-            console.log('🌋 [Dragon] Volcano posé en (' + x + ',' + y + ') — migration en fin de tour');
-        }
-        if (_tileHasDragonZone(tile)) {
-            // Phase dragon déclenchée après la phase meeple
-            gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
-            console.log('🐉 [Dragon] Tuile dragon posée — phase dragon en attente après meeple');
-        }
     }
 
     tuileEnMain = null;
@@ -3422,7 +3427,7 @@ eventBus.on('network-dragon-premature', (data) => {
  * auxquels la fée peut s'attacher. Cliquable comme les curseurs abbé.
  */
 function _showFairyTargets() {
-    if (!dragonRules || !gameState || !gameConfig.extensions?.fairy) return;
+    if (!dragonRules || !gameState || !gameConfig.extensions?.fairyProtection) return;
     const targets = dragonRules.getFairyTargets(multiplayer.playerId);
     if (targets.length === 0) return;
 
