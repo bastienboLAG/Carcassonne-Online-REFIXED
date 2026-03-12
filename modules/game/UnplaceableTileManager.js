@@ -179,11 +179,11 @@ export class UnplaceableTileManager {
                 : `La rivière était complètement bloquée. ${count} tuile(s) rivière ont été détruites. ${playerName} va piocher l'embouchure.`;
 
         this.showTileDestroyedModal('?', playerName, !activePeerId, 'destroy', true, msg(!activePeerId));
-        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles rivière]`, playerName, 'destroy', count);
-        // Si c'est un invité qui a déclenché la chaîne, lui broadcaster waitingToRedraw
+        // Invité actif : syncUnplaceableHandled en premier pour que waitingToRedraw soit set
         if (gameSync && activePeerId) {
             gameSync.syncUnplaceableHandled('?', playerName, 'destroy', true, activePeerId);
         }
+        if (gameSync) gameSync.syncTileDestroyed(`[${count} tuiles rivière]`, playerName, 'destroy', count);
 
         this._seenImplacableRiver.clear();
         this._riverTilesToTest = null;

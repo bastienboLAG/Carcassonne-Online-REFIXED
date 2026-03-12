@@ -1525,11 +1525,16 @@ function attachGameSyncCallbacks() {
                                ?? { id: tileId }; // fallback si déjà remélangée
 
                 const result = unplaceableManager.handleConfirm(guestTile, gameSync, playerId);
-                if (!result) return; // cas chain/endgame déjà géré
+                if (tilePreviewUI) tilePreviewUI.showBackside();
+                if (!result) {
+                    // Chain destroy ou endgame — syncUnplaceableHandled déjà envoyé dans _checkRiverAllImplacable
+                    // Mais il faut quand même mémoriser l'invité pour la repioche
+                    gameSync._pendingUnplaceableRedraw = playerId;
+                    return;
+                }
 
                 gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);
 
-                if (tilePreviewUI) tilePreviewUI.showBackside();
                 if (!result.special) {
                     unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, false, result.action, result.isRiver);
                 }
@@ -1544,14 +1549,14 @@ function attachGameSyncCallbacks() {
                 if (_nextTile) {
                     const isHostPlayer = playerId === multiplayer.playerId || playerId === multiplayer.peerId;
                     if (isHostPlayer) {
-                        // C'est le tour de l'hôte — mettre à jour sa propre preview
                         turnManager.receiveYourTurn(_nextTile.id);
                     } else {
-                        // Invité — envoyer la tuile directement
+                        // Invité — envoyer la tuile + afficher côté hôte
                         const conn = gameSync.multiplayer.connections.find(c => c.peer === playerId);
                         if (conn && conn.open) {
                             conn.send({ type: 'your-turn', tileId: _nextTile.id });
                         }
+                        if (tilePreviewUI) tilePreviewUI.showTile(_nextTile);
                     }
                 }
                 gameSync._pendingUnplaceableRedraw = null;
@@ -3938,12 +3943,22 @@ function setupEventListeners() {
         if (isHost) {
             // Hôte : gère le deck + affichage local + broadcast
             const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
-            if (!result) return; // cas chain/endgame déjà géré
-            if (tilePreviewUI) tilePreviewUI.showBackside();
+            if (tilePreviewUI) tilePreviewUI.showBackside(); // toujours afficher verso
+            if (!result) {
+                // Cas chain-destroy (toutes rivières implaçables) : setRedrawMode déjà appelé
+                // dans _checkRiverAllImplacable, mais waitingToRedraw doit être set ici aussi
+                waitingToRedraw = true;
+                updateTurnDisplay();
+                return;
+            }
             if (!result.special) {
                 // Cas normal : afficher modale active + setRedrawMode
                 unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, true, result.action, result.isRiver);
                 gameSync.syncTileDestroyed(result.tileId, result.playerName, result.action);
+                waitingToRedraw = true;
+                updateTurnDisplay();
+            } else {
+                // Cas special (river-12 détruite) : aussi besoin de repiocher
                 waitingToRedraw = true;
                 updateTurnDisplay();
             }
