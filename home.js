@@ -162,6 +162,7 @@ eventBus.on('tile-drawn', (data) => {
     tuileEnMain          = new Tile(data.tileData);
     tuileEnMain.rotation = data.tileData.rotation || 0;
     tuilePosee           = false;
+    updateTurnDisplay(); // corriger l'état du bouton dès la réception de la tuile
 
     // Mettre à jour isRiverPhase : true si la tuile courante est une tuile river
     if (slotsUI) slotsUI.isRiverPhase = tuileEnMain.id.startsWith('river-');
@@ -1404,6 +1405,11 @@ function attachGameSyncCallbacks() {
         if (isHost) {
             gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurnRequest, pendingAbbeData = null) => {
                 console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
+
+                // Nettoyage défensif : un invité qui termine son tour ne doit pas
+                // laisser waitingToRedraw=true côté hôte
+                waitingToRedraw = false;
+                gameSync._pendingUnplaceableRedraw = null;
 
                 // ⭐ Vérification défensive : rejeter si ce n'est pas le tour de ce joueur
                 const currentPlayer = gameState.getCurrentPlayer();
