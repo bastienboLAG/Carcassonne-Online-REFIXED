@@ -187,7 +187,8 @@ export class UnplaceableTileManager {
 
         this._seenImplacableRiver.clear();
         this._riverTilesToTest = null;
-        this.setRedrawMode(true);
+        // setRedrawMode uniquement si c'est le tour de l'hôte (activePeerId = null)
+        if (!activePeerId) this.setRedrawMode(true);
         return true;
     }
 
@@ -275,8 +276,9 @@ export class UnplaceableTileManager {
                     console.log('🌊 river-12 implaçable — détruite, fin de rivière');
                     this._destroyTileAtIndex(idx);
                     if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
-                    const msg = `L'embouchure (river-12) était impossible à placer et a été détruite. La rivière se termine sans embouchure. Cliquez sur Repiocher pour continuer avec les tuiles normales.`;
-                    this.showTileDestroyedModal(tileId, playerName, true, 'destroy', true, msg);
+                    const isLocalActive = !activePeerId; // hôte joue lui-même
+                    const msg = `L'embouchure (river-12) était impossible à placer et a été détruite. La rivière se termine sans embouchure. ${isLocalActive ? 'Cliquez sur Repiocher pour continuer avec les tuiles normales.' : `${playerName} va repiocher avec les tuiles normales.`}`;
+                    this.showTileDestroyedModal(tileId, playerName, isLocalActive, 'destroy', true, msg);
                     if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, 'destroy');
                     this._seenImplacableRiver.clear();
                     this._riverTilesToTest = null;
@@ -316,11 +318,12 @@ export class UnplaceableTileManager {
             if (isRiver) {
                 if (tuileEnMain.id === 'river-12') {
                     console.log('🌊 river-12 implaçable — détruite, fin de rivière');
-                    const msg = `L'embouchure (river-12) était impossible à placer et a été détruite. La rivière se termine sans embouchure. Cliquez sur Repiocher pour continuer avec les tuiles normales.`;
+                    const isLocalActive = !activePeerId;
+                    const msg = `L'embouchure (river-12) était impossible à placer et a été détruite. La rivière se termine sans embouchure. ${isLocalActive ? 'Cliquez sur Repiocher pour continuer avec les tuiles normales.' : `${playerName} va repiocher avec les tuiles normales.`}`;
                     this._destroyTileAtIndex(idx);
                     this.deck.currentIndex--;
                     if (gameSync) gameSync.syncDeckReshuffle(this.deck.tiles, this.deck.currentIndex);
-                    this.showTileDestroyedModal(tileId, playerName, true, 'destroy', true, msg);
+                    this.showTileDestroyedModal(tileId, playerName, isLocalActive, 'destroy', true, msg);
                     if (gameSync) gameSync.syncTileDestroyed(tileId, playerName, 'destroy');
                     this._seenImplacableRiver.clear();
                     this._riverTilesToTest = null;
