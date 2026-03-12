@@ -140,12 +140,10 @@ export class MeepleSelectorUI {
                 ];
             }
         } else if (zoneType === 'fairy-attach') {
-            // Fée — uniquement l'icône fée (neutre, pas colorée par joueur)
-            if (player?.hasFairy !== false) { // hasFairy true ou undefined = OK
-                meepleTypes = [
-                    { type: 'Fairy', image: `./assets/Meeples/Fairy.png` }
-                ];
-            }
+            // Fée — toujours disponible (peut être posée ou volée à un autre joueur)
+            meepleTypes = [
+                { type: 'Fairy', image: `./assets/Meeples/Fairy.png` }
+            ];
         } else if (zoneType === 'abbey') {
             // Abbey → Normal (si dispo) + Abbé (si dispo) + Large (si dispo)
             if (player?.meeples > 0) {

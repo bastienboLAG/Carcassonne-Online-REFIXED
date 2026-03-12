@@ -226,7 +226,7 @@ eventBus.on('turn-ended', (data) => {
 
 // ✅ Étape 3 : echo du placement meeple invité
 eventBus.on('meeple-placed-own', (data) => {
-    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+    _hideAllCursors();
     updateMobileButtons();
     updateTurnDisplay();
 });
@@ -3216,7 +3216,7 @@ function _applyUndoLocally(undoneAction) {
         }
 
         if (slotsUI && firstTilePlaced) slotsUI.refreshAllSlots();
-        if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+        _hideAllCursors();
     }
 }
 
@@ -3373,7 +3373,7 @@ function handleAbbeRecall(x, y, key, meeple) {
     }
 
     // Cacher les overlays
-    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+    _hideAllCursors();
 
     // Marquer dans UndoManager
     if (undoManager) undoManager.markAbbeRecalled(x, y, key, meeple.playerId, points);
@@ -3508,6 +3508,11 @@ function _clearFairyCursors() {
     document.querySelectorAll('.fairy-cursor, .fairy-cursor-overlay').forEach(el => el.remove());
 }
 
+function _hideAllCursors() {
+    meepleCursorsUI?.hideCursors();
+    _clearFairyCursors();
+}
+
 /**
  * Pose la fée sur le meeple désigné — appelé après validation dans le sélecteur.
  */
@@ -3526,7 +3531,7 @@ function _handleFairyPlacement(meepleKey) {
         });
     }
 
-    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+    _hideAllCursors();
     updateTurnDisplay();
 }
 
@@ -3539,7 +3544,7 @@ function placerMeeple(x, y, position, meepleType) {
 
     if (gameSync && !isHost) {
         // ✅ Étape 3 : invité purement réactif — envoie request, attend echo hôte
-        if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+        _hideAllCursors();
         gameSync.syncMeeplePlacementRequest(x, y, position, meepleType);
         return;
     }
@@ -3573,7 +3578,7 @@ function placerMeeple(x, y, position, meepleType) {
     if (undoManager && (isMyTurn || isHost)) {
         undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);
     }
-    if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+    _hideAllCursors();
 }
 
 function incrementPlayerMeeples(playerId) {
@@ -3647,7 +3652,7 @@ function setupEventListeners() {
 
         // ✅ Étape 4 : invité purement réactif — envoie la request, attend turn-ended de l'hôte
         if (gameSync && !isHost) {
-            if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+            _hideAllCursors();
             // Transmettre les points Abbé en attente à l'hôte via la request
             const _pendingAbbe = pendingAbbePoints ? { ...pendingAbbePoints } : null;
             pendingAbbePoints = null;
@@ -3747,7 +3752,7 @@ function setupEventListeners() {
         }
 
         // Nettoyer les curseurs et overlays abbé
-        if (meepleCursorsUI) meepleCursorsUI.hideCursors();
+        _hideAllCursors();
         else document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
 
         // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
