@@ -3407,6 +3407,7 @@ function _countAbbePoints(x, y) {
 eventBus.on('network-dragon-premature', (data) => {
     if (isHost) return;
     const isActivePlayer = data.playerId === multiplayer.playerId;
+    console.log('🐉 [INVITÉ] network-dragon-premature — data.playerId:', data.playerId, '| multiplayer.playerId:', multiplayer.playerId, '| isActivePlayer:', isActivePlayer);
     if (isActivePlayer) {
         unplaceableManager?.showUnplaceableBadgeDragon(data.tileId);
     } else {
