@@ -288,7 +288,12 @@ export class UnplaceableTileManager {
         const currentPlayer = this.gameState?.getCurrentPlayer();
         const tileId        = tuileEnMain?.id || '?';
         const playerName    = currentPlayer?.name || '?';
-        const action        = this.gameConfig?.unplaceableAction || 'destroy';
+
+        // Tuile dragon sans volcan → toujours remélangée, texte spécifique modale 2
+        const isDragonPremature = tuileEnMain?.zones?.some(z => z.type === 'dragon') &&
+                                  !this.gameState?.dragonPos;
+        const action        = isDragonPremature ? 'reshuffle' : (this.gameConfig?.unplaceableAction || 'destroy');
+        const displayAction = isDragonPremature ? 'dragon-reshuffle' : action;
 
         this.hideUnplaceableBadge();
 
@@ -368,6 +373,6 @@ export class UnplaceableTileManager {
         }
 
         // Cas normal : retourner les infos pour que l'appelant gère l'affichage
-        return { tileId, playerName, action, isRiver };
+        return { tileId, playerName, action: displayAction, isRiver };
     }
 }

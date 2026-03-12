@@ -1525,16 +1525,7 @@ function attachGameSyncCallbacks() {
                 console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
                 if (!unplaceableManager) return;
 
-                // Cas dragon prématuré : tuile dragon sans volcan posé
-                const guestTileData = deck.tiles.find(t => t.id === tileId) ?? { id: tileId };
-                if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
-                    _tileHasDragonZone(guestTileData) && !gameState.dragonPos) {
-                    _confirmDragonReshuffle(playerId);
-                    return;
-                }
-
-                // Construire un objet tuile depuis tileId reçu de l'invité
-                const guestTile = guestTileData;
+                const guestTile = deck.tiles.find(t => t.id === tileId) ?? { id: tileId };
                 const result = unplaceableManager.handleConfirm(guestTile, gameSync, playerId);
                 if (tilePreviewUI) tilePreviewUI.showBackside();
                 if (!result) {
@@ -3401,86 +3392,15 @@ function _countAbbePoints(x, y) {
 // ═══════════════════════════════════════════════════════
 // ── Dragon prématuré : modales 1 et 2 ────────────────────────────────
 
-/**
- * Modale 1 — affichée côté HÔTE quand une tuile dragon est piochée sans volcan.
- * Utilise la modale implaçable existante avec textes adaptés.
- */
-function _showDragonPrematureModal(tileId, currentPlayer) {
-    const modal     = document.getElementById('unplaceable-modal');
-    const modalText = document.getElementById('unplaceable-modal-text');
-    const badge     = document.getElementById('unplaceable-badge');
-    const confirmBtn = document.getElementById('unplaceable-confirm-btn');
-    const examineBtn = document.getElementById('unplaceable-examine-btn');
-
-    if (!modal) return;
-
-    modalText.textContent =
-        `La tuile "${tileId}" est une tuile Dragon, mais aucun volcan n'a encore été posé sur le plateau. ` +
-        `Elle doit être remélangée dans la pioche.`;
-
-    if (confirmBtn) {
-        confirmBtn.textContent = 'Remettre dans la pioche';
-        confirmBtn._dragonMode = true; // flag pour le onclick ci-dessous
-    }
-    if (examineBtn) examineBtn.style.display = 'none'; // pas d'examen pour le dragon
-
-    if (badge) badge.style.display = 'none';
-    modal.style.display = 'flex';
-}
-
-/**
- * Effectue le remélange dragon et affiche la modale 2.
- * activePeerId = null → c'est le tour de l'hôte
- * activePeerId = id   → c'est le tour d'un invité (déclenché par onUnplaceableConfirm)
- */
-function _confirmDragonReshuffle(activePeerId = null) {
-    const modal      = document.getElementById('unplaceable-modal');
-    const confirmBtn = document.getElementById('unplaceable-confirm-btn');
-    const examineBtn = document.getElementById('unplaceable-examine-btn');
-
-    if (modal) modal.style.display = 'none';
-    if (confirmBtn) { confirmBtn.textContent = 'Confirmer'; confirmBtn._dragonMode = false; }
-    if (examineBtn) examineBtn.style.display = '';
-
-    // Remélange Fisher-Yates
-    const idx = deck.currentIndex - 1;
-    const remaining = deck.tiles.slice(idx);
-    for (let i = remaining.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-    }
-    deck.tiles.splice(idx, remaining.length, ...remaining);
-    deck.currentIndex--;
-    gameSync.syncDeckReshuffle(deck.tiles, deck.currentIndex);
-
-    const _cp          = gameState.getCurrentPlayer();
-    const _cpId        = activePeerId ?? _cp?.id ?? null;
-    const _cpName      = _cp?.name ?? '?';
-    const isHostPlayer = !activePeerId;
-
-    // Broadcaster modale 2 (cible l'invité actif si besoin)
-    gameSync.syncUnplaceableHandled(tuileEnMain?.id ?? '?', _cpName, 'dragon-reshuffle', false, _cpId);
-
-    // Modale 2 côté hôte
-    if (tilePreviewUI) tilePreviewUI.showBackside();
-    unplaceableManager.showTileDestroyedModal(tuileEnMain?.id ?? '?', _cpName, isHostPlayer, 'dragon-reshuffle', false);
-    if (isHostPlayer) {
-        waitingToRedraw = true;
-        updateTurnDisplay();
-    } else {
-        gameSync._pendingUnplaceableRedraw = activePeerId;
-    }
-}
-
-// Invités : modale info dragon prématuré (modale 2 uniquement — ils n'ont pas le bouton Confirmer)
+// Invités : modale dragon prématuré
+// - joueur actif : badge + modale 1 pour confirmer le remélange (via handleConfirm)
+// - autres invités : modale info seulement
 eventBus.on('network-dragon-premature', (data) => {
     if (isHost) return;
     const isActivePlayer = data.playerId === multiplayer.playerId;
     if (isActivePlayer) {
-        // L'invité actif : badge + modale 1 pour confirmer le remélange
         unplaceableManager?.showUnplaceableBadgeDragon(data.tileId);
     } else {
-        // Spectateur / autre invité : modale info seulement
         unplaceableManager?.showTileDestroyedModal(data.tileId, data.playerName, false, 'dragon-reshuffle', false);
     }
 });
@@ -3959,13 +3879,6 @@ function setupEventListeners() {
     // Confirmer tuile implaçable
     document.getElementById('unplaceable-confirm-btn').onclick = () => {
         if (!unplaceableManager || !tuileEnMain) return;
-
-        // Mode dragon prématuré : remélange spécial sans handleConfirm
-        const btn = document.getElementById('unplaceable-confirm-btn');
-        if (btn?._dragonMode) {
-            _confirmDragonReshuffle();
-            return;
-        }
 
         if (isHost) {
             // Hôte : gère le deck + affichage local + broadcast
