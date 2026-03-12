@@ -1269,6 +1269,7 @@ function attachGameSyncCallbacks() {
             // Retirer visuellement l'Abbé
             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
             delete placedMeeples[key];
+            _releaseFairyIfDetached(key);
             const player = gameState.players.find(p => p.id === playerId);
             if (player) player.hasAbbot = true;
             // Hôte marque le rappel abbé pour undo centralisé
@@ -1475,6 +1476,7 @@ function attachGameSyncCallbacks() {
                             else                                { if (p.meeples < 7) p.meeples++; }
                             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
                             delete placedMeeples[key];
+                            _releaseFairyIfDetached(key);
                         });
                         if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
                     }
@@ -2299,6 +2301,20 @@ function _renderFairyPiece(meepleKey) {
 
 function _removeFairyPiece() {
     document.getElementById('fairy-piece')?.remove();
+}
+
+/**
+ * Si la fée est attachée au meepleKey donné (qui vient d'être retiré du plateau),
+ * libérer la fée : ownerId → null, meepleKey conservé pour l'affichage visuel.
+ * La fée reste visible sur le plateau mais n'appartient plus à personne —
+ * n'importe quel joueur pourra la récupérer via les curseurs habituels.
+ * La mise à jour sera propagée aux invités via le prochain turn-ended.
+ */
+function _releaseFairyIfDetached(removedKey) {
+    if (!gameState.fairyState) return;
+    if (gameState.fairyState.meepleKey !== removedKey) return;
+    gameState.fairyState.ownerId = null;
+    gameState.players.forEach(p => { p.hasFairy = false; });
 }
 
 function sendFullStateTo(targetPeerId) {
@@ -3417,6 +3433,7 @@ function handleAbbeRecall(x, y, key, meeple) {
 
     // Mettre à jour placedMeeples
     delete placedMeeples[key];
+    _releaseFairyIfDetached(key);
 
     // Rendre l'Abbé au joueur
     const player = gameState.players.find(p => p.id === meeple.playerId);
@@ -3800,6 +3817,7 @@ function setupEventListeners() {
                         }
                         document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
                         delete placedMeeples[key];
+                        _releaseFairyIfDetached(key);
                     }
                 });
 
