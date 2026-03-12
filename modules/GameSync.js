@@ -598,6 +598,7 @@ export class GameSync {
 
             case 'dragon-premature-tile':
                 // Reçu par les invités : modale info "dragon sans volcan"
+                console.log('🐉 [GAMESYNC] dragon-premature-tile — isHost:', this.isHost, '| eventBus:', !!this.eventBus);
                 if (!this.isHost) {
                     this.eventBus?.emit('network-dragon-premature', data);
                 }
