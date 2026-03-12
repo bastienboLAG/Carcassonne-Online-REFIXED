@@ -3,12 +3,13 @@
  * Extrait de home.js pour alléger le fichier principal
  */
 export class UnplaceableTileManager {
-    constructor({ deck, gameState, tilePreviewUI, gameSync, gameConfig, setRedrawMode, triggerEndGame }) {
+    constructor({ deck, gameState, tilePreviewUI, gameSync, gameConfig, plateau, setRedrawMode, triggerEndGame }) {
         this.deck           = deck;
         this.gameState      = gameState;
         this.tilePreviewUI  = tilePreviewUI;
         this.gameSync       = gameSync;
         this.gameConfig     = gameConfig;
+        this.plateau        = plateau;
         this.setRedrawMode  = setRedrawMode;
         this.triggerEndGame = triggerEndGame;
 
@@ -291,7 +292,9 @@ export class UnplaceableTileManager {
 
         // Tuile dragon sans volcan → toujours remélangée, texte spécifique modale 2
         const isDragonPremature = tuileEnMain?.zones?.some(z => z.type === 'dragon') &&
-                                  !this.gameState?.dragonPos;
+                                  !Object.values(this.plateau?.placedTiles ?? {}).some(
+                                      t => t?.zones?.some(z => z.type === 'volcano')
+                                  );
         const action        = isDragonPremature ? 'reshuffle' : (this.gameConfig?.unplaceableAction || 'destroy');
         const displayAction = isDragonPremature ? 'dragon-reshuffle' : action;
 

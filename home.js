@@ -1216,7 +1216,7 @@ function initializeGameModules() {
 
     // ✅ Modules extraits de home.js
     unplaceableManager = new UnplaceableTileManager({
-        deck, gameState, tilePreviewUI, gameSync, gameConfig,
+        deck, gameState, tilePreviewUI, gameSync, gameConfig, plateau,
         setRedrawMode: (active) => { waitingToRedraw = active; updateTurnDisplay(); },
         triggerEndGame: () => {
             if (deck.remaining() <= 0) {
@@ -1967,7 +1967,8 @@ function _hostDrawAndSend() {
     //   → clic Confirmer → remélange Fisher-Yates + syncDeck
     //   Modale 2 (tile-destroyed-modal) : "remélangée, cliquez Repiocher"
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
-        _tileHasDragonZone(tileData) && !gameState.dragonPos) {
+        _tileHasDragonZone(tileData) &&
+        !Object.values(plateau.placedTiles ?? {}).some(t => _tileHasVolcanoZone(t))) {
         console.log('🐉 [HÔTE] Tuile dragon sans volcan — badge implaçable:', tileData.id);
 
         tuileEnMain = tileData;
