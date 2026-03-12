@@ -1617,9 +1617,8 @@ eventBus.on('network-dragon-state-update', (data) => {
 });
 
 eventBus.on('network-fairy-placed', (data) => {
-    if (isHost) return;
-    if (!dragonRules) return;
-    // Mettre à jour l'état fairy dans gameState
+    if (!dragonRules || !gameState) return;
+    // Mettre à jour l'état fairy dans gameState (hôte ET invité)
     gameState.fairyState.ownerId   = data.ownerId;
     gameState.fairyState.meepleKey = data.meepleKey;
     gameState.players.forEach(p => { p.hasFairy = false; });
@@ -3173,6 +3172,15 @@ function _applyUndoLocally(undoneAction) {
 
     if (undoneAction.type === 'meeple') {
         document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
+        // Restaurer le rendu de la fée (le snapshot a déjà restauré fairyState)
+        if (gameConfig.extensions?.fairyProtection) {
+            const fs = gameState.fairyState;
+            if (fs?.meepleKey) {
+                _renderFairyPiece(fs.meepleKey);
+            } else {
+                _removeFairyPiece();
+            }
+        }
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
@@ -3435,8 +3443,9 @@ function _showFairyTargets() {
     if (!boardEl) return;
 
     const currentFairyKey = gameState.fairyState?.meepleKey ?? null;
-    targets.forEach(({ key }) => {
+    targets.forEach(({ key, meeple }) => {
         if (key === currentFairyKey) return; // fée déjà attachée ici
+        if (meeple?.type?.toLowerCase() === 'abbot') return; // abbé géré via sa propre modale
         const parts = key.split(',');
         const fx = Number(parts[0]);
         const fy = Number(parts[1]);

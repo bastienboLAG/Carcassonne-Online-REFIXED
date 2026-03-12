@@ -59,7 +59,8 @@ export class UndoManager {
                 hasBuilder: p.hasBuilder,
                 hasPig:     p.hasPig
             })),
-            lastPlacedTile: this.lastPlacedTileBeforeTurn // épingle avant ce tour
+            lastPlacedTile: this.lastPlacedTileBeforeTurn, // épingle avant ce tour
+            fairyState: this.deepCopy(this.gameState.fairyState ?? { ownerId: null, meepleKey: null })
         };
         
         // Reset état du tour
@@ -102,7 +103,8 @@ export class UndoManager {
                 hasLargeMeeple: p.hasLargeMeeple,
                 hasBuilder: p.hasBuilder,
                 hasPig:     p.hasPig
-            }))
+            })),
+            fairyState: this.deepCopy(this.gameState.fairyState ?? { ownerId: null, meepleKey: null })
         };
         
         this.tilePlacedThisTurn = true;
@@ -247,6 +249,15 @@ export class UndoManager {
         Object.keys(placedMeeples).forEach(key => delete placedMeeples[key]);
         Object.assign(placedMeeples, this.deepCopy(snapshot.placedMeeples));
         
+        // Restaurer fairyState si présent dans le snapshot
+        if (snapshot.fairyState !== undefined && this.gameState.fairyState) {
+            this.gameState.fairyState.ownerId   = snapshot.fairyState.ownerId;
+            this.gameState.fairyState.meepleKey = snapshot.fairyState.meepleKey;
+            this.gameState.players.forEach(p => { p.hasFairy = false; });
+            const fairyOwner = this.gameState.players.find(p => p.id === snapshot.fairyState.ownerId);
+            if (fairyOwner) fairyOwner.hasFairy = true;
+        }
+
         // Restaurer compteur de meeples des joueurs
         snapshot.playerMeeples.forEach(saved => {
             // Chercher par id d'abord, puis par nom+couleur (fallback reconnexion : peerId change)
