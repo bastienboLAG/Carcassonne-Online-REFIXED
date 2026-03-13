@@ -1345,7 +1345,9 @@ function attachGameSyncCallbacks() {
                         hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
                         hasBuilder: p.hasBuilder, hasPig: p.hasPig
                     })),
-                    fairyState: JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null }))
+                    fairyState:  JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
+                    dragonPos:   JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
+                    dragonPhase: JSON.parse(JSON.stringify(gameState.dragonPhase ?? {}))
                 };
 
                 // Appliquer visuellement côté hôte
@@ -3487,23 +3489,22 @@ function handleRemoteUndo(undoneAction) {
 
     // Synchroniser les flags de l'UndoManager local (côté invité) avec l'état annulé
     // car l'UndoManager de l'invité n'a pas exécuté undo() lui-même.
-    // On le fait seulement si c'est le tour du joueur local (isMyTurn) pour ne pas
-    // altérer son état quand c'est l'hôte qui fait un undo pendant son propre tour.
-    if (undoManager && isMyTurn) {
-        if (undoneAction.type === 'meeple') {
+    if (undoManager) {
+        if (undoneAction.type === 'meeple' && isMyTurn) {
             undoManager.meeplePlacedThisTurn = false;
             undoManager.lastMeeplePlaced     = null;
-        } else if (undoneAction.type === 'tile') {
+        } else if (undoneAction.type === 'tile' && isMyTurn) {
             undoManager.tilePlacedThisTurn       = false;
             undoManager.meeplePlacedThisTurn     = false;
             undoManager.abbeRecalledThisTurn     = false;
             undoManager.lastTilePlaced           = null;
             undoManager.lastMeeplePlaced         = null;
             undoManager.afterTilePlacedSnapshot  = null;
-        } else if (undoneAction.type === 'abbe-recalled-undo') {
+        } else if (undoneAction.type === 'abbe-recalled-undo' && isMyTurn) {
             undoManager.abbeRecalledThisTurn = false;
             undoManager.lastAbbeRecalled     = null;
         } else if (undoneAction.type === 'dragon-move-undo') {
+            // Toujours réinitialiser, même si isMyTurn est false (phase dragon)
             undoManager.dragonMovePlacedThisTurn = false;
             undoManager.dragonMoveSnapshot       = null;
         }
@@ -4243,7 +4244,15 @@ function setupEventListeners() {
 
     // Annuler le coup
     document.getElementById('undo-btn').addEventListener('click', () => {
-        if (!isMyTurn) return;
+        // Pendant la phase dragon : l'invité peut annuler son propre déplacement
+        // même si isMyTurn === false (ce n'est pas son tour de jeu normal)
+        const isDragonPhase = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+        const dragonMover   = isDragonPhase ? gameState.players[gameState.dragonPhase.moverIndex] : null;
+        const isMyDragonUndo = isDragonPhase && dragonMover?.id === multiplayer.playerId
+                               && !!undoManager?.dragonMovePlacedThisTurn;
+
+        if (!isMyTurn && !isMyDragonUndo) return;
+
         // Invité : déléguer à l'hôte
         if (!isHost) {
             if (gameSync) gameSync.syncUndoRequest();
