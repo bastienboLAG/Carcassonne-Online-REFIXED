@@ -2306,7 +2306,7 @@ function _onDragonPhaseEnded() {
 function _advanceDragonTurnHost() {
     if (!dragonRules || !gameState.dragonPhase.active) return;
 
-    // Réinitialiser le flag undo dragon pour le prochain joueur
+    // Réinitialiser le flag undo dragon
     if (undoManager) { undoManager.dragonMoveSnapshot = null; undoManager.dragonMovePlacedThisTurn = false; }
 
     if (gameState.dragonPhase.movesRemaining <= 0) {
@@ -2317,31 +2317,28 @@ function _advanceDragonTurnHost() {
         return;
     }
 
-    // Passer au joueur suivant — mais sauter ceux qui sont bloqués
-    // (on tente au max autant de fois qu'il y a de joueurs actifs)
+    // Chercher le prochain joueur qui peut bouger.
+    // NE PAS décrémenter movesRemaining ici — seul moveDragon() le fait (déplacement physique).
+    // On parcourt au max activePlayers joueurs pour éviter une boucle infinie.
     const activePlayers = gameState.players.filter(p =>
         p.color !== 'spectator' && !p.disconnected && !p.kicked
     ).length;
 
-    let skipped = 0;
-    while (skipped < activePlayers) {
+    for (let attempts = 0; attempts < activePlayers; attempts++) {
         gameState.advanceDragonMover();
         const validMoves = dragonRules.getValidDragonMoves();
         if (validMoves.length > 0) {
-            // Ce joueur peut jouer
+            // Ce joueur peut bouger — lui donner la main
             _broadcastDragonState();
             _startDragonTurnUI();
             updateTurnDisplay();
             return;
         }
-        // Joueur bloqué : consommer son mouvement et passer
-        console.log(`🐉 [Dragon] Joueur ${gameState.players[gameState.dragonPhase.moverIndex]?.name} bloqué, tour sauté`);
-        gameState.dragonPhase.movesRemaining--;
-        skipped++;
-        if (gameState.dragonPhase.movesRemaining <= 0) break;
+        // Ce joueur est bloqué — on le saute sans consommer de mouvement
+        console.log(`🐉 [Dragon] ${gameState.players[gameState.dragonPhase.moverIndex]?.name} bloqué, tour sauté`);
     }
 
-    // Tous les joueurs restants sont bloqués ou plus de mouvements
+    // Tous les joueurs sont bloqués — terminer la phase
     gameState.endDragonPhase();
     _broadcastDragonState();
     _onDragonPhaseEnded();
