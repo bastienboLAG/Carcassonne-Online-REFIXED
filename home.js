@@ -184,10 +184,19 @@ eventBus.on('tile-drawn', (data) => {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // Vérifier si la tuile est plaçable (seulement si c'est notre tour)
-    // Note: syncTileDraw est fait dans _hostDrawAndSend, pas ici
+    // Fix 1 — Fée : +1 point au début du tour si on possède la fée
+    if (isOwnTurnStart && gameConfig?.extensions?.fairyScoreTurn
+        && gameState?.fairyState?.ownerId === multiplayer.playerId) {
+        const fairyPlayer = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (fairyPlayer) {
+            fairyPlayer.score += 1;
+            console.log(`🧚 [Fée] +1 point début de tour pour ${fairyPlayer.name} (score: ${fairyPlayer.score})`);
+            if (isHost && gameSync) gameSync.syncScoreUpdate([], [], [], zoneMerger);
+            eventBus.emit('score-updated');
+        }
+    }
 
-    // Vérifier si la tuile est plaçable (seulement si c'est notre tour)
+
     if (isOwnTurnStart && isMyTurn && tilePlacement && unplaceableManager) {
         const isRiverPhase = tuileEnMain?.id?.startsWith('river-') ?? false;
         const placeable = unplaceableManager.isTilePlaceable(tuileEnMain, tilePlacement.plateau, isRiverPhase);
@@ -1481,6 +1490,24 @@ function attachGameSyncCallbacks() {
                             _releaseFairyIfDetached(key);
                         });
                         if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
+
+                        // Fix 2 — Fée : +3 points si le meeple porteur de la fée est dans une zone fermée
+                        if (gameConfig.extensions?.fairyScoreZone && gameState.fairyState?.meepleKey
+                            && meeplesToReturn.includes(gameState.fairyState.meepleKey)) {
+                            const fairyMeeple = placedMeeples[gameState.fairyState.meepleKey]
+                                ?? { playerId: gameState.fairyState.ownerId };
+                            const fairyOwnerId = gameState.fairyState.ownerId ?? fairyMeeple.playerId;
+                            const fp = gameState.players.find(p => p.id === fairyOwnerId);
+                            if (fp) {
+                                fp.score += 3;
+                                console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
+                                if (gameSync) gameSync.syncScoreUpdate(
+                                    [{ playerId: fairyOwnerId, points: 3, zoneType: 'fairy' }],
+                                    [], [], zoneMerger
+                                );
+                                eventBus.emit('score-updated');
+                            }
+                        }
                     }
                 }
 
@@ -2158,10 +2185,12 @@ function _updateDragonOverlay() {
     const hasMovedThisTurn = !!(undoManager?.dragonMovePlacedThisTurn);
     if (isMyDragonTurn) {
         overlay.textContent = hasMovedThisTurn
-            ? `🐉 Dragon déplacé — cliquez "Terminer mon tour" pour passer la main (${phase.movesRemaining} restants)`
+            ? `🐉 Dragon déplacé — cliquez "Terminer mon tour" pour passer la main`
             : `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`;
     } else {
-        overlay.textContent = `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
+        overlay.textContent = hasMovedThisTurn
+            ? `🐉 ${mover?.name ?? '?'} a déplacé le dragon — en attente…`
+            : `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
     }
 }
 
@@ -2261,6 +2290,40 @@ function _executeDragonMoveHost(x, y) {
         document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
         _releaseFairyIfDetached(key);
     });
+
+    // Fix 5 — Builder/Cochon orphelins : si le dragon a mangé des meeples normaux,
+    // vérifier si des Builder/Cochon dans la même zone fusionnée n'ont plus de meeple
+    // normal de leur propriétaire dans cette zone → les rendre aussi.
+    if (eaten.length > 0 && zoneMerger) {
+        const orphanKeys = [];
+        for (const [key, meeple] of Object.entries(placedMeeples)) {
+            if (meeple.type !== 'Builder' && meeple.type !== 'Pig') continue;
+            const [bx, by, bp] = key.split(',').map(Number);
+            const zoneId = zoneMerger.tileToZone?.get(`${bx},${by},${bp}`);
+            if (zoneId == null) continue;
+            // Vérifier s'il reste un meeple normal du même joueur dans cette zone
+            const hasNormalMeeple = Object.entries(placedMeeples).some(([k2, m2]) => {
+                if (k2 === key) return false;
+                if (m2.playerId !== meeple.playerId) return false;
+                if (m2.type === 'Builder' || m2.type === 'Pig') return false;
+                const [x2, y2, p2] = k2.split(',').map(Number);
+                return zoneMerger.tileToZone?.get(`${x2},${y2},${p2}`) === zoneId;
+            });
+            if (!hasNormalMeeple) orphanKeys.push(key);
+        }
+        orphanKeys.forEach(key => {
+            const meeple = placedMeeples[key];
+            const player = gameState.players.find(p => p.id === meeple.playerId);
+            if (player) {
+                if (meeple.type === 'Builder') player.hasBuilder = true;
+                else if (meeple.type === 'Pig') player.hasPig = true;
+            }
+            delete placedMeeples[key];
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+            eaten.push({ key, meeple }); // inclure dans le broadcast
+            console.log(`🐉 [Fix5] Builder/Cochon orphelin rendu: ${key}`);
+        });
+    }
 
     // Broadcast état dragon (les invités retirent aussi les meeples mangés)
     _broadcastDragonState(eaten.map(e => e.key));
