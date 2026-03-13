@@ -2068,16 +2068,19 @@ function _broadcastDragonState(eatenKeys = []) {
  */
 function _startDragonTurnUI() {
     const phase = gameState.dragonPhase;
+    console.log('🐉 [_startDragonTurnUI] phase.active:', phase.active, '| moverIndex:', phase.moverIndex, '| movesRemaining:', phase.movesRemaining);
     if (!phase.active) return;
 
     const mover = gameState.players[phase.moverIndex];
     const isMyDragonTurn = mover?.id === multiplayer.playerId;
+    console.log('🐉 [_startDragonTurnUI] mover:', mover?.name, '| isMyDragonTurn:', isMyDragonTurn, '| dragonPos:', JSON.stringify(gameState.dragonPos));
 
     _updateDragonOverlay();
     updateTurnDisplay(); // met à jour contour rouge + état boutons
 
     if (isMyDragonTurn && dragonRules) {
         const validMoves = dragonRules.getValidDragonMoves();
+        console.log('🐉 [_startDragonTurnUI] validMoves:', JSON.stringify(validMoves));
         _showDragonMoveCursors(validMoves);
     }
 }
@@ -2115,6 +2118,7 @@ function _updateDragonOverlay() {
 function _showDragonMoveCursors(validMoves) {
     _clearDragonCursors();
     const boardEl = document.getElementById('board');
+    console.log('🐉 [_showDragonMoveCursors] validMoves:', JSON.stringify(validMoves), '| boardEl:', !!boardEl);
     if (!boardEl) return;
 
     // Position 13 = centre de la grille 5×5 (row 2, col 2, 0-indexed)
@@ -3142,6 +3146,7 @@ function updateTurnDisplay() {
     // Mettre à jour le contour doré si tour bonus, rouge si tour dragon
     const isBonusTurn  = turnManager?.isBonusTurn ?? false;
     const isDragonTurn = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+    console.log('🐉 [updateTurnDisplay] isDragonTurn:', isDragonTurn, '| dragonPhase.active:', gameState?.dragonPhase?.active, '| isBonusTurn:', isBonusTurn);
     if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn, isDragonTurn);
     _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn);
 
