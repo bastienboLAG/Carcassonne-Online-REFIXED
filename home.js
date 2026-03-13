@@ -1473,6 +1473,9 @@ function attachGameSyncCallbacks() {
                 if (scoring && zoneMerger) {
                     const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
                     const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, playerId, gameState, newlyClosed);
+                    // Snapshot de la clé fée AVANT que _releaseFairyIfDetached la vide
+                    const fairyMeepleKeySnapshot = gameState.fairyState?.meepleKey ?? null;
+                    const fairyOwnerIdSnapshot   = gameState.fairyState?.ownerId   ?? null;
                     if (scoringResults.length > 0 || goodsResults.length > 0) {
                         scoringResults.forEach(({ playerId: pid, points, zoneType }) => {
                             const p = gameState.players.find(pl => pl.id === pid);
@@ -1500,17 +1503,14 @@ function attachGameSyncCallbacks() {
                         if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
 
                         // Fix 2 — Fée : +3 points si le meeple porteur de la fée est dans une zone fermée
-                        if (gameConfig.extensions?.fairyScoreZone && gameState.fairyState?.meepleKey
-                            && meeplesToReturn.includes(gameState.fairyState.meepleKey)) {
-                            const fairyMeeple = placedMeeples[gameState.fairyState.meepleKey]
-                                ?? { playerId: gameState.fairyState.ownerId };
-                            const fairyOwnerId = gameState.fairyState.ownerId ?? fairyMeeple.playerId;
-                            const fp = gameState.players.find(p => p.id === fairyOwnerId);
+                        if (gameConfig.extensions?.fairyScoreZone && fairyMeepleKeySnapshot
+                            && meeplesToReturn.includes(fairyMeepleKeySnapshot)) {
+                            const fp = gameState.players.find(p => p.id === fairyOwnerIdSnapshot);
                             if (fp) {
                                 fp.score += 3;
                                 console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
                                 if (gameSync) gameSync.syncScoreUpdate(
-                                    [{ playerId: fairyOwnerId, points: 3, zoneType: 'fairy' }],
+                                    [{ playerId: fairyOwnerIdSnapshot, points: 3, zoneType: 'fairy' }],
                                     [], [], zoneMerger
                                 );
                                 eventBus.emit('score-updated');
