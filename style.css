@@ -934,6 +934,20 @@ h3 .ext-master {
     box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
 }
 
+.player-score-card.active-dragon {
+    border-color: #c83200;
+    background-color: rgba(200, 50, 0, 0.12);
+    box-shadow: 0 0 10px rgba(200, 50, 0, 0.4);
+}
+
+.player-score-header .turn-indicator.dragon {
+    color: #c83200;
+}
+
+.player-score-header .dragon-star {
+    font-size: 14px;
+}
+
 .player-score-header {
     display: flex;
     align-items: center;
@@ -1203,6 +1217,14 @@ h3 .ext-master {
         opacity: 1;
         transform: scale(1.05);
         box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+    }
+
+    .mobile-player-card.active-dragon {
+        border-color: #c83200;
+        background: rgba(200, 50, 0, 0.15);
+        opacity: 1;
+        transform: scale(1.05);
+        box-shadow: 0 0 8px rgba(200, 50, 0, 0.5);
     }
 
     .mobile-player-name {

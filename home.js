@@ -1207,7 +1207,7 @@ function initializeGameModules() {
     if (gameConfig.extensions?.dragon || gameConfig.tileGroups?.dragon) {
         dragonRules = new DragonRules({
             gameState,
-            plateau:      plateau.tiles ?? plateau._tiles ?? plateau,
+            plateau:      plateau.placedTiles,
             placedMeeples,
             eventBus,
             ruleRegistry
