@@ -62,7 +62,7 @@ export class GameSync {
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
             'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request',
             'dragon-state-update', 'dragon-move-request', 'fairy-placed-sync',
-            'dragon-premature-tile', 'dragon-end-turn-request'
+            'dragon-premature-tile', 'dragon-end-turn-request', 'princess-ejected'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -602,6 +602,12 @@ export class GameSync {
                 console.log('🐉 [GAMESYNC] dragon-premature-tile — isHost:', this.isHost, '| eventBus:', !!this.eventBus);
                 if (!this.isHost) {
                     this.eventBus?.emit('network-dragon-premature', data);
+                }
+                break;
+
+            case 'princess-ejected':
+                if (!this.isHost) {
+                    this.eventBus?.emit('network-princess-ejected', data);
                 }
                 break;
             

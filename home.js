@@ -184,15 +184,23 @@ eventBus.on('tile-drawn', (data) => {
         ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
     }
 
-    // Fix 1 — Fée : +1 point au début du tour si on possède la fée
-    if (isOwnTurnStart && gameConfig?.extensions?.fairyScoreTurn
-        && gameState?.fairyState?.ownerId === multiplayer.playerId) {
-        const fairyPlayer = gameState.players.find(p => p.id === multiplayer.playerId);
-        if (fairyPlayer) {
-            fairyPlayer.score += 1;
-            console.log(`🧚 [Fée] +1 point début de tour pour ${fairyPlayer.name} (score: ${fairyPlayer.score})`);
-            if (isHost && gameSync) gameSync.syncScoreUpdate([], [], [], zoneMerger);
-            eventBus.emit('score-updated');
+    // Fix 1 — Fée : +1 point au début du tour du propriétaire de la fée
+    // Seul l'hôte applique et synchronise — l'invité reçoit via score-update
+    if (isHost && isOwnTurnStart && gameConfig?.extensions?.fairyScoreTurn
+        && gameState?.fairyState?.ownerId) {
+        // Vérifier que c'est bien le tour du propriétaire de la fée
+        const currentPlayer = gameState.getCurrentPlayer();
+        if (currentPlayer?.id === gameState.fairyState.ownerId) {
+            const fairyPlayer = gameState.players.find(p => p.id === gameState.fairyState.ownerId);
+            if (fairyPlayer) {
+                fairyPlayer.score += 1;
+                console.log(`🧚 [Fée] +1 point début de tour pour ${fairyPlayer.name} (score: ${fairyPlayer.score})`);
+                if (gameSync) gameSync.syncScoreUpdate(
+                    [{ playerId: fairyPlayer.id, points: 1, zoneType: 'fairy-turn' }],
+                    [], [], zoneMerger
+                );
+                eventBus.emit('score-updated');
+            }
         }
     }
 
@@ -2283,7 +2291,6 @@ function _executeDragonMoveHost(x, y) {
     if (undoManager) undoManager.saveDragonMove(placedMeeples);
 
     const { eaten, blocked } = dragonRules.executeDragonMove(x, y);
-    console.log('🐉 [_executeDragonMoveHost] après move — active:', gameState.dragonPhase.active, '| movesRemaining:', gameState.dragonPhase.movesRemaining, '| blocked:', blocked, '| validMoves:', dragonRules.getValidDragonMoves().length);
 
     // Retirer visuellement les meeples mangés côté hôte
     eaten.forEach(({ key }) => {
@@ -2298,8 +2305,9 @@ function _executeDragonMoveHost(x, y) {
         const orphanKeys = [];
         for (const [key, meeple] of Object.entries(placedMeeples)) {
             if (meeple.type !== 'Builder' && meeple.type !== 'Pig') continue;
-            const [bx, by, bp] = key.split(',').map(Number);
-            const zoneId = zoneMerger.tileToZone?.get(`${bx},${by},${bp}`);
+            const parts = key.split(',');
+            const bx = Number(parts[0]), by = Number(parts[1]), bp = Number(parts[2]);
+            const zoneId = zoneMerger.findMergedZoneForPosition(bx, by, bp)?.id;
             if (zoneId == null) continue;
             // Vérifier s'il reste un meeple normal du même joueur dans cette zone
             const hasNormalMeeple = Object.entries(placedMeeples).some(([k2, m2]) => {
@@ -2307,7 +2315,7 @@ function _executeDragonMoveHost(x, y) {
                 if (m2.playerId !== meeple.playerId) return false;
                 if (m2.type === 'Builder' || m2.type === 'Pig') return false;
                 const [x2, y2, p2] = k2.split(',').map(Number);
-                return zoneMerger.tileToZone?.get(`${x2},${y2},${p2}`) === zoneId;
+                return zoneMerger.findMergedZoneForPosition(x2, y2, p2)?.id === zoneId;
             });
             if (!hasNormalMeeple) orphanKeys.push(key);
         }
@@ -2320,7 +2328,7 @@ function _executeDragonMoveHost(x, y) {
             }
             delete placedMeeples[key];
             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-            eaten.push({ key, meeple }); // inclure dans le broadcast
+            eaten.push({ key, meeple });
             console.log(`🐉 [Fix5] Builder/Cochon orphelin rendu: ${key}`);
         });
     }
@@ -2344,7 +2352,6 @@ function _executeDragonMoveHost(x, y) {
  * Fin de phase dragon — reprendre le tour normal.
  */
 function _onDragonPhaseEnded() {
-    console.error('🐉 [_onDragonPhaseEnded] APPELÉ — stack:', new Error().stack);
     _clearDragonCursors();
     _updateDragonOverlay();
     afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
@@ -2369,7 +2376,6 @@ function _onDragonPhaseEnded() {
  * Appelé au clic "Terminer mon tour" pendant la phase dragon.
  */
 function _advanceDragonTurnHost() {
-    console.error('🐉 [_advanceDragonTurnHost] APPELÉ — movesRemaining:', gameState.dragonPhase.movesRemaining, '— stack:', new Error().stack);
     if (!dragonRules || !gameState.dragonPhase.active) return;
 
     // Réinitialiser le flag undo dragon
@@ -3662,6 +3668,17 @@ function poserTuile(x, y, tile, isFirst = false) {
         }
     }
 
+    // ── Extension Princesse : proposer d'éjecter un meeple ennemi de la ville ──
+    const _hasPrincessZone = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon
+        && tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess')));
+    if (_hasPrincessZone && dragonRules && isMyTurn) {
+        const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
+        if (targets.length > 0) {
+            gameState._pendingPrincessTile = { x, y, targets };
+            console.log(`👸 [Princess] ${targets.length} cible(s) éjectable(s)`);
+        }
+    }
+
     if (isMyTurn && gameSync && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
         // Volcano : pas de placement de meeple autorisé sur la tuile
         if (!_isVolcanoTile) {
@@ -3672,6 +3689,10 @@ function poserTuile(x, y, tile, isFirst = false) {
         }
         if (gameConfig.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
             _showFairyTargets();
+        }
+        // Princesse : afficher les cibles éjectables si disponibles
+        if (gameState._pendingPrincessTile) {
+            _showPrincessTargets(gameState._pendingPrincessTile.targets);
         }
     }
 
@@ -3788,11 +3809,121 @@ eventBus.on('network-dragon-premature', (data) => {
     }
 });
 
+eventBus.on('network-princess-ejected', (data) => {
+    if (isHost) return;
+    const { meepleKey } = data;
+    document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
+    const meeple = placedMeeples[meepleKey];
+    if (meeple) {
+        const player = gameState.players.find(p => p.id === meeple.playerId);
+        if (player) {
+            if (meeple.type === 'Abbot') player.hasAbbot = true;
+            else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') player.hasLargeMeeple = true;
+            else if (meeple.type === 'Builder') player.hasBuilder = true;
+            else if (meeple.type === 'Pig') player.hasPig = true;
+            else if (player.meeples < 7) player.meeples++;
+        }
+        delete placedMeeples[meepleKey];
+    }
+    eventBus.emit('meeple-count-updated', {});
+    eventBus.emit('score-updated');
+    afficherToast('👸 Meeple éjecté par la Princesse !', 'info');
+});
+
 // ── Fée : affichage des cibles et placement ───────────────────────────
 /**
  * Affiche des curseurs sur tous les meeples du joueur actif
  * auxquels la fée peut s'attacher. Cliquable comme les curseurs abbé.
  */
+// ── Extension Princesse ───────────────────────────────────────────────
+
+/**
+ * Affiche les curseurs d'éjection princesse sur les meeples ennemis cibles.
+ * @param {string[]} targetKeys
+ */
+function _showPrincessTargets(targetKeys) {
+    // Nettoyer les anciens curseurs princesse
+    document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
+    if (!targetKeys?.length) return;
+
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    afficherToast('👸 Princesse : vous pouvez éjecter un meeple ennemi de cette ville (optionnel)', 'info', 6000);
+
+    targetKeys.forEach(key => {
+        const meepleEl = document.querySelector(`.meeple[data-key="${key}"]`);
+        if (!meepleEl) return;
+
+        const btn = document.createElement('div');
+        btn.className = 'princess-cursor';
+        btn.title = 'Éjecter ce meeple (Princesse)';
+        btn.style.cssText = `
+            position: absolute;
+            width: 28px; height: 28px;
+            background: rgba(220,50,150,0.85);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 600;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+            pointer-events: all;
+        `;
+        btn.textContent = '👸';
+
+        // Positionner par-dessus le meeple
+        const rect = meepleEl.getBoundingClientRect();
+        const boardRect = boardEl.getBoundingClientRect();
+        btn.style.left = (rect.left - boardRect.left + rect.width / 2 - 14 + boardEl.scrollLeft) + 'px';
+        btn.style.top  = (rect.top  - boardRect.top  + rect.height / 2 - 14 + boardEl.scrollTop)  + 'px';
+
+        btn.addEventListener('click', () => _handlePrincessEject(key));
+        boardEl.appendChild(btn);
+    });
+}
+
+/**
+ * Exécute l'éjection princesse d'un meeple.
+ * @param {string} meepleKey
+ */
+function _handlePrincessEject(meepleKey) {
+    document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
+    gameState._pendingPrincessTile = null;
+
+    if (!dragonRules) return;
+    dragonRules.executePrincess(meepleKey);
+
+    // Retirer visuellement le meeple éjecté
+    document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
+    const meeple = placedMeeples[meepleKey];
+    if (meeple) {
+        const player = gameState.players.find(p => p.id === meeple.playerId);
+        if (player) {
+            if (meeple.type === 'Abbot') player.hasAbbot = true;
+            else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') player.hasLargeMeeple = true;
+            else if (meeple.type === 'Builder') player.hasBuilder = true;
+            else if (meeple.type === 'Pig') player.hasPig = true;
+            else if (player.meeples < 7) player.meeples++;
+        }
+        delete placedMeeples[meepleKey];
+    }
+
+    // Broadcast aux invités
+    if (gameSync) {
+        gameSync.multiplayer.broadcast({
+            type: 'princess-ejected',
+            meepleKey,
+            playerId: multiplayer.playerId
+        });
+        gameSync.syncScoreUpdate([], [], [], zoneMerger);
+    }
+
+    eventBus.emit('meeple-count-updated', {});
+    eventBus.emit('score-updated');
+    afficherToast('👸 Meeple éjecté par la Princesse !', 'success');
+}
+
 function _showFairyTargets() {
     if (!dragonRules || !gameState || !gameConfig.extensions?.fairyProtection) return;
     const targets = dragonRules.getFairyTargets(multiplayer.playerId);

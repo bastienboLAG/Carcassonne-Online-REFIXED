@@ -250,29 +250,48 @@ export class DragonRules {
     /**
      * Quand une tuile princess est posée sur une ville,
      * le joueur actif PEUT retirer un meeple ennemi de cette ville.
-     * Retourne les clés de meeples éligibles dans les zones city adjacentes.
+     * Retourne les clés de meeples éligibles dans toute la zone city fusionnée.
      * @param {number} x
      * @param {number} y
      * @param {object} tile
      * @param {string} currentPlayerId
+     * @param {object} [zoneMerger] — ZoneMerger pour trouver toute la zone fusionnée
      * @returns {Array<string>} clés de meeples éjectables
      */
-    getPrincessTargets(x, y, tile, currentPlayerId) {
-        const targets = [];
+    getPrincessTargets(x, y, tile, currentPlayerId, zoneMerger = null) {
+        const targets = new Set();
         const princessZones = tile.zones.filter(z => z.type === 'city' && z.features?.includes?.('princess'));
 
         for (const zone of princessZones) {
-            // Trouver tous les meeples dans cette zone city (via zoneMerger si disponible)
-            // Pour l'instant : chercher les meeples sur cette tuile dans une zone city
-            for (const [key, meeple] of Object.entries(this.placedMeeples)) {
-                const parts = key.split(',');
-                if (Number(parts[0]) !== x || Number(parts[1]) !== y) continue;
-                if (meeple.playerId === currentPlayerId) continue; // pas ses propres meeples
-                targets.push(key);
+            if (zoneMerger) {
+                // Trouver l'id de zone fusionnée pour cette zone princess
+                const meeplePos = Array.isArray(zone.meeplePosition)
+                    ? zone.meeplePosition[0]
+                    : zone.meeplePosition;
+                const mergedZone = zoneMerger.findMergedZoneForPosition(x, y, meeplePos);
+                if (!mergedZone) continue;
+
+                // Parcourir tous les meeples posés et chercher ceux dans cette zone fusionnée
+                for (const [key, meeple] of Object.entries(this.placedMeeples)) {
+                    if (meeple.playerId === currentPlayerId) continue;
+                    if (!isDragonEdible(meeple.type)) continue; // pas les spectateurs, etc.
+                    const parts = key.split(',');
+                    const mx = Number(parts[0]), my = Number(parts[1]), mp = Number(parts[2]);
+                    const meepleZone = zoneMerger.findMergedZoneForPosition(mx, my, mp);
+                    if (meepleZone?.id === mergedZone.id) targets.add(key);
+                }
+            } else {
+                // Fallback sans zoneMerger : tuile locale uniquement
+                for (const [key, meeple] of Object.entries(this.placedMeeples)) {
+                    const parts = key.split(',');
+                    if (Number(parts[0]) !== x || Number(parts[1]) !== y) continue;
+                    if (meeple.playerId === currentPlayerId) continue;
+                    targets.add(key);
+                }
             }
         }
 
-        return targets;
+        return [...targets];
     }
 
     /**
