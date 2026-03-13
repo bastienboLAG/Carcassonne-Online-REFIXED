@@ -75,7 +75,7 @@ export const MEEPLE_CONFIG = {
         plate:       0.40,
         panel:       0.00,
         panelMobile: 0.00,
-        selector:    0.00,
+        selector:    0.20,
     },
     // Fairy : image portrait 71x112 — décalée par rapport au meeple attaché
     // scale plate 0.55 → ~39x62px, taille proche d'un meeple normal
