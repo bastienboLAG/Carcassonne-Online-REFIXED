@@ -2114,12 +2114,22 @@ function _startDragonTurnUI() {
     console.log('🐉 [_startDragonTurnUI] mover:', mover?.name, '| isMyDragonTurn:', isMyDragonTurn, '| dragonPos:', JSON.stringify(gameState.dragonPos));
 
     _updateDragonOverlay();
-    updateTurnDisplay(); // met à jour contour rouge + état boutons
+    updateTurnDisplay();
 
     if (isMyDragonTurn && dragonRules) {
         const validMoves = dragonRules.getValidDragonMoves();
         console.log('🐉 [_startDragonTurnUI] validMoves:', JSON.stringify(validMoves));
-        _showDragonMoveCursors(validMoves);
+        if (validMoves.length === 0) {
+            // Dragon bloqué dès le début de ce tour : on ne peut pas déplacer,
+            // mais on peut quand même terminer son tour (ou annuler si on est arrivé là par undo).
+            // On marque dragonMovePlacedThisTurn pour débloquer le bouton "Terminer mon tour".
+            if (undoManager) undoManager.dragonMovePlacedThisTurn = true;
+            _updateDragonOverlay();
+            updateTurnDisplay();
+            afficherToast('🐉 Le dragon est bloqué — terminez votre tour.', 'warning');
+        } else {
+            _showDragonMoveCursors(validMoves);
+        }
     }
 }
 
@@ -2254,13 +2264,12 @@ function _executeDragonMoveHost(x, y) {
     // Broadcast état dragon (les invités retirent aussi les meeples mangés)
     _broadcastDragonState(eaten.map(e => e.key));
 
-    if (!gameState.dragonPhase.active || blocked) {
-        // Phase terminée (dragon bloqué physiquement)
+    if (!gameState.dragonPhase.active) {
+        // Phase terminée par un autre mécanisme (sécurité)
         _onDragonPhaseEnded();
     } else {
-        // Le joueur vient de déplacer le dragon.
-        // On met à jour le bandeau et les boutons, MAIS on n'affiche PAS les curseurs :
-        // il doit d'abord cliquer "Terminer mon tour" pour passer la main au suivant.
+        // Dans tous les cas (bloqué, épuisé, ou mouvements restants) :
+        // on attend que le joueur clique "Terminer mon tour"
         _clearDragonCursors();
         _updateDragonOverlay();
         updateTurnDisplay();
@@ -2305,13 +2314,37 @@ function _advanceDragonTurnHost() {
         gameState.endDragonPhase();
         _broadcastDragonState();
         _onDragonPhaseEnded();
-    } else {
-        // Passer au joueur suivant dans la rotation dragon
-        gameState.advanceDragonMover();
-        _broadcastDragonState();
-        _startDragonTurnUI();
-        updateTurnDisplay();
+        return;
     }
+
+    // Passer au joueur suivant — mais sauter ceux qui sont bloqués
+    // (on tente au max autant de fois qu'il y a de joueurs actifs)
+    const activePlayers = gameState.players.filter(p =>
+        p.color !== 'spectator' && !p.disconnected && !p.kicked
+    ).length;
+
+    let skipped = 0;
+    while (skipped < activePlayers) {
+        gameState.advanceDragonMover();
+        const validMoves = dragonRules.getValidDragonMoves();
+        if (validMoves.length > 0) {
+            // Ce joueur peut jouer
+            _broadcastDragonState();
+            _startDragonTurnUI();
+            updateTurnDisplay();
+            return;
+        }
+        // Joueur bloqué : consommer son mouvement et passer
+        console.log(`🐉 [Dragon] Joueur ${gameState.players[gameState.dragonPhase.moverIndex]?.name} bloqué, tour sauté`);
+        gameState.dragonPhase.movesRemaining--;
+        skipped++;
+        if (gameState.dragonPhase.movesRemaining <= 0) break;
+    }
+
+    // Tous les joueurs restants sont bloqués ou plus de mouvements
+    gameState.endDragonPhase();
+    _broadcastDragonState();
+    _onDragonPhaseEnded();
 }
 
 // ── Rendu pion Dragon ─────────────────────────────────────────────────
