@@ -1580,6 +1580,15 @@ function attachGameSyncCallbacks() {
                     _executeDragonMoveHost(data.x, data.y);
                     return;
                 }
+                if (data.type === 'dragon-end-turn-request') {
+                    const mover = gameState.players[gameState.dragonPhase.moverIndex];
+                    if (!gameState.dragonPhase.active || mover?.id !== from) {
+                        console.warn('⚠️ [Dragon] dragon-end-turn-request rejeté de', from);
+                        return;
+                    }
+                    _advanceDragonTurnHost();
+                    return;
+                }
                 if (originalHandler) originalHandler(data, from);
             })(gameSync.multiplayer.onDataReceived);
         }
@@ -1590,6 +1599,8 @@ function attachGameSyncCallbacks() {
 eventBus.on('network-dragon-state-update', (data) => {
     if (isHost) return;
     const wasActive = gameState.dragonPhase.active;
+    const prevPos = gameState.dragonPos ? `${gameState.dragonPos.x},${gameState.dragonPos.y}` : null;
+
     gameState.dragonPos   = data.dragonPos;
     gameState.dragonPhase = { ...gameState.dragonPhase, ...data.dragonPhase };
     gameState.fairyState  = data.fairyState;
@@ -1612,13 +1623,38 @@ eventBus.on('network-dragon-state-update', (data) => {
     if (gameState.dragonPos) {
         _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
     }
-    _updateDragonOverlay();
-    if (gameState.dragonPhase.active) {
-        _startDragonTurnUI();
-    } else if (wasActive) {
-        // Phase vient de se terminer côté invité
-        _clearDragonCursors();
-        afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
+
+    // Détecter si le dragon vient de se déplacer (position changée)
+    const newPos = gameState.dragonPos ? `${gameState.dragonPos.x},${gameState.dragonPos.y}` : null;
+    const dragonMoved = newPos && newPos !== prevPos;
+
+    if (!gameState.dragonPhase.active) {
+        // Phase terminée
+        if (wasActive) {
+            _clearDragonCursors();
+            afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
+            if (undoManager) { undoManager.dragonMovePlacedThisTurn = false; undoManager.dragonMoveSnapshot = null; }
+        }
+    } else {
+        const mover = gameState.players[gameState.dragonPhase.moverIndex];
+        const isMyDragonTurn = mover?.id === multiplayer.playerId;
+
+        if (dragonMoved && isMyDragonTurn) {
+            // L'hôte vient de confirmer notre déplacement → marquer "a déplacé" et attendre clic
+            if (undoManager) undoManager.dragonMovePlacedThisTurn = true;
+            _clearDragonCursors();
+            _updateDragonOverlay();
+            updateTurnDisplay();
+        } else if (dragonMoved && !isMyDragonTurn) {
+            // Un autre joueur a déplacé → on attend que ce joueur clique Terminer
+            _clearDragonCursors();
+            _updateDragonOverlay();
+            updateTurnDisplay();
+        } else if (!dragonMoved) {
+            // moverIndex a changé (avancement de tour dragon) → afficher curseurs si c'est notre tour
+            if (undoManager) { undoManager.dragonMovePlacedThisTurn = false; undoManager.dragonMoveSnapshot = null; }
+            _startDragonTurnUI();
+        }
     }
     eventBus.emit('score-updated');
 });
