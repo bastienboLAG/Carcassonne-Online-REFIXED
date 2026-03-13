@@ -264,6 +264,14 @@ export class GameSyncCallbacks {
             });
 
             this.updateTurnDisplay();
+
+            // Si la fée est maintenant seule sur le plateau (son meeple vient d'être rendu),
+            // réafficher les curseurs de la fée pour que le joueur puisse la réassigner.
+            if (this.gameState.fairyState?.meepleKey === null
+                && this.gameState.fairyState?.ownerId === null) {
+                // La fée vient d'être détachée — réafficher les cibles si c'est notre tour
+                this.eventBus.emit('fairy-detached-show-targets');
+            }
         };
 
         // ── Annulation distante ───────────────────────────────────────────────

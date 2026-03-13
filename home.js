@@ -1502,6 +1502,12 @@ function attachGameSyncCallbacks() {
                         });
                         if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
 
+                        // Si la fée s'est retrouvée seule après la fermeture, réafficher les curseurs
+                        if (gameConfig.extensions?.fairyProtection
+                            && fairyMeepleKeySnapshot && !gameState.fairyState?.meepleKey) {
+                            eventBus.emit('fairy-detached-show-targets');
+                        }
+
                         // Fix 2 — Fée : +3 points si le meeple porteur de la fée est dans une zone fermée
                         if (gameConfig.extensions?.fairyScoreZone && fairyMeepleKeySnapshot
                             && meeplesToReturn.includes(fairyMeepleKeySnapshot)) {
@@ -1708,6 +1714,15 @@ eventBus.on('network-fairy-placed', (data) => {
     _renderFairyPiece(data.meepleKey);
     // Côté hôte : marquer la fée comme posée ce tour pour que l'undo invité fonctionne
     if (isHost && undoManager) undoManager.markFairyPlaced();
+});
+
+// Après une fermeture de zone, si la fée s'est retrouvée seule,
+// réafficher les curseurs pour que le joueur puisse la réassigner.
+eventBus.on('fairy-detached-show-targets', () => {
+    if (!isMyTurn || !gameConfig.extensions?.fairyProtection) return;
+    if (undoManager?.meeplePlacedThisTurn) return; // déjà posé ce tour
+    _clearFairyCursors();
+    _showFairyTargets();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -4226,6 +4241,9 @@ function setupEventListeners() {
         if (scoring && zoneMerger) {
             const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
             const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, multiplayer.playerId, gameState, newlyClosed);
+            // Snapshot fée AVANT que _releaseFairyIfDetached vide fairyState
+            const fairyMeepleKeySnapshot = gameState.fairyState?.meepleKey ?? null;
+            const fairyOwnerIdSnapshot   = gameState.fairyState?.ownerId   ?? null;
 
             if (scoringResults.length > 0 || goodsResults.length > 0) {
                 scoringResults.forEach(({ playerId, points, zoneType }) => {
@@ -4271,6 +4289,27 @@ function setupEventListeners() {
 
                 if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
                 updateTurnDisplay();
+
+                // Si la fée s'est retrouvée seule après la fermeture, réafficher les curseurs
+                if (gameConfig.extensions?.fairyProtection
+                    && fairyMeepleKeySnapshot && !gameState.fairyState?.meepleKey) {
+                    eventBus.emit('fairy-detached-show-targets');
+                }
+
+                // Fix 2 — Fée : +3 points si le meeple porteur de la fée est dans une zone fermée
+                if (gameConfig.extensions?.fairyScoreZone && fairyMeepleKeySnapshot
+                    && meeplesToReturn.includes(fairyMeepleKeySnapshot)) {
+                    const fp = gameState.players.find(p => p.id === fairyOwnerIdSnapshot);
+                    if (fp) {
+                        fp.score += 3;
+                        console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
+                        if (gameSync) gameSync.syncScoreUpdate(
+                            [{ playerId: fairyOwnerIdSnapshot, points: 3, zoneType: 'fairy' }],
+                            [], [], zoneMerger
+                        );
+                        eventBus.emit('score-updated');
+                    }
+                }
             }
         }
 
