@@ -2107,9 +2107,14 @@ function _updateDragonOverlay() {
     }
     overlay.style.display = 'block';
     const isMyDragonTurn = mover?.id === multiplayer.playerId;
-    overlay.textContent = isMyDragonTurn
-        ? `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`
-        : `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
+    const hasMovedThisTurn = !!(undoManager?.dragonMovePlacedThisTurn);
+    if (isMyDragonTurn) {
+        overlay.textContent = hasMovedThisTurn
+            ? `🐉 Dragon déplacé — cliquez "Terminer mon tour" pour passer la main (${phase.movesRemaining} restants)`
+            : `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`;
+    } else {
+        overlay.textContent = `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
+    }
 }
 
 /**
@@ -2211,20 +2216,16 @@ function _executeDragonMoveHost(x, y) {
     // Broadcast état dragon (les invités retirent aussi les meeples mangés)
     _broadcastDragonState(eaten.map(e => e.key));
 
-    if (!gameState.dragonPhase.active) {
+    if (!gameState.dragonPhase.active || blocked) {
         // Phase terminée (dragon bloqué physiquement)
         _onDragonPhaseEnded();
-    } else if (blocked) {
-        // Impossible — blocked implique !active, mais garde de sécurité
-        _onDragonPhaseEnded();
-    } else if (gameState.dragonPhase.movesRemaining <= 0) {
-        // Plus de mouvements restants : le joueur courant doit cliquer "Terminer mon tour"
-        // On met à jour l'UI pour lui montrer le bouton actif, mais on n'avance pas encore
-        _startDragonTurnUI();
     } else {
-        // Mouvements restants > 0 : le joueur courant doit cliquer "Terminer mon tour"
-        // pour passer la main (ou déplacer encore si c'est encore son tour après)
-        _startDragonTurnUI();
+        // Le joueur vient de déplacer le dragon.
+        // On met à jour le bandeau et les boutons, MAIS on n'affiche PAS les curseurs :
+        // il doit d'abord cliquer "Terminer mon tour" pour passer la main au suivant.
+        _clearDragonCursors();
+        _updateDragonOverlay();
+        updateTurnDisplay();
     }
 }
 
