@@ -147,11 +147,8 @@ export class DragonRules {
             moverIndex:     this.gameState.dragonPhase.moverIndex,
         });
 
-        // Fin automatique seulement si le dragon est bloqué physiquement
-        // (plus de tuiles non visitées accessibles, mouvements restants > 0)
-        if (blockedAfterMove) {
-            this._endDragonPhase('blocked');
-        }
+        // Plus aucune fin automatique — c'est toujours le joueur qui clique "Terminer mon tour",
+        // que le dragon soit bloqué, épuisé, ou simplement en attente.
 
         return { eaten, blocked: blockedAfterMove, exhausted };
     }
