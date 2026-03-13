@@ -2254,6 +2254,7 @@ function _executeDragonMoveHost(x, y) {
     if (undoManager) undoManager.saveDragonMove(placedMeeples);
 
     const { eaten, blocked } = dragonRules.executeDragonMove(x, y);
+    console.log('🐉 [_executeDragonMoveHost] après move — active:', gameState.dragonPhase.active, '| movesRemaining:', gameState.dragonPhase.movesRemaining, '| blocked:', blocked, '| validMoves:', dragonRules.getValidDragonMoves().length);
 
     // Retirer visuellement les meeples mangés côté hôte
     eaten.forEach(({ key }) => {
@@ -2280,6 +2281,7 @@ function _executeDragonMoveHost(x, y) {
  * Fin de phase dragon — reprendre le tour normal.
  */
 function _onDragonPhaseEnded() {
+    console.error('🐉 [_onDragonPhaseEnded] APPELÉ — stack:', new Error().stack);
     _clearDragonCursors();
     _updateDragonOverlay();
     afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
@@ -2304,6 +2306,7 @@ function _onDragonPhaseEnded() {
  * Appelé au clic "Terminer mon tour" pendant la phase dragon.
  */
 function _advanceDragonTurnHost() {
+    console.error('🐉 [_advanceDragonTurnHost] APPELÉ — movesRemaining:', gameState.dragonPhase.movesRemaining, '— stack:', new Error().stack);
     if (!dragonRules || !gameState.dragonPhase.active) return;
 
     // Réinitialiser le flag undo dragon
