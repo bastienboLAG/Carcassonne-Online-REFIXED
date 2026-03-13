@@ -2200,7 +2200,7 @@ function _executeDragonMoveHost(x, y) {
     // Snapshot undo pour ce déplacement (par joueur dragon)
     if (undoManager) undoManager.saveDragonMove(placedMeeples);
 
-    const { eaten } = dragonRules.executeDragonMove(x, y);
+    const { eaten, blocked } = dragonRules.executeDragonMove(x, y);
 
     // Retirer visuellement les meeples mangés côté hôte
     eaten.forEach(({ key }) => {
@@ -2208,13 +2208,23 @@ function _executeDragonMoveHost(x, y) {
         _releaseFairyIfDetached(key);
     });
 
-    // Broadcast avec liste eaten pour que les invités retirent aussi les meeples
+    // Broadcast état dragon (les invités retirent aussi les meeples mangés)
     _broadcastDragonState(eaten.map(e => e.key));
 
-    if (gameState.dragonPhase.active) {
+    if (!gameState.dragonPhase.active) {
+        // Phase terminée (dragon bloqué physiquement)
+        _onDragonPhaseEnded();
+    } else if (blocked) {
+        // Impossible — blocked implique !active, mais garde de sécurité
+        _onDragonPhaseEnded();
+    } else if (gameState.dragonPhase.movesRemaining <= 0) {
+        // Plus de mouvements restants : le joueur courant doit cliquer "Terminer mon tour"
+        // On met à jour l'UI pour lui montrer le bouton actif, mais on n'avance pas encore
         _startDragonTurnUI();
     } else {
-        _onDragonPhaseEnded();
+        // Mouvements restants > 0 : le joueur courant doit cliquer "Terminer mon tour"
+        // pour passer la main (ou déplacer encore si c'est encore son tour après)
+        _startDragonTurnUI();
     }
 }
 
@@ -2239,6 +2249,30 @@ function _onDragonPhaseEnded() {
     if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
     if (gameSync) gameSync.syncTurnEnd(false, _nextTile?.id ?? null);
     updateTurnDisplay();
+}
+
+/**
+ * [HÔTE] Avance la phase dragon au joueur suivant, ou la termine si plus de mouvements.
+ * Appelé au clic "Terminer mon tour" pendant la phase dragon.
+ */
+function _advanceDragonTurnHost() {
+    if (!dragonRules || !gameState.dragonPhase.active) return;
+
+    // Réinitialiser le flag undo dragon pour le prochain joueur
+    if (undoManager) { undoManager.dragonMoveSnapshot = null; undoManager.dragonMovePlacedThisTurn = false; }
+
+    if (gameState.dragonPhase.movesRemaining <= 0) {
+        // Plus de mouvements — terminer la phase
+        gameState.endDragonPhase();
+        _broadcastDragonState();
+        _onDragonPhaseEnded();
+    } else {
+        // Passer au joueur suivant dans la rotation dragon
+        gameState.advanceDragonMover();
+        _broadcastDragonState();
+        _startDragonTurnUI();
+        updateTurnDisplay();
+    }
 }
 
 // ── Rendu pion Dragon ─────────────────────────────────────────────────
@@ -3838,15 +3872,35 @@ function setupEventListeners() {
         if (waitingToRedraw && isMyTurn) {
             document.getElementById('tile-destroyed-modal').style.display = 'none';
             if (isHost) {
-                // Hôte : pioche et donne la tuile à lui-même
                 const _t = _hostDrawAndSend();
                 if (_t) turnManager.receiveYourTurn(_t.id);
             } else {
-                // Invité : demande à l'hôte de piocher
                 if (gameSync) gameSync.syncUnplaceableRedraw();
             }
             waitingToRedraw = false;
             updateTurnDisplay();
+            return;
+        }
+
+        // ── Phase dragon : "Terminer mon tour" = passer la main au joueur suivant ──
+        const isDragonPhase = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+        if (isDragonPhase) {
+            const mover = gameState.players[gameState.dragonPhase.moverIndex];
+            const isMyDragonTurn = mover?.id === multiplayer.playerId;
+            if (!isMyDragonTurn) return; // pas notre tour dragon
+            if (!undoManager?.dragonMovePlacedThisTurn) return; // n'a pas encore déplacé
+
+            _clearDragonCursors();
+
+            if (isHost) {
+                _advanceDragonTurnHost();
+            } else {
+                // Invité → envoie dragon-end-turn-request à l'hôte
+                const hostConn = gameSync?.multiplayer?.connections?.[0];
+                if (hostConn?.open) {
+                    hostConn.send({ type: 'dragon-end-turn-request', playerId: multiplayer.playerId });
+                }
+            }
             return;
         }
 

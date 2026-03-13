@@ -48,21 +48,28 @@ export class GameState {
         this.dragonPos = { x, y };
         this.dragonPhase.visitedTiles.push([x, y]);
         this.dragonPhase.movesRemaining--;
+        // NB : l'avancement du moverIndex est fait séparément dans advanceDragonMover(),
+        // appelé uniquement au clic "Terminer mon tour" — pour permettre l'annulation.
+    }
 
-        if (this.dragonPhase.movesRemaining > 0) {
-            let next = this.dragonPhase.moverIndex;
-            let attempts = 0;
-            do {
-                next = (next + 1) % this.players.length;
-                attempts++;
-            } while (
-                attempts < this.players.length &&
-                (this.players[next]?.color === 'spectator' ||
-                 this.players[next]?.disconnected === true ||
-                 this.players[next]?.kicked === true)
-            );
-            this.dragonPhase.moverIndex = next;
-        }
+    /**
+     * Passe la main au joueur suivant dans la phase dragon.
+     * Appelé au clic "Terminer mon tour" pendant la phase dragon.
+     */
+    advanceDragonMover() {
+        if (this.dragonPhase.movesRemaining <= 0) return;
+        let next = this.dragonPhase.moverIndex;
+        let attempts = 0;
+        do {
+            next = (next + 1) % this.players.length;
+            attempts++;
+        } while (
+            attempts < this.players.length &&
+            (this.players[next]?.color === 'spectator' ||
+             this.players[next]?.disconnected === true ||
+             this.players[next]?.kicked === true)
+        );
+        this.dragonPhase.moverIndex = next;
     }
 
     endDragonPhase() {

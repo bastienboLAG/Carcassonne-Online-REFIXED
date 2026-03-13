@@ -71,8 +71,19 @@ export class DragonRules {
             console.warn('[Dragon] Tuile dragon posée mais dragon pas encore sur le plateau — ignoré');
             return false;
         }
-        console.log(`🐉 [Dragon] Phase dragon démarrée par joueur index ${triggeringPlayerIndex}`);
+
+        // Vérifier s'il existe au moins un mouvement possible avant de démarrer la phase
+        // (le dragon est bloqué de toutes parts ou le plateau est trop petit)
         this.gameState.startDragonPhase(triggeringPlayerIndex);
+        const validMoves = this.getValidDragonMoves();
+        if (validMoves.length === 0) {
+            console.warn('[Dragon] Aucun déplacement possible — phase dragon annulée');
+            this.gameState.endDragonPhase();
+            this.eventBus.emit('dragon-phase-ended', { reason: 'no-moves-at-start' });
+            return false;
+        }
+
+        console.log(`🐉 [Dragon] Phase dragon démarrée par joueur index ${triggeringPlayerIndex}`);
         this.eventBus.emit('dragon-phase-started', {
             pos: this.gameState.dragonPos,
             moverIndex: this.gameState.dragonPhase.moverIndex,
@@ -113,13 +124,20 @@ export class DragonRules {
     /**
      * Exécute un déplacement du dragon vers (x,y).
      * Mange les meeples présents, met à jour l'état.
+     * NE termine PAS la phase quand movesRemaining atteint 0 — c'est le bouton
+     * "Terminer mon tour" qui s'en charge, pour permettre l'annulation.
+     * Termine la phase uniquement si le dragon est physiquement bloqué (0 mouvements valides).
      * @param {number} x
      * @param {number} y
-     * @returns {{ eaten: Array<{key, meeple}> }} liste des meeples mangés
+     * @returns {{ eaten: Array<{key, meeple}>, blocked: boolean }}
      */
     executeDragonMove(x, y) {
         const eaten = this._eatMeeplesAt(x, y);
         this.gameState.moveDragon(x, y);
+
+        const validMoves = this.getValidDragonMoves();
+        const blockedAfterMove = validMoves.length === 0 && this.gameState.dragonPhase.movesRemaining > 0;
+        const exhausted = this.gameState.dragonPhase.movesRemaining <= 0;
 
         this.eventBus.emit('dragon-moved', {
             x, y,
@@ -129,13 +147,13 @@ export class DragonRules {
             moverIndex:     this.gameState.dragonPhase.moverIndex,
         });
 
-        // Vérifier si la phase doit se terminer
-        const validMoves = this.getValidDragonMoves();
-        if (this.gameState.dragonPhase.movesRemaining <= 0 || validMoves.length === 0) {
-            this._endDragonPhase(validMoves.length === 0 ? 'blocked' : 'exhausted');
+        // Fin automatique seulement si le dragon est bloqué physiquement
+        // (plus de tuiles non visitées accessibles, mouvements restants > 0)
+        if (blockedAfterMove) {
+            this._endDragonPhase('blocked');
         }
 
-        return { eaten };
+        return { eaten, blocked: blockedAfterMove, exhausted };
     }
 
     /**
