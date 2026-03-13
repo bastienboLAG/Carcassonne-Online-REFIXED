@@ -1502,6 +1502,7 @@ function attachGameSyncCallbacks() {
                     if (started) {
                         _broadcastDragonState();
                         gameSync.syncDragonPhaseStarted(gameState.dragonPhase);
+                        _startDragonTurnUI(); // ← hôte aussi
                         return; // phase dragon prend le relais — pas de pioche maintenant
                     }
                 }
@@ -2073,6 +2074,7 @@ function _startDragonTurnUI() {
     const isMyDragonTurn = mover?.id === multiplayer.playerId;
 
     _updateDragonOverlay();
+    updateTurnDisplay(); // met à jour contour rouge + état boutons
 
     if (isMyDragonTurn && dragonRules) {
         const validMoves = dragonRules.getValidDragonMoves();
@@ -2990,14 +2992,15 @@ function _postStartSetup() {
 /**
  * Met à jour le style de la carte mobile du joueur actif selon le tour bonus
  */
-function _updateMobileActiveBonusStyle(isBonusTurn) {
+function _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn = false) {
     if (!isMobile()) return;
     const currentPlayer = gameState?.getCurrentPlayer();
     if (!currentPlayer) return;
     document.querySelectorAll('.mobile-player-card').forEach(card => {
-        card.classList.remove('active-bonus');
-        if (isBonusTurn && card.dataset.playerId === currentPlayer.id) {
-            card.classList.add('active-bonus');
+        card.classList.remove('active-bonus', 'active-dragon');
+        if (card.dataset.playerId === currentPlayer.id) {
+            if (isDragonTurn)      card.classList.add('active-dragon');
+            else if (isBonusTurn)  card.classList.add('active-bonus');
         }
     });
 }
@@ -3042,14 +3045,24 @@ function updateMobileButtons() {
             endBtn.disabled = false;
         } else {
             endBtn.textContent = 'Terminer mon tour';
-            endBtn.disabled = !isMyTurn || !tuilePosee;
+            const isDragonPhaseM = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+            const dragonMoverM   = isDragonPhaseM ? gameState.players[gameState.dragonPhase.moverIndex] : null;
+            const isMyDragonM    = isDragonPhaseM && dragonMoverM?.id === multiplayer.playerId;
+            const canEnd = isMyTurn && tuilePosee && !isDragonPhaseM ||
+                           isMyDragonM && !!undoManager?.dragonMovePlacedThisTurn;
+            endBtn.disabled = !canEnd;
         }
         endBtn.style.opacity = endBtn.disabled ? '0.4' : '1';
     }
 
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && 
-            (isHost ? !!undoManager?.canUndo() : (!!tuilePosee || !!undoManager?.dragonMovePlacedThisTurn));
+        const isDragonPhaseU2 = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+        const dragonMoverU2   = isDragonPhaseU2 ? gameState.players[gameState.dragonPhase.moverIndex] : null;
+        const isMyDragonU2    = isDragonPhaseU2 && dragonMoverU2?.id === multiplayer.playerId;
+        const canUndo = !finalScoresManager?.gameEnded && (
+            isMyDragonU2 && !!undoManager?.dragonMovePlacedThisTurn ||
+            !isDragonPhaseU2 && isMyTurn && (isHost ? !!undoManager?.canUndo() : !!tuilePosee)
+        );
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity = canUndo ? '1' : '0.4';
     }
@@ -3094,7 +3107,12 @@ function updateTurnDisplay() {
         } else {
             endTurnBtn.textContent = 'Terminer mon tour';
             endTurnBtn.classList.remove('final-score-btn');
-            const canEnd = isMyTurn && tuilePosee;
+            const isDragonPhase  = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+            const dragonMoverEnd = isDragonPhase ? gameState.players[gameState.dragonPhase.moverIndex] : null;
+            const isMyDragonEnd  = isDragonPhase && dragonMoverEnd?.id === multiplayer.playerId;
+            // Pendant la phase dragon : terminer seulement si le mover a déplacé le dragon ce tour
+            const canEnd = isMyTurn && tuilePosee && !isDragonPhase ||
+                           isMyDragonEnd && !!undoManager?.dragonMovePlacedThisTurn;
             endTurnBtn.disabled = !canEnd;
             endTurnBtn.style.opacity = canEnd ? '1' : '0.5';
             endTurnBtn.style.cursor  = canEnd ? 'pointer' : 'not-allowed';
@@ -3105,8 +3123,13 @@ function updateTurnDisplay() {
 
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && 
-            (isHost ? !!undoManager?.canUndo() : (!!tuilePosee || !!undoManager?.dragonMovePlacedThisTurn));
+        const isDragonPhaseU = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+        const dragonMoverU   = isDragonPhaseU ? gameState.players[gameState.dragonPhase.moverIndex] : null;
+        const isMyDragonU    = isDragonPhaseU && dragonMoverU?.id === multiplayer.playerId;
+        const canUndo = !finalScoresManager?.gameEnded && (
+            isMyDragonU && !!undoManager?.dragonMovePlacedThisTurn ||
+            !isDragonPhaseU && isMyTurn && (isHost ? !!undoManager?.canUndo() : !!tuilePosee)
+        );
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity    = canUndo ? '1' : '0.5';
         undoBtn.style.cursor     = canUndo ? 'pointer' : 'not-allowed';
@@ -3118,10 +3141,11 @@ function updateTurnDisplay() {
     updateMobileButtons();
     eventBus.emit('score-updated');
 
-    // Mettre à jour le contour doré si tour bonus
-    const isBonusTurn = turnManager?.isBonusTurn ?? false;
-    if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn);
-    _updateMobileActiveBonusStyle(isBonusTurn);
+    // Mettre à jour le contour doré si tour bonus, rouge si tour dragon
+    const isBonusTurn  = turnManager?.isBonusTurn ?? false;
+    const isDragonTurn = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
+    if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn, isDragonTurn);
+    _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn);
 
     // Fermer le toast du tour bonus dès qu'il se termine
     if (!isBonusTurn) {

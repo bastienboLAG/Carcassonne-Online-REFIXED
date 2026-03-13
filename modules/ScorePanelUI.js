@@ -18,30 +18,35 @@ export class ScorePanelUI {
         this.eventBus.on('score-updated',        this._onScoreUpdated);
         this.eventBus.on('meeple-count-updated', this._onMeepleCountUpdated);
 
-        this._isBonusTurn = false;
+        this._isBonusTurn  = false;
+        this._isDragonTurn = false;
     }
 
-    onScoreUpdated()           { this.update(this._isBonusTurn); }
-    onTurnChanged(isBonusTurn) { this._isBonusTurn = isBonusTurn ?? false; this.update(this._isBonusTurn); }
-    onMeepleCountUpdated()     { this.update(this._isBonusTurn); }
+    onScoreUpdated() { this.update(this._isBonusTurn, this._isDragonTurn); }
+    onTurnChanged(isBonusTurn, isDragonTurn = false) {
+        this._isBonusTurn  = isBonusTurn  ?? false;
+        this._isDragonTurn = isDragonTurn ?? false;
+        this.update(this._isBonusTurn, this._isDragonTurn);
+    }
+    onMeepleCountUpdated() { this.update(this._isBonusTurn, this._isDragonTurn); }
 
     // ─────────────────────────────────────────────────────────────
     // Point d'entrée unique — met à jour PC ET mobile
     // ─────────────────────────────────────────────────────────────
 
-    update(isBonusTurn = false) {
-        this._updateDesktop(isBonusTurn);
-        this._updateMobile(isBonusTurn);
+    update(isBonusTurn = false, isDragonTurn = false) {
+        this._updateDesktop(isBonusTurn, isDragonTurn);
+        this._updateMobile(isBonusTurn, isDragonTurn);
     }
 
     // Alias public pour home.js (compatibilité)
-    updateMobile() { this._updateMobile(this._isBonusTurn); }
+    updateMobile() { this._updateMobile(this._isBonusTurn, this._isDragonTurn); }
 
     // ─────────────────────────────────────────────────────────────
     // Rendu PC
     // ─────────────────────────────────────────────────────────────
 
-    _updateDesktop(isBonusTurn) {
+    _updateDesktop(isBonusTurn, isDragonTurn = false) {
         const container = document.getElementById('players-scores');
         if (!container || !this.gameState) return;
 
@@ -68,7 +73,7 @@ export class ScorePanelUI {
 
             const card = document.createElement('div');
             card.className = 'player-score-card';
-            if (isActive) card.classList.add(isBonusTurn ? 'active-bonus' : 'active');
+            if (isActive) card.classList.add(isDragonTurn ? 'active-dragon' : isBonusTurn ? 'active-bonus' : 'active');
             if (isGhost)  card.style.opacity = '0.45';
 
             // En-tête : indicateur tour + nom + score
@@ -77,10 +82,15 @@ export class ScorePanelUI {
 
             if (isActive) {
                 const indicator = document.createElement('span');
-                indicator.className   = isBonusTurn ? 'turn-indicator bonus' : 'turn-indicator';
+                indicator.className   = isDragonTurn ? 'turn-indicator dragon' : isBonusTurn ? 'turn-indicator bonus' : 'turn-indicator';
                 indicator.textContent = '▶';
                 header.appendChild(indicator);
-                if (isBonusTurn) {
+                if (isDragonTurn) {
+                    const dragonIcon = document.createElement('span');
+                    dragonIcon.className   = 'dragon-star';
+                    dragonIcon.textContent = '🐉';
+                    header.appendChild(dragonIcon);
+                } else if (isBonusTurn) {
                     const star = document.createElement('span');
                     star.className   = 'bonus-star';
                     star.textContent = '⭐';
@@ -116,7 +126,7 @@ export class ScorePanelUI {
     // Rendu mobile
     // ─────────────────────────────────────────────────────────────
 
-    _updateMobile(isBonusTurn) {
+    _updateMobile(isBonusTurn, isDragonTurn = false) {
         const container = document.getElementById('mobile-players-scores');
         if (!container || !this.gameState) return;
 
@@ -139,8 +149,9 @@ export class ScorePanelUI {
             const isActive = currentPlayer && player.id === currentPlayer.id;
             const isGhost  = player.disconnected || player.kicked;
 
+            const activeClass = isDragonTurn ? ' active active-dragon' : isBonusTurn ? ' active active-bonus' : ' active';
             const card = document.createElement('div');
-            card.className = 'mobile-player-card' + (isActive ? (isBonusTurn ? ' active active-bonus' : ' active') : '');
+            card.className = 'mobile-player-card' + (isActive ? activeClass : '');
             if (isGhost) card.style.opacity = '0.45';
             card.dataset.playerId = player.id;
 
