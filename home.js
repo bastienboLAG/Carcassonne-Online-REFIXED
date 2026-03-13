@@ -1576,19 +1576,7 @@ function attachGameSyncCallbacks() {
                         console.warn('⚠️ [Dragon] dragon-move-request rejeté de', from);
                         return;
                     }
-                    // Snapshot undo pour ce déplacement
-                    if (undoManager) undoManager.saveTurnStart(placedMeeples);
-
-                    const { eaten } = dragonRules.executeDragonMove(data.x, data.y);
-                    eaten.forEach(({ key }) => {
-                        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-                    });
-                    _broadcastDragonState();
-                    if (gameState.dragonPhase.active) {
-                        _startDragonTurnUI();
-                    } else {
-                        _onDragonPhaseEnded();
-                    }
+                    _executeDragonMoveHost(data.x, data.y);
                     return;
                 }
                 if (originalHandler) originalHandler(data, from);
@@ -1600,24 +1588,36 @@ function attachGameSyncCallbacks() {
 // Invités : écouter dragon-state-update et dragon-phase-started
 eventBus.on('network-dragon-state-update', (data) => {
     if (isHost) return;
+    const wasActive = gameState.dragonPhase.active;
     gameState.dragonPos   = data.dragonPos;
     gameState.dragonPhase = { ...gameState.dragonPhase, ...data.dragonPhase };
     gameState.fairyState  = data.fairyState;
-    // Mettre à jour les scores/meeples des joueurs
     if (data.players) {
         data.players.forEach(pd => {
             const p = gameState.players.find(pl => pl.id === pd.id);
             if (p) Object.assign(p, pd);
         });
     }
-    _updateDragonOverlay();
+    // Retirer visuellement les meeples mangés
+    if (data.eatenKeys?.length) {
+        data.eatenKeys.forEach(key => {
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+            delete placedMeeples[key];
+            _releaseFairyIfDetached(key);
+        });
+        eventBus.emit('meeple-count-updated', {});
+    }
+    // Rendu pion dragon
     if (gameState.dragonPos) {
         _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
     }
+    _updateDragonOverlay();
     if (gameState.dragonPhase.active) {
         _startDragonTurnUI();
-    } else {
+    } else if (wasActive) {
+        // Phase vient de se terminer côté invité
         _clearDragonCursors();
+        afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
     }
     eventBus.emit('score-updated');
 });
@@ -2045,13 +2045,14 @@ function _tileHasVolcanoZone(tileData) {
 /**
  * Broadcast l'état dragon complet à tous les invités.
  */
-function _broadcastDragonState() {
+function _broadcastDragonState(eatenKeys = []) {
     if (!gameSync) return;
     multiplayer.broadcast({
         type: 'dragon-state-update',
         dragonPos:   gameState.dragonPos,
         dragonPhase: gameState.dragonPhase,
         fairyState:  gameState.fairyState,
+        eatenKeys,
         players:     gameState.players.map(p => ({
             id: p.id, meeples: p.meeples, hasAbbot: p.hasAbbot,
             hasLargeMeeple: p.hasLargeMeeple, hasBuilder: p.hasBuilder,
@@ -2114,31 +2115,61 @@ function _showDragonMoveCursors(validMoves) {
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
 
+    // Position 13 = centre de la grille 5×5 (row 2, col 2, 0-indexed)
+    const pos = 13;
+    const row = Math.floor((pos - 1) / 5); // 2
+    const col = (pos - 1) % 5;             // 2
+    const offsetX = 20.8 + col * 41.6;     // centre
+    const offsetY = 20.8 + row * 41.6;
+
     validMoves.forEach(({ x, y }) => {
-        const tileEl = boardEl.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-        if (!tileEl) return;
-        const cursor = document.createElement('div');
-        cursor.className = 'dragon-move-cursor';
-        cursor.dataset.dx = x;
-        cursor.dataset.dy = y;
-        cursor.style.cssText = 'position:absolute;inset:0;background:rgba(200,50,0,0.35);' +
-            'border:3px solid #c83200;cursor:pointer;z-index:50;display:flex;' +
-            'align-items:center;justify-content:center;font-size:28px;border-radius:4px;';
-        cursor.textContent = '🐉';
-        cursor.addEventListener('click', () => _onDragonMoveClick(x, y));
-        tileEl.style.position = 'relative';
-        tileEl.appendChild(cursor);
+        // Overlay positionné par grid comme abbé/fée
+        const overlay = document.createElement('div');
+        overlay.className = 'dragon-move-cursor-overlay';
+        overlay.style.cssText = `grid-column:${x};grid-row:${y};position:relative;` +
+            'width:208px;height:208px;pointer-events:none;z-index:101;';
+
+        const btn = document.createElement('div');
+        btn.className = 'dragon-move-cursor';
+        btn.dataset.dx = x;
+        btn.dataset.dy = y;
+        btn.style.cssText = `position:absolute;left:${offsetX}px;top:${offsetY}px;` +
+            'width:42px;height:42px;border-radius:50%;' +
+            'border:3px solid #c83200;box-shadow:0 0 10px 3px rgba(200,50,0,0.7);' +
+            'background:rgba(200,50,0,0.25);cursor:pointer;pointer-events:auto;' +
+            'transform:translate(-50%,-50%);display:flex;align-items:center;' +
+            'justify-content:center;font-size:22px;animation:abbeRecallPulse 1.2s ease-in-out infinite;';
+        btn.textContent = '🐉';
+
+        const openSelector = (clientX, clientY) => {
+            if (!meepleSelectorUI) { _onDragonMoveConfirm(x, y); return; }
+            meepleSelectorUI.show(x, y, pos, 'dragon-move', clientX, clientY,
+                (_sx, _sy, _spos, meepleType) => {
+                    if (meepleType === 'Dragon') _onDragonMoveConfirm(x, y);
+                    // Annulé → curseurs restent (ne pas clearDragonCursors)
+                }
+            );
+        };
+
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openSelector(e.clientX, e.clientY); });
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            openSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }, { passive: false });
+
+        overlay.appendChild(btn);
+        boardEl.appendChild(overlay);
     });
 }
 
 function _clearDragonCursors() {
-    document.querySelectorAll('.dragon-move-cursor').forEach(el => el.remove());
+    document.querySelectorAll('.dragon-move-cursor, .dragon-move-cursor-overlay').forEach(el => el.remove());
 }
 
 /**
- * Clic sur un curseur de déplacement dragon.
+ * Confirmé via sélecteur — exécuter le déplacement dragon.
  */
-function _onDragonMoveClick(x, y) {
+function _onDragonMoveConfirm(x, y) {
     if (!dragonRules || !gameState.dragonPhase.active) return;
     const mover = gameState.players[gameState.dragonPhase.moverIndex];
     if (mover?.id !== multiplayer.playerId) return;
@@ -2146,29 +2177,38 @@ function _onDragonMoveClick(x, y) {
     _clearDragonCursors();
 
     if (isHost) {
-        // Sauvegarder snapshot undo pour ce déplacement
-        if (undoManager) undoManager.saveTurnStart(placedMeeples);
-
-        const { eaten } = dragonRules.executeDragonMove(x, y);
-        // Retirer visuellement les meeples mangés
-        eaten.forEach(({ key }) => {
-            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-        });
-        _broadcastDragonState();
-        if (eaten.length > 0) {
-            afficherToast(`🐉 Le dragon a mangé ${eaten.length} meeple(s) !`, 'dragon');
-        }
-        if (gameState.dragonPhase.active) {
-            _startDragonTurnUI();
-        } else {
-            _onDragonPhaseEnded();
-        }
+        _executeDragonMoveHost(x, y);
     } else {
         // Invité : envoyer la demande à l'hôte
-        const hostConn = gameSync.multiplayer.connections[0];
+        const hostConn = gameSync?.getHostConnection?.() ?? gameSync?.multiplayer?.connections?.[0];
         if (hostConn?.open) {
             hostConn.send({ type: 'dragon-move-request', x, y, playerId: multiplayer.playerId });
         }
+    }
+}
+
+/**
+ * Exécution côté hôte d'un déplacement dragon (local ou reçu d'un invité).
+ */
+function _executeDragonMoveHost(x, y) {
+    // Snapshot undo pour ce déplacement (par joueur dragon)
+    if (undoManager) undoManager.saveDragonMove(placedMeeples);
+
+    const { eaten } = dragonRules.executeDragonMove(x, y);
+
+    // Retirer visuellement les meeples mangés côté hôte
+    eaten.forEach(({ key }) => {
+        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+        _releaseFairyIfDetached(key);
+    });
+
+    // Broadcast avec liste eaten pour que les invités retirent aussi les meeples
+    _broadcastDragonState(eaten.map(e => e.key));
+
+    if (gameState.dragonPhase.active) {
+        _startDragonTurnUI();
+    } else {
+        _onDragonPhaseEnded();
     }
 }
 
@@ -3008,7 +3048,8 @@ function updateMobileButtons() {
     }
 
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && (isHost ? !!undoManager?.canUndo() : !!tuilePosee);
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && 
+            (isHost ? !!undoManager?.canUndo() : (!!tuilePosee || !!undoManager?.dragonMovePlacedThisTurn));
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity = canUndo ? '1' : '0.4';
     }
@@ -3064,7 +3105,8 @@ function updateTurnDisplay() {
 
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
-        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && (isHost ? !!undoManager?.canUndo() : !!tuilePosee);
+        const canUndo = isMyTurn && !finalScoresManager?.gameEnded && 
+            (isHost ? !!undoManager?.canUndo() : (!!tuilePosee || !!undoManager?.dragonMovePlacedThisTurn));
         undoBtn.disabled = !canUndo;
         undoBtn.style.opacity    = canUndo ? '1' : '0.5';
         undoBtn.style.cursor     = canUndo ? 'pointer' : 'not-allowed';
@@ -3169,6 +3211,43 @@ function afficherToast(msg, type = 'error') {
  * Appelé depuis le bouton undo (hôte), onUndoRequest (hôte pour invité), et handleRemoteUndo (invités).
  */
 function _applyUndoLocally(undoneAction) {
+    // Cas dragon : annuler un déplacement dragon
+    if (undoneAction.type === 'dragon-move-undo') {
+        // Retirer visuellement les meeples qui ont été remis (snapshot restauré par undoDragonMove)
+        // Resynchro visuelle : retirer tous les meeples DOM et les remettre depuis placedMeeples
+        document.querySelectorAll('.meeple').forEach(el => el.remove());
+        Object.entries(placedMeeples).forEach(([key, meeple]) => {
+            const [mx, my, mp] = key.split(',').map(Number);
+            eventBus.emit('meeple-placed', {
+                ...meeple, x: mx, y: my, key, position: mp,
+                meepleType: meeple.type, playerColor: meeple.color,
+                fromUndo: true, skipSync: true
+            });
+        });
+        // Remettre le dragon à sa position précédente
+        if (gameState.dragonPos) {
+            _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+        }
+        // Remettre la fée
+        if (gameConfig.extensions?.fairyProtection) {
+            const fs = gameState.fairyState;
+            if (fs?.meepleKey) _renderFairyPiece(fs.meepleKey);
+            else _removeFairyPiece();
+        }
+        _updateDragonOverlay();
+        // Réafficher les curseurs dragon pour ce joueur
+        if (dragonRules && gameState.dragonPhase.active) {
+            const mover = gameState.players[gameState.dragonPhase.moverIndex];
+            if (mover?.id === multiplayer.playerId) {
+                const validMoves = dragonRules.getValidDragonMoves();
+                _showDragonMoveCursors(validMoves);
+            }
+        }
+        eventBus.emit('score-updated');
+        updateTurnDisplay();
+        return;
+    }
+
     if (undoneAction.type === 'abbe-recalled-undo') {
         pendingAbbePoints = null;
         const { playerId } = undoneAction.abbe;
@@ -3298,6 +3377,11 @@ function handleRemoteUndo(undoneAction) {
             if (s.fairyState.meepleKey) _renderFairyPiece(s.fairyState.meepleKey);
             else _removeFairyPiece();
         }
+        if (s.dragonPos !== undefined) {
+            gameState.dragonPos   = s.dragonPos;
+            gameState.dragonPhase = { ...gameState.dragonPhase, ...s.dragonPhase };
+            if (gameState.dragonPos) _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+        }
     }
 
     // Synchroniser les flags de l'UndoManager local (côté invité) avec l'état annulé
@@ -3318,6 +3402,9 @@ function handleRemoteUndo(undoneAction) {
         } else if (undoneAction.type === 'abbe-recalled-undo') {
             undoManager.abbeRecalledThisTurn = false;
             undoManager.lastAbbeRecalled     = null;
+        } else if (undoneAction.type === 'dragon-move-undo') {
+            undoManager.dragonMovePlacedThisTurn = false;
+            undoManager.dragonMoveSnapshot       = null;
         }
     }
 
@@ -4057,7 +4144,9 @@ function setupEventListeners() {
                 hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
                 hasBuilder: p.hasBuilder, hasPig: p.hasPig
             })),
-            fairyState: JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null }))
+            fairyState:  JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
+            dragonPos:   JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
+            dragonPhase: JSON.parse(JSON.stringify(gameState.dragonPhase ?? {}))
         };
 
         _applyUndoLocally(undoneAction);

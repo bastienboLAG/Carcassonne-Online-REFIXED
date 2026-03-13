@@ -144,6 +144,11 @@ export class MeepleSelectorUI {
             meepleTypes = [
                 { type: 'Fairy', image: `./assets/Meeples/Fairy.png` }
             ];
+        } else if (zoneType === 'dragon-move') {
+            // Déplacement dragon — une seule option
+            meepleTypes = [
+                { type: 'Dragon', image: `./assets/Meeples/Dragon.png` }
+            ];
         } else if (zoneType === 'abbe-recall') {
             // Rappel abbé : image abbé avec ↩️ centré + fée si fairyProtection actif et abbé pas déjà lié
             meepleTypes = [

@@ -24,6 +24,10 @@ export class UndoManager {
         // État abbé
         this.abbeRecalledThisTurn = false;
         this.lastAbbeRecalled = null; // {x, y, key, playerId, points}
+
+        // État phase dragon
+        this.dragonMoveSnapshot = null;
+        this.dragonMovePlacedThisTurn = false;
     }
 
     /**
@@ -129,6 +133,53 @@ export class UndoManager {
     }
 
     /**
+     * Sauvegarder un snapshot avant un déplacement dragon.
+     * Appelé une fois par tour dragon (par joueur).
+     */
+    saveDragonMove(placedMeeples) {
+        this.dragonMoveSnapshot = {
+            placedMeeples: this.deepCopy(placedMeeples),
+            dragonPos:   this.deepCopy(this.gameState.dragonPos),
+            dragonPhase: this.deepCopy(this.gameState.dragonPhase),
+            fairyState:  this.deepCopy(this.gameState.fairyState ?? { ownerId: null, meepleKey: null }),
+            playerMeeples: this.gameState.players.map(p => ({
+                id: p.id, meeples: p.meeples, hasAbbot: p.hasAbbot,
+                hasLargeMeeple: p.hasLargeMeeple, hasBuilder: p.hasBuilder,
+                hasPig: p.hasPig, hasFairy: p.hasFairy
+            }))
+        };
+        this.dragonMovePlacedThisTurn = true;
+    }
+
+    /**
+     * Annuler le dernier déplacement dragon.
+     * @returns {Object|null} snapshot restauré ou null
+     */
+    undoDragonMove(placedMeeples) {
+        if (!this.dragonMoveSnapshot) return null;
+        const snap = this.dragonMoveSnapshot;
+
+        // Restaurer placedMeeples
+        Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
+        Object.assign(placedMeeples, this.deepCopy(snap.placedMeeples));
+
+        // Restaurer dragonPos et dragonPhase
+        this.gameState.dragonPos   = this.deepCopy(snap.dragonPos);
+        this.gameState.dragonPhase = this.deepCopy(snap.dragonPhase);
+        this.gameState.fairyState  = this.deepCopy(snap.fairyState);
+
+        // Restaurer les meeples des joueurs
+        snap.playerMeeples.forEach(pm => {
+            const p = this.gameState.players.find(pl => pl.id === pm.id);
+            if (p) Object.assign(p, pm);
+        });
+
+        this.dragonMoveSnapshot = null;
+        this.dragonMovePlacedThisTurn = false;
+        return snap;
+    }
+
+    /**
      * Marquer qu'un Abbé a été rappelé
      */
     markAbbeRecalled(x, y, key, playerId, points) {
@@ -144,10 +195,21 @@ export class UndoManager {
         console.log('🔍 État avant annulation:', {
             meeplePlacedThisTurn: this.meeplePlacedThisTurn,
             tilePlacedThisTurn: this.tilePlacedThisTurn,
+            dragonMovePlacedThisTurn: this.dragonMovePlacedThisTurn,
             hasAfterTilePlacedSnapshot: !!this.afterTilePlacedSnapshot,
             hasTurnStartSnapshot: !!this.turnStartSnapshot
         });
-        
+
+        // Cas dragon : annuler un déplacement dragon
+        if (this.dragonMovePlacedThisTurn && this.dragonMoveSnapshot) {
+            console.log('⏪ Annulation : déplacement dragon');
+            const snap = this.undoDragonMove(placedMeeples);
+            return {
+                type: 'dragon-move-undo',
+                snap
+            };
+        }
+
         // Cas 0 : Annuler le rappel de l'Abbé
         if (this.abbeRecalledThisTurn && this.afterTilePlacedSnapshot) {
             console.log('⏪ Annulation : remise en place de l\'Abbé');
@@ -285,7 +347,7 @@ export class UndoManager {
      * Vérifier si on peut annuler
      */
     canUndo() {
-        return this.meeplePlacedThisTurn || this.tilePlacedThisTurn || this.abbeRecalledThisTurn;
+        return this.meeplePlacedThisTurn || this.tilePlacedThisTurn || this.abbeRecalledThisTurn || this.dragonMovePlacedThisTurn;
     }
 
     /**
@@ -301,6 +363,8 @@ export class UndoManager {
         this.lastMeeplePlaced = null;
         this.abbeRecalledThisTurn = false;
         this.lastAbbeRecalled = null;
+        this.dragonMoveSnapshot = null;
+        this.dragonMovePlacedThisTurn = false;
     }
 
     /**
