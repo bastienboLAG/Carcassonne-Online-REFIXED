@@ -3138,14 +3138,15 @@ function updateTurnDisplay() {
     }
 
     scorePanelUI?.updateMobile();
-    updateMobileButtons();
-    eventBus.emit('score-updated');
 
     // Mettre à jour le contour doré si tour bonus, rouge si tour dragon
     const isBonusTurn  = turnManager?.isBonusTurn ?? false;
     const isDragonTurn = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
     if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn, isDragonTurn);
     _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn);
+
+    updateMobileButtons();
+    eventBus.emit('score-updated');
 
     // Fermer le toast du tour bonus dès qu'il se termine
     if (!isBonusTurn) {
