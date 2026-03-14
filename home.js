@@ -4052,7 +4052,6 @@ function _showMeepleActionCursors() {
         const fairyTargets = dragonRules.getFairyTargets(multiplayer.playerId);
         fairyTargets.forEach(({ key, meeple }) => {
             if (key === currentFairyKey) return;
-            if (meeple?.type?.toLowerCase() === 'abbot') return;
             actionsByKey[key] = actionsByKey[key] ?? [];
             actionsByKey[key].push({ type: 'fairy', meeple });
         });
