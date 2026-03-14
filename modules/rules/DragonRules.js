@@ -264,17 +264,15 @@ export class DragonRules {
 
         for (const zone of princessZones) {
             if (zoneMerger) {
-                // Trouver l'id de zone fusionnée pour cette zone princess
                 const meeplePos = Array.isArray(zone.meeplePosition)
                     ? zone.meeplePosition[0]
                     : zone.meeplePosition;
                 const mergedZone = zoneMerger.findMergedZoneForPosition(x, y, meeplePos);
                 if (!mergedZone) continue;
 
-                // Parcourir tous les meeples posés et chercher ceux dans cette zone fusionnée
                 for (const [key, meeple] of Object.entries(this.placedMeeples)) {
-                    if (meeple.playerId === currentPlayerId) continue;
-                    if (!isDragonEdible(meeple.type)) continue; // pas les spectateurs, etc.
+                    // Exclure bâtisseurs et cochons (spéciaux non éjectables par la princesse)
+                    if (meeple.type === 'Builder' || meeple.type === 'Pig') continue;
                     const parts = key.split(',');
                     const mx = Number(parts[0]), my = Number(parts[1]), mp = Number(parts[2]);
                     const meepleZone = zoneMerger.findMergedZoneForPosition(mx, my, mp);
@@ -283,9 +281,9 @@ export class DragonRules {
             } else {
                 // Fallback sans zoneMerger : tuile locale uniquement
                 for (const [key, meeple] of Object.entries(this.placedMeeples)) {
+                    if (meeple.type === 'Builder' || meeple.type === 'Pig') continue;
                     const parts = key.split(',');
                     if (Number(parts[0]) !== x || Number(parts[1]) !== y) continue;
-                    if (meeple.playerId === currentPlayerId) continue;
                     targets.add(key);
                 }
             }

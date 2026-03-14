@@ -3859,48 +3859,149 @@ eventBus.on('network-princess-ejected', (data) => {
 // ── Extension Princesse ───────────────────────────────────────────────
 
 /**
- * Affiche les curseurs d'éjection princesse sur les meeples ennemis cibles.
+ * Affiche les curseurs d'éjection princesse sur les meeples dans la ville.
+ * Style identique aux curseurs abbé — overlay dans la grille, sélecteur au clic.
  * @param {string[]} targetKeys
  */
 function _showPrincessTargets(targetKeys) {
-    // Nettoyer les anciens curseurs princesse
-    document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
+    document.querySelectorAll('.princess-cursor, .princess-cursor-overlay').forEach(el => el.remove());
     if (!targetKeys?.length) return;
 
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
 
-    afficherToast('👸 Princesse : vous pouvez éjecter un meeple ennemi de cette ville (optionnel)', 'info', 6000);
+    afficherToast('👸 Princesse : vous pouvez éjecter un meeple de cette ville (optionnel)', 'info', 6000);
 
     targetKeys.forEach(key => {
-        const meepleEl = document.querySelector(`.meeple[data-key="${key}"]`);
-        if (!meepleEl) return;
+        const meeple = placedMeeples[key];
+        if (!meeple) return;
+
+        const parts = key.split(',');
+        const mx = Number(parts[0]);
+        const my = Number(parts[1]);
+        const mp = Number(parts[2]);
+
+        const row = Math.floor((mp - 1) / 5);
+        const col = (mp - 1) % 5;
+        const offsetX = 20.8 + col * 41.6;
+        const offsetY = 20.8 + row * 41.6;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'princess-cursor-overlay';
+        overlay.style.gridColumn    = mx;
+        overlay.style.gridRow       = my;
+        overlay.style.position      = 'relative';
+        overlay.style.width         = '208px';
+        overlay.style.height        = '208px';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex        = '101';
+
+        // Couleur du meeple cible
+        const targetColor = meeple.color.charAt(0).toUpperCase() + meeple.color.slice(1);
+        const meepleImg = meeple.type === 'Large' || meeple.type === 'Normal'
+            ? `./assets/Meeples/${targetColor}/${meeple.type === 'Large' ? 'Large' : 'Normal'}.png`
+            : `./assets/Meeples/${targetColor}/${meeple.type}.png`;
 
         const btn = document.createElement('div');
-        btn.className = 'princess-cursor';
+        btn.className       = 'princess-cursor';
+        btn.dataset.key     = key;
+        btn.style.position  = 'absolute';
+        btn.style.left      = `${offsetX}px`;
+        btn.style.top       = `${offsetY}px`;
+        btn.style.width     = '32px';
+        btn.style.height    = '32px';
+        btn.style.borderRadius = '50%';
+        btn.style.border    = '3px solid #e91e8c';
+        btn.style.boxShadow = '0 0 8px 2px rgba(233,30,140,0.7), inset 0 0 4px rgba(0,0,0,0.8)';
+        btn.style.cursor    = 'pointer';
+        btn.style.pointerEvents = 'auto';
+        btn.style.transform = 'translate(-50%, -50%)';
+        btn.style.animation = 'abbeRecallPulse 1.2s ease-in-out infinite';
         btn.title = 'Éjecter ce meeple (Princesse)';
-        btn.style.cssText = `
-            position: absolute;
-            width: 28px; height: 28px;
-            background: rgba(220,50,150,0.85);
-            border: 2px solid #fff;
-            border-radius: 50%;
-            cursor: pointer;
-            z-index: 600;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
-            pointer-events: all;
-        `;
-        btn.textContent = '👸';
 
-        // Positionner par-dessus le meeple
-        const rect = meepleEl.getBoundingClientRect();
-        const boardRect = boardEl.getBoundingClientRect();
-        btn.style.left = (rect.left - boardRect.left + rect.width / 2 - 14 + boardEl.scrollLeft) + 'px';
-        btn.style.top  = (rect.top  - boardRect.top  + rect.height / 2 - 14 + boardEl.scrollTop)  + 'px';
+        const openSelector = (clientX, clientY) => {
+            const oldSel = document.getElementById('meeple-selector');
+            if (oldSel) oldSel.remove();
 
-        btn.addEventListener('click', () => _handlePrincessEject(key));
-        boardEl.appendChild(btn);
+            const selector = document.createElement('div');
+            selector.id = 'meeple-selector';
+            selector.style.cssText = `
+                position:fixed; left:${clientX}px; top:${clientY - 80}px;
+                transform:translateX(-50%); z-index:1000;
+                display:flex; align-items:flex-end; gap:0;
+                padding:2px; background:rgba(44,62,80,0.5);
+                border-radius:8px; border:2px solid #e91e8c;
+                box-shadow:0 4px 20px rgba(0,0,0,0.5);
+            `;
+
+            const option = document.createElement('div');
+            option.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;position:relative;';
+
+            const img = document.createElement('img');
+            img.src = meepleImg;
+            img.style.width  = '40px';
+            img.style.height = '40px';
+            img.style.display = 'block';
+
+            const badge = document.createElement('span');
+            badge.textContent = '↩️';
+            badge.style.cssText = `
+                position:absolute; top:50%; left:50%;
+                transform:translate(-50%,-50%);
+                font-size:14px; line-height:1;
+                pointer-events:none;
+                text-shadow:0 0 3px rgba(0,0,0,0.8);
+            `;
+
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative;display:inline-block;';
+            wrapper.appendChild(img);
+            wrapper.appendChild(badge);
+            option.appendChild(wrapper);
+
+            option.onmouseenter = () => { option.style.background = 'rgba(233,30,140,0.2)'; };
+            option.onmouseleave = () => { option.style.background = 'transparent'; };
+            option.onclick = (e) => {
+                e.stopPropagation();
+                selector.remove();
+                _handlePrincessEject(key);
+            };
+
+            // Option "passer" (aucune éjection)
+            const skipOption = document.createElement('div');
+            skipOption.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:20px;width:40px;height:40px;';
+            skipOption.textContent = '✕';
+            skipOption.title = 'Ne pas éjecter';
+            skipOption.onmouseenter = () => { skipOption.style.background = 'rgba(255,255,255,0.1)'; };
+            skipOption.onmouseleave = () => { skipOption.style.background = 'transparent'; };
+            skipOption.onclick = (e) => {
+                e.stopPropagation();
+                selector.remove();
+                document.querySelectorAll('.princess-cursor, .princess-cursor-overlay').forEach(el => el.remove());
+                gameState._pendingPrincessTile = null;
+            };
+
+            selector.appendChild(option);
+            selector.appendChild(skipOption);
+            document.body.appendChild(selector);
+
+            // Fermer si clic ailleurs
+            setTimeout(() => {
+                const close = (e) => {
+                    if (!selector.contains(e.target)) { selector.remove(); document.removeEventListener('click', close); }
+                };
+                document.addEventListener('click', close);
+            }, 0);
+        };
+
+        btn.addEventListener('click', (e) => { e.stopPropagation(); openSelector(e.clientX, e.clientY); });
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            openSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }, { passive: false });
+
+        overlay.appendChild(btn);
+        boardEl.appendChild(overlay);
     });
 }
 
