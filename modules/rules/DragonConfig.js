@@ -21,8 +21,6 @@ export const FAIRY_ATTACHABLE_MEEPLES = new Set([
     'Large',
     'Large-Farmer',
     'Abbot',
-    'Builder',
-    'Pig',
 ]);
 
 /**

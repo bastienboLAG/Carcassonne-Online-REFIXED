@@ -1686,6 +1686,12 @@ function attachGameSyncCallbacks() {
                     _advanceDragonTurnHost();
                     return;
                 }
+                if (data.type === 'princess-eject-request') {
+                    // L'invité demande à éjecter un meeple via la princesse
+                    // L'hôte applique localement puis broadcast à tous
+                    _handlePrincessEject(data.meepleKey);
+                    return;
+                }
                 if (originalHandler) originalHandler(data, from);
             })(gameSync.multiplayer.onDataReceived);
         }
@@ -3874,7 +3880,10 @@ eventBus.on('network-dragon-premature', (data) => {
 });
 
 eventBus.on('network-princess-ejected', (data) => {
-    if (isHost) return;
+    // L'hôte applique si c'est un invité qui a éjecté (pas lui-même)
+    // L'invité applique toujours (broadcast de l'hôte ou d'un autre invité)
+    if (isHost && data.playerId === multiplayer.playerId) return;
+
     const { meepleKey, orphanKeys = [] } = data;
 
     // Retirer le meeple éjecté
@@ -3892,7 +3901,7 @@ eventBus.on('network-princess-ejected', (data) => {
         delete placedMeeples[meepleKey];
     }
 
-    // Retirer les bâtisseurs/cochons orphelins
+    // Retirer les bâtisseurs orphelins
     orphanKeys.forEach(key => {
         const m = placedMeeples[key];
         if (!m) return;
@@ -3901,6 +3910,12 @@ eventBus.on('network-princess-ejected', (data) => {
         delete placedMeeples[key];
         document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
     });
+
+    // L'hôte met aussi à jour undoManager pour que l'undo fonctionne côté hôte
+    if (isHost && undoManager) {
+        undoManager.meeplePlacedThisTurn = true;
+        undoManager.lastMeeplePlaced     = null;
+    }
 
     eventBus.emit('meeple-count-updated', {});
     eventBus.emit('score-updated');
@@ -4111,7 +4126,22 @@ function _showMeepleActionCursors() {
                     e.stopPropagation(); selector.remove();
                     if (action.type === 'abbe-recall') { const [ax, ay] = key.split(',').map(Number); handleAbbeRecall(ax, ay, key, meeple); }
                     else if (action.type === 'fairy')  { _handleFairyPlacement(key); }
-                    else                               { _handlePrincessEject(key); }
+                    else {
+                        if (isHost) {
+                            _handlePrincessEject(key);
+                        } else {
+                            // Invité : déléguer à l'hôte pour que l'undo fonctionne correctement
+                            const hostConn = gameSync?.multiplayer?.connections?.[0];
+                            if (hostConn?.open) {
+                                hostConn.send({ type: 'princess-eject-request', meepleKey: key, playerId: multiplayer.playerId });
+                            }
+                            // Nettoyer les curseurs localement
+                            _hideAllCursors();
+                            document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
+                            gameState._pendingPrincessTile = null;
+                            if (undoManager) { undoManager.meeplePlacedThisTurn = true; undoManager.lastMeeplePlaced = null; }
+                        }
+                    }
                 };
                 selector.appendChild(option);
             });

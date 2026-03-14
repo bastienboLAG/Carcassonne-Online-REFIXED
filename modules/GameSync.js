@@ -62,7 +62,7 @@ export class GameSync {
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
             'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request',
             'dragon-state-update', 'dragon-move-request', 'fairy-placed-sync',
-            'dragon-premature-tile', 'dragon-end-turn-request', 'princess-ejected'
+            'dragon-premature-tile', 'dragon-end-turn-request', 'princess-ejected', 'princess-eject-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
