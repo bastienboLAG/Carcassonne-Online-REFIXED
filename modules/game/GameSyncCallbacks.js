@@ -213,9 +213,12 @@ export class GameSyncCallbacks {
                 const player = this.gameState.players.find(p => p.id === playerId);
                 if (player) {
                     player.score += points;
-                    if (zoneType === 'city')       player.scoreDetail.cities      += points;
-                    else if (zoneType === 'road')  player.scoreDetail.roads       += points;
-                    else if (zoneType === 'abbey') player.scoreDetail.monasteries += points;
+                    player.scoreDetail = player.scoreDetail || {};
+                    if (zoneType === 'city')             player.scoreDetail.cities      = (player.scoreDetail.cities      || 0) + points;
+                    else if (zoneType === 'road')        player.scoreDetail.roads       = (player.scoreDetail.roads       || 0) + points;
+                    else if (zoneType === 'abbey')       player.scoreDetail.monasteries = (player.scoreDetail.monasteries || 0) + points;
+                    else if (zoneType === 'fairy-turn'
+                          || zoneType === 'fairy')      player.scoreDetail.fairy        = (player.scoreDetail.fairy        || 0) + points;
                 }
             });
 

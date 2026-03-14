@@ -1053,10 +1053,31 @@ h3 .ext-master {
 }
 
 .final-scores-content {
-    max-width: 700px;
+    max-width: 800px;
     background-color: rgba(44, 62, 80, 0.92); /* Contenu semi-transparent */
     backdrop-filter: blur(8px); /* Flou pour effet de verre */
     -webkit-backdrop-filter: blur(8px);
+}
+
+/* Wrapper scroll horizontal pour le tableau des scores */
+.scores-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.3) transparent;
+}
+.scores-table-wrapper::-webkit-scrollbar {
+    height: 6px;
+}
+.scores-table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scores-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 3px;
 }
 
 .final-scores-content h2 {
@@ -1069,10 +1090,10 @@ h3 .ext-master {
 #final-scores-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
     background-color: rgba(52, 73, 94, 0.7);
     border-radius: 8px;
     overflow: hidden;
+    min-width: 480px; /* force scroll si trop étroit */
 }
 
 #final-scores-table th {

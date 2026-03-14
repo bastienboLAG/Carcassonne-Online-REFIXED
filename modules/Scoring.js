@@ -315,6 +315,7 @@ export class Scoring {
                 monasteries: p.scoreDetail.monasteries,
                 fields:      p.scoreDetail.fields,
                 goods:       p.scoreDetail.goods || 0,
+                fairy:       p.scoreDetail.fairy || 0,
                 goodsTokens: { ...(p.goods || { cloth: 0, wheat: 0, wine: 0 }) },
                 total:       p.score
             }))

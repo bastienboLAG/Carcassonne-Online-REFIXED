@@ -143,7 +143,7 @@ export class GameState {
             hasPig:         false,
             hasFairy:       false,
             goods: { cloth: 0, wheat: 0, wine: 0 },
-            scoreDetail: { cities: 0, roads: 0, monasteries: 0, fields: 0, goods: 0 }
+            scoreDetail: { cities: 0, roads: 0, monasteries: 0, fields: 0, goods: 0, fairy: 0 }
         });
     }
 
@@ -196,7 +196,7 @@ export class GameState {
             hasPig:         p.hasPig         ?? false,
             hasFairy:       p.hasFairy       ?? false,
             goods:          p.goods          ?? { cloth: 0, wheat: 0, wine: 0 },
-            scoreDetail:    p.scoreDetail    || { cities: 0, roads: 0, monasteries: 0, fields: 0, goods: 0 },
+            scoreDetail:    p.scoreDetail    || { cities: 0, roads: 0, monasteries: 0, fields: 0, goods: 0, fairy: 0 },
             disconnected:   p.disconnected   ?? false,
             kicked:         p.kicked         ?? false,
         }));

@@ -194,6 +194,8 @@ eventBus.on('tile-drawn', (data) => {
             const fairyPlayer = gameState.players.find(p => p.id === gameState.fairyState.ownerId);
             if (fairyPlayer) {
                 fairyPlayer.score += 1;
+                fairyPlayer.scoreDetail = fairyPlayer.scoreDetail || {};
+                fairyPlayer.scoreDetail.fairy = (fairyPlayer.scoreDetail.fairy || 0) + 1;
                 console.log(`🧚 [Fée] +1 point début de tour pour ${fairyPlayer.name} (score: ${fairyPlayer.score})`);
                 if (gameSync) gameSync.syncScoreUpdate(
                     [{ playerId: fairyPlayer.id, points: 1, zoneType: 'fairy-turn' }],
@@ -1514,6 +1516,8 @@ function attachGameSyncCallbacks() {
                             const fp = gameState.players.find(p => p.id === fairyOwnerIdSnapshot);
                             if (fp) {
                                 fp.score += 3;
+                                fp.scoreDetail = fp.scoreDetail || {};
+                                fp.scoreDetail.fairy = (fp.scoreDetail.fairy || 0) + 3;
                                 console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
                                 if (gameSync) gameSync.syncScoreUpdate(
                                     [{ playerId: fairyOwnerIdSnapshot, points: 3, zoneType: 'fairy' }],
@@ -1675,8 +1679,10 @@ eventBus.on('network-dragon-state-update', (data) => {
         // Phase terminée
         if (wasActive) {
             _clearDragonCursors();
+            _updateDragonOverlay(); // cache l'overlay bandeau rouge
             afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
             if (undoManager) { undoManager.dragonMovePlacedThisTurn = false; undoManager.dragonMoveSnapshot = null; }
+            updateTurnDisplay();
         }
     } else {
         const mover = gameState.players[gameState.dragonPhase.moverIndex];
@@ -4302,6 +4308,8 @@ function setupEventListeners() {
                     const fp = gameState.players.find(p => p.id === fairyOwnerIdSnapshot);
                     if (fp) {
                         fp.score += 3;
+                        fp.scoreDetail = fp.scoreDetail || {};
+                        fp.scoreDetail.fairy = (fp.scoreDetail.fairy || 0) + 3;
                         console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
                         if (gameSync) gameSync.syncScoreUpdate(
                             [{ playerId: fairyOwnerIdSnapshot, points: 3, zoneType: 'fairy' }],
@@ -4687,6 +4695,13 @@ function returnToLobby() {
         const el = document.getElementById(id);
         if (el) { el.textContent = '⏱ 00:00'; el.style.display = 'none'; }
     });
+
+    // Nettoyer les overlays dragon/princesse
+    _clearDragonCursors();
+    document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
+    const dragonOverlay = document.getElementById('dragon-phase-overlay');
+    if (dragonOverlay) dragonOverlay.style.display = 'none';
+    document.getElementById('dragon-piece')?.remove();
 
     if (isHost && multiplayer.peer?.open) {
         // ✅ Inclure la liste propre pour que les invités ne voient pas les déconnectés
