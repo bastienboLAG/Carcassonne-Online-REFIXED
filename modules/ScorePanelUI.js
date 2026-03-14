@@ -68,7 +68,10 @@ export class ScorePanelUI {
                 return 0;
             });
         sortedPlayers.forEach(player => {
-            const isActive = currentPlayer && player.id === currentPlayer.id;
+            const dragonMover = isDragonTurn ? this.gameState.players[this.gameState.dragonPhase?.moverIndex] : null;
+            const isActive = dragonMover
+                ? player.id === dragonMover.id
+                : currentPlayer && player.id === currentPlayer.id;
             const isGhost  = player.disconnected || player.kicked;
 
             const card = document.createElement('div');
@@ -146,7 +149,10 @@ export class ScorePanelUI {
                 return 0;
             });
         sortedPlayersMobile.forEach(player => {
-            const isActive = currentPlayer && player.id === currentPlayer.id;
+            const dragonMoverM = isDragonTurn ? this.gameState.players[this.gameState.dragonPhase?.moverIndex] : null;
+            const isActive = dragonMoverM
+                ? player.id === dragonMoverM.id
+                : currentPlayer && player.id === currentPlayer.id;
             const isGhost  = player.disconnected || player.kicked;
 
             const activeClass = isDragonTurn ? ' active active-dragon' : isBonusTurn ? ' active active-bonus' : ' active';
