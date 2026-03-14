@@ -150,11 +150,14 @@ export class MeepleSelectorUI {
                 { type: 'Dragon', image: `./assets/Meeples/Dragon.png` }
             ];
         } else if (zoneType === 'abbe-recall') {
-            // Rappel abbé : image abbé avec ↩️ centré + fée si fairyProtection actif et abbé pas déjà lié
+            // Rappel abbé : image abbé avec ↩️ centré + fée si fée active et abbé pas déjà lié
+            const _fairyActiveForAbbe = this.config?.extensions?.fairyProtection
+                                     || this.config?.extensions?.fairyScoreTurn
+                                     || this.config?.extensions?.fairyScoreZone;
             meepleTypes = [
                 { type: 'AbbeRecall', image: `./assets/Meeples/${this.getPlayerColor()}/Abbot.png`, overlay: '↩️' }
             ];
-            if (this.config?.extensions?.fairyProtection && this.currentFairyKey !== `${x},${y},${position}`) {
+            if (_fairyActiveForAbbe && this.currentFairyKey !== `${x},${y},${position}`) {
                 meepleTypes.push({ type: 'Fairy', image: `./assets/Meeples/Fairy.png` });
             }
         } else if (zoneType === 'abbey') {
