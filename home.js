@@ -265,12 +265,7 @@ eventBus.on('tile-placed-own', (data) => {
         if (!_isVolcanoTileOwn) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
-        if (gameConfig?.extensions?.abbot && !undoManager?.meeplePlacedThisTurn) {
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
-        }
-        if (gameConfig?.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
-            _showFairyTargets();
-        }
+        _showMeepleActionCursors();
     }
 });
 
@@ -1726,9 +1721,9 @@ eventBus.on('network-fairy-placed', (data) => {
 // réafficher les curseurs pour que le joueur puisse la réassigner.
 eventBus.on('fairy-detached-show-targets', () => {
     if (!isMyTurn || !gameConfig.extensions?.fairyProtection) return;
-    if (undoManager?.meeplePlacedThisTurn) return; // déjà posé ce tour
+    if (undoManager?.meeplePlacedThisTurn) return;
     _clearFairyCursors();
-    _showFairyTargets();
+    _showMeepleActionCursors();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -3494,7 +3489,7 @@ function _applyUndoLocally(undoneAction) {
             if (!_isVolcano) {
                 meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             }
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
+            _showMeepleActionCursors();
         }
         eventBus.emit('score-updated');
         updateTurnDisplay();
@@ -3521,12 +3516,7 @@ function _applyUndoLocally(undoneAction) {
             if (!_undoIsVolcano) {
                 meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             }
-            if (gameConfig.extensions?.abbot && !undoManager.abbeRecalledThisTurn) {
-                meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
-            }
-            if (gameConfig.extensions?.fairyProtection && !_undoIsVolcano) {
-                _showFairyTargets();
-            }
+            _showMeepleActionCursors();
         }
 
     } else if (undoneAction.type === 'tile') {
@@ -3705,16 +3695,7 @@ function poserTuile(x, y, tile, isFirst = false) {
         if (!_isVolcanoTile) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
-        if (gameConfig.extensions?.abbot && !undoManager?.meeplePlacedThisTurn && !undoManager?.abbeRecalledThisTurn) {
-            meepleCursorsUI.showAbbeRecallTargets(placedMeeples, multiplayer.playerId, handleAbbeRecall, gameConfig.extensions?.fairyProtection ? _handleFairyPlacement : null, gameState, meepleSelectorUI);
-        }
-        if (gameConfig.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn) {
-            _showFairyTargets();
-        }
-        // Princesse : afficher les cibles éjectables si disponibles
-        if (gameState._pendingPrincessTile) {
-            _showPrincessTargets(gameState._pendingPrincessTile.targets);
-        }
+        _showMeepleActionCursors();
     }
 
     if (undoManager && isMyTurn && isHost) {
@@ -3742,7 +3723,6 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
     lastPlacedTile = { x, y };
 
     // ── Extension Dragon : détecter volcano/dragon pour les tuiles reçues du réseau ──
-    // (poserTuile le fait pour le joueur local, poserTuileSync doit le faire pour les autres)
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
         if (_tileHasVolcanoZone(tile)) {
             gameState._pendingVolcanoPos = { x, y };
@@ -3750,6 +3730,21 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
         if (_tileHasDragonZone(tile)) {
             gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
         }
+    }
+
+    // ── Extension Princesse : détecter pour le joueur local (invité ou solo) ──
+    if (isMyTurn && gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
+        const _hasPrincess = tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
+        if (_hasPrincess) {
+            const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
+            if (targets.length > 0) {
+                gameState._pendingPrincessTile = { x, y, targets };
+            }
+        }
+    }
+
+    if (isMyTurn && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
+        _showMeepleActionCursors();
     }
 }
 
@@ -3856,161 +3851,12 @@ eventBus.on('network-princess-ejected', (data) => {
  * Affiche des curseurs sur tous les meeples du joueur actif
  * auxquels la fée peut s'attacher. Cliquable comme les curseurs abbé.
  */
-// ── Extension Princesse ───────────────────────────────────────────────
-
-/**
- * Affiche les curseurs d'éjection princesse sur les meeples dans la ville.
- * Style identique aux curseurs abbé — overlay dans la grille, sélecteur au clic.
- * @param {string[]} targetKeys
- */
-function _showPrincessTargets(targetKeys) {
-    document.querySelectorAll('.princess-cursor, .princess-cursor-overlay').forEach(el => el.remove());
-    if (!targetKeys?.length) return;
-
-    const boardEl = document.getElementById('board');
-    if (!boardEl) return;
-
-    afficherToast('👸 Princesse : vous pouvez éjecter un meeple de cette ville (optionnel)', 'info', 6000);
-
-    targetKeys.forEach(key => {
-        const meeple = placedMeeples[key];
-        if (!meeple) return;
-
-        const parts = key.split(',');
-        const mx = Number(parts[0]);
-        const my = Number(parts[1]);
-        const mp = Number(parts[2]);
-
-        const row = Math.floor((mp - 1) / 5);
-        const col = (mp - 1) % 5;
-        const offsetX = 20.8 + col * 41.6;
-        const offsetY = 20.8 + row * 41.6;
-
-        const overlay = document.createElement('div');
-        overlay.className = 'princess-cursor-overlay';
-        overlay.style.gridColumn    = mx;
-        overlay.style.gridRow       = my;
-        overlay.style.position      = 'relative';
-        overlay.style.width         = '208px';
-        overlay.style.height        = '208px';
-        overlay.style.pointerEvents = 'none';
-        overlay.style.zIndex        = '101';
-
-        // Couleur du meeple cible
-        const targetColor = meeple.color.charAt(0).toUpperCase() + meeple.color.slice(1);
-        const meepleImg = meeple.type === 'Large' || meeple.type === 'Normal'
-            ? `./assets/Meeples/${targetColor}/${meeple.type === 'Large' ? 'Large' : 'Normal'}.png`
-            : `./assets/Meeples/${targetColor}/${meeple.type}.png`;
-
-        const btn = document.createElement('div');
-        btn.className       = 'princess-cursor';
-        btn.dataset.key     = key;
-        btn.style.position  = 'absolute';
-        btn.style.left      = `${offsetX}px`;
-        btn.style.top       = `${offsetY}px`;
-        btn.style.width     = '32px';
-        btn.style.height    = '32px';
-        btn.style.borderRadius = '50%';
-        btn.style.border    = '3px solid #e91e8c';
-        btn.style.boxShadow = '0 0 8px 2px rgba(233,30,140,0.7), inset 0 0 4px rgba(0,0,0,0.8)';
-        btn.style.cursor    = 'pointer';
-        btn.style.pointerEvents = 'auto';
-        btn.style.transform = 'translate(-50%, -50%)';
-        btn.style.animation = 'abbeRecallPulse 1.2s ease-in-out infinite';
-        btn.title = 'Éjecter ce meeple (Princesse)';
-
-        const openSelector = (clientX, clientY) => {
-            const oldSel = document.getElementById('meeple-selector');
-            if (oldSel) oldSel.remove();
-
-            const selector = document.createElement('div');
-            selector.id = 'meeple-selector';
-            selector.style.cssText = `
-                position:fixed; left:${clientX}px; top:${clientY - 80}px;
-                transform:translateX(-50%); z-index:1000;
-                display:flex; align-items:flex-end; gap:0;
-                padding:2px; background:rgba(44,62,80,0.5);
-                border-radius:8px; border:2px solid #e91e8c;
-                box-shadow:0 4px 20px rgba(0,0,0,0.5);
-            `;
-
-            const option = document.createElement('div');
-            option.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;position:relative;';
-
-            const img = document.createElement('img');
-            img.src = meepleImg;
-            img.style.width  = '40px';
-            img.style.height = '40px';
-            img.style.display = 'block';
-
-            const badge = document.createElement('span');
-            badge.textContent = '↩️';
-            badge.style.cssText = `
-                position:absolute; top:50%; left:50%;
-                transform:translate(-50%,-50%);
-                font-size:14px; line-height:1;
-                pointer-events:none;
-                text-shadow:0 0 3px rgba(0,0,0,0.8);
-            `;
-
-            const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:relative;display:inline-block;';
-            wrapper.appendChild(img);
-            wrapper.appendChild(badge);
-            option.appendChild(wrapper);
-
-            option.onmouseenter = () => { option.style.background = 'rgba(233,30,140,0.2)'; };
-            option.onmouseleave = () => { option.style.background = 'transparent'; };
-            option.onclick = (e) => {
-                e.stopPropagation();
-                selector.remove();
-                _handlePrincessEject(key);
-            };
-
-            // Option "passer" (aucune éjection)
-            const skipOption = document.createElement('div');
-            skipOption.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:20px;width:40px;height:40px;';
-            skipOption.textContent = '✕';
-            skipOption.title = 'Ne pas éjecter';
-            skipOption.onmouseenter = () => { skipOption.style.background = 'rgba(255,255,255,0.1)'; };
-            skipOption.onmouseleave = () => { skipOption.style.background = 'transparent'; };
-            skipOption.onclick = (e) => {
-                e.stopPropagation();
-                selector.remove();
-                document.querySelectorAll('.princess-cursor, .princess-cursor-overlay').forEach(el => el.remove());
-                gameState._pendingPrincessTile = null;
-            };
-
-            selector.appendChild(option);
-            selector.appendChild(skipOption);
-            document.body.appendChild(selector);
-
-            // Fermer si clic ailleurs
-            setTimeout(() => {
-                const close = (e) => {
-                    if (!selector.contains(e.target)) { selector.remove(); document.removeEventListener('click', close); }
-                };
-                document.addEventListener('click', close);
-            }, 0);
-        };
-
-        btn.addEventListener('click', (e) => { e.stopPropagation(); openSelector(e.clientX, e.clientY); });
-        btn.addEventListener('touchend', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            openSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-        }, { passive: false });
-
-        overlay.appendChild(btn);
-        boardEl.appendChild(overlay);
-    });
-}
-
 /**
  * Exécute l'éjection princesse d'un meeple.
  * @param {string} meepleKey
  */
 function _handlePrincessEject(meepleKey) {
-    document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
+    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
     gameState._pendingPrincessTile = null;
 
     if (!dragonRules) return;
@@ -4046,89 +3892,162 @@ function _handlePrincessEject(meepleKey) {
     afficherToast('👸 Meeple éjecté par la Princesse !', 'success');
 }
 
-function _showFairyTargets() {
-    if (!dragonRules || !gameState || !gameConfig.extensions?.fairyProtection) return;
-    const targets = dragonRules.getFairyTargets(multiplayer.playerId);
-    if (targets.length === 0) return;
+function _showMeepleActionCursors() {
+    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
 
+    if (!gameState || !meepleCursorsUI) return;
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
 
-    const currentFairyKey = gameState.fairyState?.meepleKey ?? null;
-    targets.forEach(({ key, meeple }) => {
-        if (key === currentFairyKey) return; // fée déjà attachée ici
-        if (meeple?.type?.toLowerCase() === 'abbot') return; // abbé géré via sa propre modale
-        const parts = key.split(',');
-        const fx = Number(parts[0]);
-        const fy = Number(parts[1]);
-        const fp = Number(parts[2]);
+    const currentFairyKey  = gameState.fairyState?.meepleKey ?? null;
+    const pendingPrincess  = gameState._pendingPrincessTile ?? null;
+    const princessTargetSet = new Set(pendingPrincess?.targets ?? []);
 
-        const row = Math.floor((fp - 1) / 5);
-        const col = (fp - 1) % 5;
+    const actionsByKey = {};
+
+    // 1. Rappel abbé
+    if (gameConfig?.extensions?.abbot && !undoManager?.abbeRecalledThisTurn) {
+        Object.entries(placedMeeples).forEach(([key, meeple]) => {
+            if (meeple.type?.toLowerCase() !== 'abbot' || meeple.playerId !== multiplayer.playerId) return;
+            actionsByKey[key] = actionsByKey[key] ?? [];
+            actionsByKey[key].push({ type: 'abbe-recall', meeple });
+        });
+    }
+
+    // 2. Attacher la fée
+    if (gameConfig?.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn && dragonRules) {
+        const fairyTargets = dragonRules.getFairyTargets(multiplayer.playerId);
+        fairyTargets.forEach(({ key, meeple }) => {
+            if (key === currentFairyKey) return;
+            if (meeple?.type?.toLowerCase() === 'abbot') return;
+            actionsByKey[key] = actionsByKey[key] ?? [];
+            actionsByKey[key].push({ type: 'fairy', meeple });
+        });
+    }
+
+    // 3. Éjection princesse
+    if (pendingPrincess) {
+        princessTargetSet.forEach(key => {
+            const meeple = placedMeeples[key];
+            if (!meeple) return;
+            actionsByKey[key] = actionsByKey[key] ?? [];
+            actionsByKey[key].push({ type: 'princess', meeple });
+        });
+    }
+
+    if (Object.keys(actionsByKey).length === 0) {
+        if (pendingPrincess && princessTargetSet.size === 0) gameState._pendingPrincessTile = null;
+        return;
+    }
+
+    Object.entries(actionsByKey).forEach(([key, actions]) => {
+        const meeple = placedMeeples[key];
+        if (!meeple) return;
+        const parts   = key.split(',');
+        const mx      = Number(parts[0]), my = Number(parts[1]), mp = Number(parts[2]);
+        const row     = Math.floor((mp - 1) / 5);
+        const col     = (mp - 1) % 5;
         const offsetX = 20.8 + col * 41.6;
         const offsetY = 20.8 + row * 41.6;
 
-        // Créer un overlay sur la tuile (comme abbé rappelable)
         const overlay = document.createElement('div');
-        overlay.className = 'fairy-cursor-overlay';
-        overlay.style.gridColumn = fx;
-        overlay.style.gridRow    = fy;
-        overlay.style.position   = 'relative';
-        overlay.style.width      = '208px';
-        overlay.style.height     = '208px';
-        overlay.style.pointerEvents = 'none';
-        overlay.style.zIndex     = '101';
+        overlay.className        = 'meeple-action-overlay';
+        overlay.style.gridColumn = mx;
+        overlay.style.gridRow    = my;
+        overlay.style.cssText   += 'position:relative;width:208px;height:208px;pointer-events:none;z-index:101;';
 
-        // Gros bouton circulaire centré sur le meeple
         const btn = document.createElement('div');
-        btn.className = 'fairy-cursor';
+        btn.className = 'meeple-action-cursor';
         btn.dataset.key = key;
-        btn.style.position   = 'absolute';
-        btn.style.left       = `${offsetX}px`;
-        btn.style.top        = `${offsetY}px`;
-        btn.style.width      = '34px';
-        btn.style.height     = '34px';
-        btn.style.borderRadius = '50%';
-        btn.style.border     = '3px solid gold';
-        btn.style.boxShadow  = '0 0 8px 2px rgba(255,215,0,0.7), inset 0 0 4px rgba(0,0,0,0.6)';
-        btn.style.cursor     = 'pointer';
-        btn.style.pointerEvents = 'auto';
-        btn.style.transform  = 'translate(-50%, -50%)';
-        btn.style.display    = 'flex';
-        btn.style.alignItems = 'center';
-        btn.style.justifyContent = 'center';
-        btn.style.fontSize   = '18px';
-        btn.style.animation  = 'abbeRecallPulse 1.2s ease-in-out infinite';
-        btn.title = 'Attacher la Fée';
-        btn.textContent = '🧚';
+        btn.style.cssText = `position:absolute;left:${offsetX}px;top:${offsetY}px;width:32px;height:32px;border-radius:50%;border:3px solid rgb(200,0,175);box-shadow:0 0 8px 2px rgba(200,0,175,0.7),inset 0 0 4px rgba(0,0,0,0.8);cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);animation:abbeRecallPulse 1.2s ease-in-out infinite;`;
 
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Ouvrir le sélecteur meeple avec uniquement la fée
-            meepleSelectorUI.show(fx, fy, fp, 'fairy-attach', e.clientX, e.clientY,
-                (_sx, _sy, _spos, meepleType) => {
-                    if (meepleType === 'Fairy') _handleFairyPlacement(key);
+        const openSelector = (clientX, clientY) => {
+            const oldSel = document.getElementById('meeple-selector');
+            if (oldSel) oldSel.remove();
+
+            const selector = document.createElement('div');
+            selector.id = 'meeple-selector';
+            selector.style.cssText = `position:fixed;left:${clientX}px;top:${clientY - 80}px;transform:translateX(-50%);z-index:1000;display:flex;align-items:flex-end;gap:0;padding:2px;background:rgba(44,62,80,0.5);border-radius:8px;border:2px solid gold;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
+
+            const targetColor = meeple.color.charAt(0).toUpperCase() + meeple.color.slice(1);
+
+            actions.forEach(action => {
+                const option = document.createElement('div');
+                option.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;position:relative;';
+
+                let imgSrc, overlayEmoji;
+                if (action.type === 'abbe-recall') {
+                    const myColor = (gameState.players.find(p => p.id === multiplayer.playerId)?.color ?? 'blue');
+                    imgSrc = `./assets/Meeples/${myColor.charAt(0).toUpperCase()+myColor.slice(1)}/Abbot.png`;
+                    overlayEmoji = '↩️';
+                } else if (action.type === 'fairy') {
+                    imgSrc = `./assets/Meeples/Fairy.png`;
+                    overlayEmoji = null;
+                } else {
+                    imgSrc = `./assets/Meeples/${targetColor}/${meeple.type}.png`;
+                    overlayEmoji = '↩️';
                 }
-            );
-        });
-        btn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const t = e.changedTouches[0];
-            meepleSelectorUI.show(fx, fy, fp, 'fairy-attach', t.clientX, t.clientY,
-                (_sx, _sy, _spos, meepleType) => {
-                    if (meepleType === 'Fairy') _handleFairyPlacement(key);
+
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'position:relative;display:inline-block;';
+                const img = document.createElement('img');
+                img.src = imgSrc; img.style.cssText = 'width:40px;height:40px;display:block;';
+                wrapper.appendChild(img);
+                if (overlayEmoji) {
+                    const badge = document.createElement('span');
+                    badge.textContent = overlayEmoji;
+                    badge.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;line-height:1;pointer-events:none;text-shadow:0 0 3px rgba(0,0,0,0.8);';
+                    wrapper.appendChild(badge);
                 }
-            );
-        }, { passive: false });
+                option.appendChild(wrapper);
+                option.onmouseenter = () => { option.style.background = 'rgba(255,215,0,0.2)'; };
+                option.onmouseleave = () => { option.style.background = 'transparent'; };
+                option.onclick = (e) => {
+                    e.stopPropagation(); selector.remove();
+                    if (action.type === 'abbe-recall') { const [ax, ay] = key.split(',').map(Number); handleAbbeRecall(ax, ay, key, meeple); }
+                    else if (action.type === 'fairy')  { _handleFairyPlacement(key); }
+                    else                               { _handlePrincessEject(key); }
+                };
+                selector.appendChild(option);
+            });
+
+            if (actions.some(a => a.type === 'princess')) {
+                const skip = document.createElement('div');
+                skip.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:20px;width:40px;height:40px;color:white;';
+                skip.textContent = '✕'; skip.title = 'Ne pas éjecter';
+                skip.onmouseenter = () => { skip.style.background = 'rgba(255,255,255,0.1)'; };
+                skip.onmouseleave = () => { skip.style.background = 'transparent'; };
+                skip.onclick = (e) => {
+                    e.stopPropagation(); selector.remove();
+                    document.querySelectorAll('.meeple-action-cursor,.meeple-action-overlay').forEach(el => el.remove());
+                    gameState._pendingPrincessTile = null;
+                };
+                selector.appendChild(skip);
+            }
+
+            document.body.appendChild(selector);
+            setTimeout(() => {
+                const close = (e) => { if (!selector.contains(e.target)) { selector.remove(); document.removeEventListener('click', close); } };
+                document.addEventListener('click', close);
+            }, 0);
+        };
+
+        btn.addEventListener('click',    (e) => { e.stopPropagation(); openSelector(e.clientX, e.clientY); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); openSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: false });
 
         overlay.appendChild(btn);
         boardEl.appendChild(overlay);
     });
+
+    if (pendingPrincess && princessTargetSet.size > 0) {
+        afficherToast('👸 Princesse : vous pouvez éjecter un meeple de cette ville (optionnel)', 'info', 6000);
+    }
 }
 
+function _showFairyTargets() { _showMeepleActionCursors(); }
+
 function _clearFairyCursors() {
-    document.querySelectorAll('.fairy-cursor, .fairy-cursor-overlay').forEach(el => el.remove());
+    document.querySelectorAll('.fairy-cursor,.fairy-cursor-overlay,.meeple-action-cursor,.meeple-action-overlay').forEach(el => el.remove());
 }
 
 function _hideAllCursors() {
