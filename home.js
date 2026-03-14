@@ -172,6 +172,8 @@ eventBus.on('tile-drawn', (data) => {
 
     // Snapshot + reset builder : au début de notre propre tour (local ou via your-turn réseau)
     const isOwnTurnStart = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
+    // Nouveau tour — effacer le pending princesse du tour précédent
+    if (isOwnTurnStart && gameState) gameState._pendingPrincessTile = null;
     // L'hôte sauvegarde le snapshot début de tour pour tout le monde (undo centralisé)
     // isOwnTurnStart = notre propre tour ; fromNetwork sans fromYourTurn = tour d'un invité reçu par l'hôte
     const isNewTurnSnapshot = isHost && !data.fromUndo &&
@@ -1582,6 +1584,7 @@ function attachGameSyncCallbacks() {
                 if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingDragonTile) {
                     const { playerIndex } = gameState._pendingDragonTile;
                     gameState._pendingDragonTile = null;
+                    gameState._pendingPrincessTile = null;
                     if (undoManager) undoManager.reset();
                     const started = dragonRules.onDragonTilePlaced(playerIndex);
                     if (started) {
@@ -1592,6 +1595,7 @@ function attachGameSyncCallbacks() {
                     }
                 }
 
+                gameState._pendingPrincessTile = null;
                 if (undoManager) undoManager.reset();
                 if (turnManager) turnManager.endTurnRemote(isBonusTurn);
 
@@ -3985,11 +3989,13 @@ function _showMeepleActionCursors() {
         });
     }
 
-    // 2. Attacher la fée
-    const _fairyEnabled = gameConfig?.extensions?.fairyProtection
-                       || gameConfig?.extensions?.fairyScoreTurn
-                       || gameConfig?.extensions?.fairyScoreZone;
-    if (_fairyEnabled && !undoManager?.meeplePlacedThisTurn && dragonRules) {
+    // 2. Attacher la fée (placement physique nécessite dragonRules)
+    const _fairyEnabled = dragonRules && (
+        gameConfig?.extensions?.fairyProtection
+     || gameConfig?.extensions?.fairyScoreTurn
+     || gameConfig?.extensions?.fairyScoreZone
+    );
+    if (_fairyEnabled && !undoManager?.meeplePlacedThisTurn) {
         const fairyTargets = dragonRules.getFairyTargets(multiplayer.playerId);
         fairyTargets.forEach(({ key, meeple }) => {
             if (key === currentFairyKey) return;
@@ -4407,6 +4413,7 @@ function setupEventListeners() {
 
         // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
         // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()
+        gameState._pendingPrincessTile = null;
         if (undoManager) undoManager.reset();
 
         // ── Extension Dragon : démarrer la phase dragon si tuile dragon posée ──
