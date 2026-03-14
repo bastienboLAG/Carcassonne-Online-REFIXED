@@ -3737,10 +3737,13 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
     }
 
     // ── Extension Princesse : détecter pour le joueur local (invité ou solo) ──
+    console.log(`👸 [poserTuileSync] isMyTurn:${isMyTurn} tileGroups.dragon:${gameConfig.tileGroups?.dragon} extensions.princess:${gameConfig.extensions?.princess} dragonRules:${!!dragonRules}`);
     if (isMyTurn && gameConfig.tileGroups?.dragon && gameConfig.extensions?.princess && dragonRules) {
         const _hasPrincess = tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
+        console.log(`👸 [poserTuileSync] _hasPrincess:${_hasPrincess} zones:`, tile.zones?.map(z => `${z.type}:${JSON.stringify(z.features)}`));
         if (_hasPrincess) {
             const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
+            console.log(`👸 [poserTuileSync] targets:`, targets);
             if (targets.length > 0) {
                 gameState._pendingPrincessTile = { x, y, targets };
             }
