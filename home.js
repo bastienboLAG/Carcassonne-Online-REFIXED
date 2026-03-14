@@ -3552,18 +3552,26 @@ function _applyUndoLocally(undoneAction) {
     }
 
     if (undoneAction.type === 'meeple') {
-        // lastMeeplePlaced est null si c'était un placement de fée (pas de meeple DOM à retirer)
         if (undoneAction.meeple?.key) {
+            // Undo placement meeple normal : retirer le meeple DOM
             document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
+        } else {
+            // Undo éjection princesse (meeple=null) : re-rendre tous les meeples du snapshot
+            document.querySelectorAll('.meeple').forEach(el => el.remove());
+            Object.entries(placedMeeples).forEach(([key, meeple]) => {
+                const [mx, my, mp] = key.split(',').map(Number);
+                eventBus.emit('meeple-placed', {
+                    ...meeple, x: mx, y: my, key, position: mp,
+                    meepleType: meeple.type, playerColor: meeple.color,
+                    fromUndo: true, skipSync: true
+                });
+            });
         }
-        // Restaurer le rendu de la fée (le snapshot a déjà restauré fairyState)
-        if (gameConfig.extensions?.fairyProtection) {
+        // Restaurer le rendu de la fée
+        if (gameConfig.extensions?.fairyProtection || gameConfig.extensions?.fairyScoreTurn || gameConfig.extensions?.fairyScoreZone) {
             const fs = gameState.fairyState;
-            if (fs?.meepleKey) {
-                _renderFairyPiece(fs.meepleKey);
-            } else {
-                _removeFairyPiece();
-            }
+            if (fs?.meepleKey) _renderFairyPiece(fs.meepleKey);
+            else _removeFairyPiece();
         }
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
@@ -3909,6 +3917,8 @@ eventBus.on('network-princess-ejected', (data) => {
  * @param {string} meepleKey
  */
 function _handlePrincessEject(meepleKey) {
+    // Nettoyer TOUS les curseurs (action + placement meeple normal)
+    _hideAllCursors();
     document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
     gameState._pendingPrincessTile = null;
 
