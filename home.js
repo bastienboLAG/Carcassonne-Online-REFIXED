@@ -174,6 +174,14 @@ eventBus.on('tile-drawn', (data) => {
     const isOwnTurnStart = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
     // Nouveau tour — effacer le pending princesse du tour précédent
     if (isOwnTurnStart && gameState) gameState._pendingPrincessTile = null;
+    // Invité : reset des flags de placement du tour précédent
+    // (l'hôte le fait via undoManager.reset(), le guest doit le faire ici)
+    if (isOwnTurnStart && !isHost && undoManager) {
+        undoManager.meeplePlacedThisTurn = false;
+        undoManager.tilePlacedThisTurn   = false;
+        undoManager.abbeRecalledThisTurn = false;
+        undoManager.lastMeeplePlaced     = null;
+    }
     // L'hôte sauvegarde le snapshot début de tour pour tout le monde (undo centralisé)
     // isOwnTurnStart = notre propre tour ; fromNetwork sans fromYourTurn = tour d'un invité reçu par l'hôte
     const isNewTurnSnapshot = isHost && !data.fromUndo &&
@@ -3906,6 +3914,13 @@ function _handlePrincessEject(meepleKey) {
 
     if (!dragonRules) return;
     dragonRules.executePrincess(meepleKey);
+
+    // L'éjection princesse est une action meeple — désactive les curseurs
+    // et permet l'undo via afterTilePlacedSnapshot (même comportement que pose de meeple)
+    if (undoManager) {
+        undoManager.meeplePlacedThisTurn = true;
+        undoManager.lastMeeplePlaced     = null; // pas de meeple DOM à retirer, juste restaurer le snapshot
+    }
 
     // Retirer visuellement le meeple éjecté
     document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
