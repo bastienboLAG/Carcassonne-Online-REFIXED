@@ -4014,20 +4014,6 @@ function _showMeepleActionCursors() {
                 selector.appendChild(option);
             });
 
-            if (actions.some(a => a.type === 'princess')) {
-                const skip = document.createElement('div');
-                skip.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:20px;width:40px;height:40px;color:white;';
-                skip.textContent = '✕'; skip.title = 'Ne pas éjecter';
-                skip.onmouseenter = () => { skip.style.background = 'rgba(255,255,255,0.1)'; };
-                skip.onmouseleave = () => { skip.style.background = 'transparent'; };
-                skip.onclick = (e) => {
-                    e.stopPropagation(); selector.remove();
-                    document.querySelectorAll('.meeple-action-cursor,.meeple-action-overlay').forEach(el => el.remove());
-                    gameState._pendingPrincessTile = null;
-                };
-                selector.appendChild(skip);
-            }
-
             document.body.appendChild(selector);
             setTimeout(() => {
                 const close = (e) => { if (!selector.contains(e.target)) { selector.remove(); document.removeEventListener('click', close); } };
