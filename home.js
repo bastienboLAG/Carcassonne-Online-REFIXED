@@ -261,6 +261,19 @@ eventBus.on('tile-placed-own', (data) => {
     updateMobileButtons();
     updateTurnDisplay();
     const _isVolcanoTileOwn = !!(gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.dragon && _tileHasVolcanoZone(tile));
+
+    // Détection princesse — ici le zoneRegistry est déjà désérialisé
+    if (gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.princess && dragonRules) {
+        const _hasPrincess = tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
+        if (_hasPrincess) {
+            const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
+            console.log(`👸 [tile-placed-own] targets:`, targets);
+            if (targets.length > 0) {
+                gameState._pendingPrincessTile = { x, y, targets };
+            }
+        }
+    }
+
     if (meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
         if (!_isVolcanoTileOwn) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
@@ -3734,27 +3747,6 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
         if (_tileHasDragonZone(tile)) {
             gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
         }
-    }
-
-    // ── Extension Princesse : détecter pour le joueur local (invité ou solo) ──
-    console.log(`👸 [poserTuileSync] isMyTurn:${isMyTurn} tileGroups.dragon:${gameConfig.tileGroups?.dragon} extensions.princess:${gameConfig.extensions?.princess} dragonRules:${!!dragonRules}`);
-    if (isMyTurn && gameConfig.tileGroups?.dragon && gameConfig.extensions?.princess && dragonRules) {
-        const _hasPrincess = tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
-        const tileInBoard = !!plateau.placedTiles[`${x},${y}`];
-        const tileToZoneKey = zoneMerger ? [...zoneMerger.tileToZone.entries()].filter(([k]) => k.startsWith(`${x},${y},`)) : [];
-        console.log(`👸 [poserTuileSync] _hasPrincess:${_hasPrincess} tileInBoard:${tileInBoard} tileToZoneEntries:`, tileToZoneKey, 'tile.rotation:', tile.rotation);
-        console.log(`👸 [poserTuileSync] zones:`, tile.zones?.map(z => `${z.type}:pos=${JSON.stringify(z.meeplePosition)}:feat=${JSON.stringify(z.features)}`));
-        if (_hasPrincess) {
-            const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
-            console.log(`👸 [poserTuileSync] targets:`, targets);
-            if (targets.length > 0) {
-                gameState._pendingPrincessTile = { x, y, targets };
-            }
-        }
-    }
-
-    if (isMyTurn && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
-        _showMeepleActionCursors();
     }
 }
 
