@@ -261,6 +261,7 @@ export class DragonRules {
     getPrincessTargets(x, y, tile, currentPlayerId, zoneMerger = null) {
         const targets = new Set();
         const princessZones = tile.zones.filter(z => z.type === 'city' && z.features?.includes?.('princess'));
+        console.log(`👸 [getPrincessTargets] x:${x} y:${y} princessZones:${princessZones.length} zoneMerger:${!!zoneMerger} placedMeeples:`, Object.keys(this.placedMeeples));
 
         for (const zone of princessZones) {
             if (zoneMerger) {
@@ -268,6 +269,7 @@ export class DragonRules {
                     ? zone.meeplePosition[0]
                     : zone.meeplePosition;
                 const mergedZone = zoneMerger.findMergedZoneForPosition(x, y, meeplePos);
+                console.log(`👸 [getPrincessTargets] meeplePos:${meeplePos} mergedZone:`, mergedZone?.id ?? 'null');
                 if (!mergedZone) continue;
 
                 for (const [key, meeple] of Object.entries(this.placedMeeples)) {
@@ -276,6 +278,7 @@ export class DragonRules {
                     const parts = key.split(',');
                     const mx = Number(parts[0]), my = Number(parts[1]), mp = Number(parts[2]);
                     const meepleZone = zoneMerger.findMergedZoneForPosition(mx, my, mp);
+                    console.log(`👸 [getPrincessTargets] key:${key} meepleZone:${meepleZone?.id ?? 'null'} match:${meepleZone?.id === mergedZone.id}`);
                     if (meepleZone?.id === mergedZone.id) targets.add(key);
                 }
             } else {

@@ -3679,14 +3679,18 @@ function poserTuile(x, y, tile, isFirst = false) {
         }
     }
 
-    // ── Extension Princesse : proposer d'éjecter un meeple ennemi de la ville ──
+    // ── Extension Princesse : proposer d'éjecter un meeple de la ville ──
     const _hasPrincessZone = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon
         && tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess')));
+    console.log(`👸 [Princess] hasPrincessZone:${_hasPrincessZone} | isMyTurn:${isMyTurn} | dragonRules:${!!dragonRules} | placedMeeples count:${Object.keys(placedMeeples).length}`);
     if (_hasPrincessZone && dragonRules && isMyTurn) {
         const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
+        console.log(`👸 [Princess] targets:`, targets, '| zoneMerger:', !!zoneMerger);
         if (targets.length > 0) {
             gameState._pendingPrincessTile = { x, y, targets };
-            console.log(`👸 [Princess] ${targets.length} cible(s) éjectable(s)`);
+            console.log(`👸 [Princess] ${targets.length} cible(s) éjectable(s) — pendingPrincessTile set`);
+        } else {
+            console.log(`👸 [Princess] aucune cible trouvée`);
         }
     }
 
@@ -3902,6 +3906,7 @@ function _showMeepleActionCursors() {
     const currentFairyKey  = gameState.fairyState?.meepleKey ?? null;
     const pendingPrincess  = gameState._pendingPrincessTile ?? null;
     const princessTargetSet = new Set(pendingPrincess?.targets ?? []);
+    console.log(`👸 [_showMeepleActionCursors] pendingPrincess:`, pendingPrincess, '| princessTargets:', [...princessTargetSet], '| placedMeeples:', Object.keys(placedMeeples));
 
     const actionsByKey = {};
 
