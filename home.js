@@ -3740,7 +3740,10 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
     console.log(`👸 [poserTuileSync] isMyTurn:${isMyTurn} tileGroups.dragon:${gameConfig.tileGroups?.dragon} extensions.princess:${gameConfig.extensions?.princess} dragonRules:${!!dragonRules}`);
     if (isMyTurn && gameConfig.tileGroups?.dragon && gameConfig.extensions?.princess && dragonRules) {
         const _hasPrincess = tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
-        console.log(`👸 [poserTuileSync] _hasPrincess:${_hasPrincess} zones:`, tile.zones?.map(z => `${z.type}:${JSON.stringify(z.features)}`));
+        const tileInBoard = !!plateau.placedTiles[`${x},${y}`];
+        const tileToZoneKey = zoneMerger ? [...zoneMerger.tileToZone.entries()].filter(([k]) => k.startsWith(`${x},${y},`)) : [];
+        console.log(`👸 [poserTuileSync] _hasPrincess:${_hasPrincess} tileInBoard:${tileInBoard} tileToZoneEntries:`, tileToZoneKey, 'tile.rotation:', tile.rotation);
+        console.log(`👸 [poserTuileSync] zones:`, tile.zones?.map(z => `${z.type}:pos=${JSON.stringify(z.meeplePosition)}:feat=${JSON.stringify(z.features)}`));
         if (_hasPrincess) {
             const targets = dragonRules.getPrincessTargets(x, y, tile, multiplayer.playerId, zoneMerger);
             console.log(`👸 [poserTuileSync] targets:`, targets);
