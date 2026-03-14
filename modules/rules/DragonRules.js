@@ -260,34 +260,35 @@ export class DragonRules {
      */
     getPrincessTargets(x, y, tile, currentPlayerId, zoneMerger = null) {
         const targets = new Set();
-        const princessZones = tile.zones.filter(z => z.type === 'city' && z.features?.includes?.('princess'));
+        const princessZones = tile.zones
+            .map((z, idx) => ({ zone: z, idx }))
+            .filter(({ zone }) => zone.type === 'city' && zone.features?.includes?.('princess'));
         console.log(`👸 [getPrincessTargets] x:${x} y:${y} princessZones:${princessZones.length} zoneMerger:${!!zoneMerger} placedMeeples:`, Object.keys(this.placedMeeples));
 
-        for (const zone of princessZones) {
+        for (const { zone, idx } of princessZones) {
             if (zoneMerger) {
-                const meeplePos = Array.isArray(zone.meeplePosition)
-                    ? zone.meeplePosition[0]
-                    : zone.meeplePosition;
-                const mergedZone = zoneMerger.findMergedZoneForPosition(x, y, meeplePos);
-                console.log(`👸 [getPrincessTargets] meeplePos:${meeplePos} mergedZone:`, mergedZone?.id ?? 'null');
+                // Utiliser l'index de zone directement — évite le problème de rotation dans findMergedZoneForPosition
+                const key = `${x},${y},${idx}`;
+                const zoneId = zoneMerger.tileToZone?.get(key);
+                console.log(`👸 [getPrincessTargets] tileToZone key:${key} zoneId:${zoneId}`);
+                if (zoneId == null) continue;
+                const mergedZone = zoneMerger.registry.getZone(zoneId);
                 if (!mergedZone) continue;
 
-                for (const [key, meeple] of Object.entries(this.placedMeeples)) {
-                    // Exclure bâtisseurs et cochons (spéciaux non éjectables par la princesse)
+                for (const [mKey, meeple] of Object.entries(this.placedMeeples)) {
                     if (meeple.type === 'Builder' || meeple.type === 'Pig') continue;
-                    const parts = key.split(',');
+                    const parts = mKey.split(',');
                     const mx = Number(parts[0]), my = Number(parts[1]), mp = Number(parts[2]);
                     const meepleZone = zoneMerger.findMergedZoneForPosition(mx, my, mp);
-                    console.log(`👸 [getPrincessTargets] key:${key} meepleZone:${meepleZone?.id ?? 'null'} match:${meepleZone?.id === mergedZone.id}`);
-                    if (meepleZone?.id === mergedZone.id) targets.add(key);
+                    console.log(`👸 [getPrincessTargets] meeple key:${mKey} meepleZone:${meepleZone?.id} mergedZone:${mergedZone.id} match:${meepleZone?.id === mergedZone.id}`);
+                    if (meepleZone?.id === mergedZone.id) targets.add(mKey);
                 }
             } else {
-                // Fallback sans zoneMerger : tuile locale uniquement
-                for (const [key, meeple] of Object.entries(this.placedMeeples)) {
+                for (const [mKey, meeple] of Object.entries(this.placedMeeples)) {
                     if (meeple.type === 'Builder' || meeple.type === 'Pig') continue;
-                    const parts = key.split(',');
+                    const parts = mKey.split(',');
                     if (Number(parts[0]) !== x || Number(parts[1]) !== y) continue;
-                    targets.add(key);
+                    targets.add(mKey);
                 }
             }
         }
