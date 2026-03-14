@@ -431,6 +431,7 @@ function applyPreset(preset) {
         'tiles_dragon':          'tiles-dragon',
         'ext_dragon':            'ext-dragon',
         'ext_princess':          'ext-princess',
+        'ext_portal':            'ext-portal',
         'ext_fairy_protection':  'ext-fairy-protection',
         'ext_fairy_score_turn':  'ext-fairy-score-turn',
         'ext_fairy_score_zone':  'ext-fairy-score-zone',
@@ -479,6 +480,7 @@ function saveLobbyOptions() {
         tiles_dragon:             document.getElementById('tiles-dragon')?.checked           ?? false,
         ext_dragon:               document.getElementById('ext-dragon')?.checked              ?? false,
         ext_princess:             document.getElementById('ext-princess')?.checked            ?? false,
+        ext_portal:               document.getElementById('ext-portal')?.checked              ?? false,
         ext_fairy_protection:     document.getElementById('ext-fairy-protection')?.checked     ?? false,
         ext_fairy_score_turn:     document.getElementById('ext-fairy-score-turn')?.checked     ?? false,
         ext_fairy_score_zone:     document.getElementById('ext-fairy-score-zone')?.checked     ?? false,
@@ -584,6 +586,7 @@ function syncAllOptions() {
         'tiles-dragon':              document.getElementById('tiles-dragon')?.checked          ?? false,
         'ext-dragon':                document.getElementById('ext-dragon')?.checked              ?? false,
         'ext-princess':              document.getElementById('ext-princess')?.checked            ?? false,
+        'ext-portal':                document.getElementById('ext-portal')?.checked              ?? false,
         'ext-fairy-protection':      document.getElementById('ext-fairy-protection')?.checked     ?? false,
         'ext-fairy-score-turn':      document.getElementById('ext-fairy-score-turn')?.checked     ?? false,
         'ext-fairy-score-zone':      document.getElementById('ext-fairy-score-zone')?.checked     ?? false,
@@ -595,7 +598,7 @@ function syncAllOptions() {
 
 // Sauvegarder les options à chaque changement manuel
 document.querySelectorAll(
-    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig, #tiles-dragon, #ext-dragon, #ext-princess, #ext-fairy-protection, #ext-fairy-score-turn, #ext-fairy-score-zone'
+    '#base-fields, #list-remaining, #use-test-deck, #enable-debug, #ext-abbot, #tiles-abbot, #ext-large-meeple, #ext-cathedrals, #ext-inns, #tiles-inns-cathedrals, #tiles-traders-builders, #ext-builder, #ext-merchants, #ext-pig, #tiles-dragon, #ext-dragon, #ext-princess, #ext-portal, #ext-fairy-protection, #ext-fairy-score-turn, #ext-fairy-score-zone'
 ).forEach(el => el.addEventListener('change', saveLobbyOptions));
 document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
     .forEach(el => el.addEventListener('change', saveLobbyOptions));
@@ -670,27 +673,49 @@ function _updateInnsCthdAvailability() {
 document.getElementById('tiles-inns-cathedrals')?.addEventListener('change', _updateInnsCthdAvailability);
 _updateInnsCthdAvailability();
 
-// Liaison tiles-dragon <-> ext-fairy : fée requiert les tuiles dragon
+// Liaisons options Dragon :
+// - tiles-dragon off → tout désactive
+// - ext-dragon off → ext-fairy-protection désactivé
+// - fairyScoreTurn et fairyScoreZone sont indépendants (sauf tiles-dragon off)
 function _updateDragonAvailability() {
-    const tilesOn = document.getElementById('tiles-dragon')?.checked ?? false;
-    ['ext-dragon', 'ext-princess', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
-        const cb    = document.getElementById(id);
+    const tilesOn  = document.getElementById('tiles-dragon')?.checked ?? false;
+    const dragonOn = tilesOn && (document.getElementById('ext-dragon')?.checked ?? false);
+
+    // Options qui nécessitent uniquement les tuiles dragon
+    ['ext-dragon', 'ext-princess', 'ext-portal'].forEach(id => {
+        const cb = document.getElementById(id);
         const label = cb?.closest('label');
         if (!cb) return;
         if (!tilesOn) {
-            cb.checked  = false;
-            cb.disabled = true;
+            cb.checked = false; cb.disabled = true;
             if (label) { label.style.opacity = '0.4'; label.style.pointerEvents = 'none'; }
         } else {
-            // Ne pas toucher à cb.checked — laisser la valeur existante (restaurée par applyPreset)
             cb.disabled = false;
             if (label) { label.style.opacity = ''; label.style.pointerEvents = ''; }
         }
     });
+
+    // Protection fée : nécessite l'extension dragon
+    const fairyCb = document.getElementById('ext-fairy-protection');
+    const fairyLabel = fairyCb?.closest('label');
+    if (fairyCb) {
+        if (!dragonOn) {
+            fairyCb.checked = false; fairyCb.disabled = true;
+            if (fairyLabel) { fairyLabel.style.opacity = '0.4'; fairyLabel.style.pointerEvents = 'none'; }
+        } else {
+            fairyCb.disabled = false;
+            if (fairyLabel) { fairyLabel.style.opacity = ''; fairyLabel.style.pointerEvents = ''; }
+        }
+    }
+
+    // fairyScoreTurn et fairyScoreZone : totalement indépendants, jamais bloqués par les tuiles
+    // (on peut utiliser la fée même sans tuiles dragon)
+
     _updateMasterCheckboxSafe('all-dragon');
     saveLobbyOptions();
 }
 document.getElementById('tiles-dragon')?.addEventListener('change', _updateDragonAvailability);
+document.getElementById('ext-dragon')?.addEventListener('change', _updateDragonAvailability);
 _updateDragonAvailability();
 
 // ── Coches maîtres (bidirectionnelles) ────────────────────────────────
@@ -797,7 +822,7 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
         lobbyUI.setPlayers(players);
 
         // Sync temps réel de toutes les options vers les invités
-        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-princess', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
+        ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-princess', 'ext-portal', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', (e) => {
                 multiplayer.broadcast({ type: 'option-change', option: id, value: e.target.checked });
@@ -1016,7 +1041,7 @@ async function _doJoin(isSpectator = false) {
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
                 const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-princess', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
+                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-princess', 'ext-portal', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el && opts[id] !== undefined) el.checked = opts[id];
                 });
@@ -1178,6 +1203,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
             pig:             document.getElementById('ext-pig')?.checked             ?? false,
             dragon:          document.getElementById('ext-dragon')?.checked              ?? false,
             princess:        document.getElementById('ext-princess')?.checked            ?? false,
+            portal:          document.getElementById('ext-portal')?.checked              ?? false,
             fairyProtection: document.getElementById('ext-fairy-protection')?.checked     ?? false,
             fairyScoreTurn:  document.getElementById('ext-fairy-score-turn')?.checked     ?? false,
             fairyScoreZone:  document.getElementById('ext-fairy-score-zone')?.checked     ?? false
@@ -3829,7 +3855,9 @@ eventBus.on('network-dragon-premature', (data) => {
 
 eventBus.on('network-princess-ejected', (data) => {
     if (isHost) return;
-    const { meepleKey } = data;
+    const { meepleKey, orphanKeys = [] } = data;
+
+    // Retirer le meeple éjecté
     document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
     const meeple = placedMeeples[meepleKey];
     if (meeple) {
@@ -3843,6 +3871,17 @@ eventBus.on('network-princess-ejected', (data) => {
         }
         delete placedMeeples[meepleKey];
     }
+
+    // Retirer les bâtisseurs/cochons orphelins
+    orphanKeys.forEach(key => {
+        const m = placedMeeples[key];
+        if (!m) return;
+        const p = gameState.players.find(pl => pl.id === m.playerId);
+        if (p) p.hasBuilder = true;
+        delete placedMeeples[key];
+        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+    });
+
     eventBus.emit('meeple-count-updated', {});
     eventBus.emit('score-updated');
     afficherToast('👸 Meeple éjecté par la Princesse !', 'info');
@@ -3879,11 +3918,40 @@ function _handlePrincessEject(meepleKey) {
         delete placedMeeples[meepleKey];
     }
 
+    // Bâtisseur orphelin : si le meeple éjecté était le dernier normal dans sa zone
+    // (pas de cochon — il n'existe que dans les champs, pas les villes)
+    const orphanKeys = [];
+    if (zoneMerger) {
+        for (const [key, m] of Object.entries(placedMeeples)) {
+            if (m.type !== 'Builder') continue;
+            const parts = key.split(',');
+            const bx = Number(parts[0]), by = Number(parts[1]), bp = Number(parts[2]);
+            const zoneId = zoneMerger.findMergedZoneForPosition(bx, by, bp)?.id;
+            if (zoneId == null) continue;
+            const hasNormalMeeple = Object.entries(placedMeeples).some(([k2, m2]) => {
+                if (k2 === key) return false;
+                if (m2.playerId !== m.playerId) return false;
+                if (m2.type === 'Builder' || m2.type === 'Pig') return false;
+                const [x2, y2, p2] = k2.split(',').map(Number);
+                return zoneMerger.findMergedZoneForPosition(x2, y2, p2)?.id === zoneId;
+            });
+            if (!hasNormalMeeple) orphanKeys.push(key);
+        }
+        orphanKeys.forEach(key => {
+            const m = placedMeeples[key];
+            const p = gameState.players.find(pl => pl.id === m.playerId);
+            if (p) p.hasBuilder = true;
+            delete placedMeeples[key];
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+        });
+    }
+
     // Broadcast aux invités
     if (gameSync) {
         gameSync.multiplayer.broadcast({
             type: 'princess-ejected',
             meepleKey,
+            orphanKeys,
             playerId: multiplayer.playerId
         });
         gameSync.syncScoreUpdate([], [], [], zoneMerger);
@@ -3918,7 +3986,10 @@ function _showMeepleActionCursors() {
     }
 
     // 2. Attacher la fée
-    if (gameConfig?.extensions?.fairyProtection && !undoManager?.meeplePlacedThisTurn && dragonRules) {
+    const _fairyEnabled = gameConfig?.extensions?.fairyProtection
+                       || gameConfig?.extensions?.fairyScoreTurn
+                       || gameConfig?.extensions?.fairyScoreZone;
+    if (_fairyEnabled && !undoManager?.meeplePlacedThisTurn && dragonRules) {
         const fairyTargets = dragonRules.getFairyTargets(multiplayer.playerId);
         fairyTargets.forEach(({ key, meeple }) => {
             if (key === currentFairyKey) return;
