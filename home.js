@@ -196,7 +196,9 @@ eventBus.on('tile-drawn', (data) => {
 
     // Fix 1 — Fée : +1 point au début du tour du propriétaire de la fée
     // Seul l'hôte applique et synchronise — l'invité reçoit via score-update
-    if (isHost && isOwnTurnStart && gameConfig?.extensions?.fairyScoreTurn
+    // Pas appliqué lors d'un tour bonus (bâtisseur)
+    const _isBonusTurnStart = turnManager?.isBonusTurn ?? false;
+    if (isHost && isOwnTurnStart && !_isBonusTurnStart && gameConfig?.extensions?.fairyScoreTurn
         && gameState?.fairyState?.ownerId) {
         // Vérifier que c'est bien le tour du propriétaire de la fée
         const currentPlayer = gameState.getCurrentPlayer();
