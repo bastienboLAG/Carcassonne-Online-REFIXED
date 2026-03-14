@@ -112,8 +112,8 @@ export class FinalScoresManager {
         if (cardsContainer) cardsContainer.style.display = 'none';
 
         const hasMerchants = this.gameConfig?.extensions?.merchants;
-        const hasFairy     = this.gameConfig?.extensions?.fairyProtection
-                          && (this.gameConfig?.extensions?.fairyScoreTurn || this.gameConfig?.extensions?.fairyScoreZone);
+        const hasFairy     = this.gameConfig?.extensions?.fairyScoreTurn
+                          || this.gameConfig?.extensions?.fairyScoreZone;
 
         // Mettre à jour les en-têtes
         const thead = table.querySelector('thead tr');
@@ -152,11 +152,6 @@ export class FinalScoresManager {
                 const td = document.createElement('td');
                 td.textContent = val;
                 if (i === totalIdx) td.style.fontWeight = 'bold';
-                // Colonne fée en doré si > 0
-                if (hasFairy && i === totalIdx - 1 && val > 0) {
-                    td.style.color = '#f1c40f';
-                    td.style.fontWeight = 'bold';
-                }
                 row.appendChild(td);
             });
 
@@ -201,8 +196,8 @@ export class FinalScoresManager {
         `;
 
         const hasMerchantsMobile = this.gameConfig?.extensions?.merchants;
-        const hasFairyMobile     = this.gameConfig?.extensions?.fairyProtection
-                                && (this.gameConfig?.extensions?.fairyScoreTurn || this.gameConfig?.extensions?.fairyScoreZone);
+        const hasFairyMobile     = this.gameConfig?.extensions?.fairyScoreTurn
+                                || this.gameConfig?.extensions?.fairyScoreZone;
 
         const labels = ['Villes', 'Routes', 'Abbayes', 'Champs'];
         const keys   = ['cities', 'roads', 'monasteries', 'fields'];
@@ -249,10 +244,9 @@ export class FinalScoresManager {
             `;
             keys.forEach((key, i) => {
                 const val = player[key] ?? 0;
-                const isFairyKey = key === 'fairy';
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex;justify-content:space-between;color:rgba(255,255,255,0.75);font-size:13px;';
-                row.innerHTML = `<span>${labels[i]}</span><span style="${isFairyKey && val > 0 ? 'color:#f1c40f;font-weight:bold;' : ''}">${val}</span>`;
+                row.innerHTML = `<span>${labels[i]}</span><span>${val}</span>`;
                 details.appendChild(row);
             });
             card.appendChild(details);
