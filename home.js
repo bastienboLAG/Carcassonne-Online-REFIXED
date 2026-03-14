@@ -3572,6 +3572,19 @@ function _applyUndoLocally(undoneAction) {
                     fromUndo: true, skipSync: true
                 });
             });
+            // Re-détecter les cibles princesse pour la tuile posée ce tour
+            if (lastPlacedTile && gameConfig.extensions?.princess && dragonRules && zoneMerger) {
+                const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+                if (_undoTile) {
+                    const _hasPrincess = _undoTile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
+                    if (_hasPrincess) {
+                        const targets = dragonRules.getPrincessTargets(lastPlacedTile.x, lastPlacedTile.y, _undoTile, multiplayer.playerId, zoneMerger);
+                        if (targets.length > 0) {
+                            gameState._pendingPrincessTile = { x: lastPlacedTile.x, y: lastPlacedTile.y, targets };
+                        }
+                    }
+                }
+            }
         }
         // Restaurer le rendu de la fée
         if (gameConfig.extensions?.fairyProtection || gameConfig.extensions?.fairyScoreTurn || gameConfig.extensions?.fairyScoreZone) {
