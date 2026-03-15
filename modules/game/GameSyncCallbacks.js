@@ -260,7 +260,6 @@ export class GameSyncCallbacks {
                         } else {
                             if (player.meeples < 7) player.meeples++;
                         }
-                        }
                         this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
                     }
                 }
