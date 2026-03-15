@@ -311,4 +311,59 @@ export class DragonRules {
         this.eventBus.emit('princess-ejected', { meepleKey, meeple });
         console.log(`👸 [Princess] Meeple éjecté : ${meepleKey}`);
     }
+
+    /**
+     * Retourne toutes les positions valides pour le portail magique :
+     * zones ouvertes (non fermées) et non revendiquées (aucun meeple dedans).
+     * Exclut les zones spéciales (dragon, volcano, portal).
+     * @param {Object} zoneMerger
+     * @param {Object} board - plateau.placedTiles
+     * @returns {Array} [{ x, y, zoneIndex, position, zoneType, zoneId }]
+     */
+    getPortalTargets(zoneMerger, board) {
+        const EXCLUDED_TYPES = new Set(['dragon', 'volcano', 'portal']);
+        const targets = [];
+
+        if (!zoneMerger) return targets;
+
+        // Pour chaque entrée de tileToZone, trouver les zones valides
+        for (const [key, zoneId] of zoneMerger.tileToZone.entries()) {
+            const zone = zoneMerger.registry.getZone(zoneId);
+            if (!zone) continue;
+            if (zone.isComplete) continue;
+            if (EXCLUDED_TYPES.has(zone.type)) continue;
+
+            // Vérifier qu'aucun meeple n'est dans cette zone
+            const hasMeeple = Object.entries(this.placedMeeples).some(([mKey]) => {
+                const [mx, my, mp] = mKey.split(',').map(Number);
+                const mZoneId = zoneMerger.findMergedZoneForPosition(mx, my, mp)?.id;
+                return mZoneId === zoneId;
+            });
+            if (hasMeeple) continue;
+
+            // Récupérer la position visuelle de cette zone sur cette tuile
+            const parts = key.split(',');
+            const tx = Number(parts[0]), ty = Number(parts[1]), ti = Number(parts[2]);
+            const tile = board[`${tx},${ty}`];
+            if (!tile) continue;
+            const tileZone = tile.zones[ti];
+            if (!tileZone || tileZone.meeplePosition == null) continue;
+
+            // Calculer la position rotée
+            const rawPos = Array.isArray(tileZone.meeplePosition)
+                ? tileZone.meeplePosition[0]
+                : tileZone.meeplePosition;
+            const rotatedPos = zoneMerger._rotatePosition(rawPos, tile.rotation);
+
+            targets.push({ x: tx, y: ty, zoneIndex: ti, position: rotatedPos, zoneType: zone.type, zoneId });
+        }
+
+        // Dédupliquer par zoneId (ne garder qu'une position par zone mergée)
+        const seenZones = new Set();
+        return targets.filter(t => {
+            if (seenZones.has(t.zoneId)) return false;
+            seenZones.add(t.zoneId);
+            return true;
+        });
+    }
 }

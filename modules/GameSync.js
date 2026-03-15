@@ -62,7 +62,8 @@ export class GameSync {
             'turn-end-request', 'unplaceable-confirm', 'unplaceable-redraw', 'unplaceable-handled',
             'turn-undo-request', 'your-turn', 'tile-placed-request', 'meeple-placed-request',
             'dragon-state-update', 'dragon-move-request', 'fairy-placed-sync',
-            'dragon-premature-tile', 'dragon-end-turn-request', 'princess-ejected', 'princess-eject-request'
+            'dragon-premature-tile', 'dragon-end-turn-request', 'princess-ejected', 'princess-eject-request',
+            'portal-meeple-placed', 'portal-meeple-request'
             // NOTE: 'return-to-lobby', 'player-order-update' et 'game-starting' 
             //       sont gérés par le lobby handler
         ];
@@ -608,6 +609,13 @@ export class GameSync {
             case 'princess-ejected':
                 if (!this.isHost) {
                     this.eventBus?.emit('network-princess-ejected', data);
+                }
+                break;
+
+            case 'portal-meeple-placed':
+                // L'hôte a broadcasté un placement via portail — appliquer chez tous sauf l'émetteur
+                if (data.playerId !== this.multiplayer.playerId) {
+                    this.eventBus?.emit('network-portal-meeple-placed', data);
                 }
                 break;
             
