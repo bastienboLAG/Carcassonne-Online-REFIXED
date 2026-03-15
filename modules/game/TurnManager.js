@@ -267,8 +267,7 @@ export class TurnManager {
     receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null) {
         console.log('⏭️ [SYNC] Fin de tour reçue — isBonusTurn:', isBonusTurn);
         
-        // Restaurer uniquement currentPlayerIndex depuis le gameState de l'hôte
-        // (on ne touche PAS aux meeples/flags : ils sont à jour via meeple-count-update)
+        // Restaurer currentPlayerIndex + meeples/flags depuis le gameState de l'hôte (source de vérité)
         if (gameStateData) {
             this.gameState.currentPlayerIndex = gameStateData.currentPlayerIndex ?? this.gameState.currentPlayerIndex;
             // S'assurer que currentPlayerIndex ne pointe pas sur un spectateur
@@ -281,6 +280,20 @@ export class TurnManager {
             ) {
                 this.gameState.currentPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.gameState.players.length;
                 attempts++;
+            }
+            // Appliquer les compteurs de meeples depuis l'hôte — source de vérité finale
+            // (score-update peut arriver après turn-ended selon l'ordre réseau)
+            if (gameStateData.players) {
+                gameStateData.players.forEach(pData => {
+                    const local = this.gameState.players.find(p => p.id === pData.id);
+                    if (!local) return;
+                    local.meeples        = pData.meeples        ?? local.meeples;
+                    local.hasAbbot       = pData.hasAbbot       ?? local.hasAbbot;
+                    local.hasLargeMeeple = pData.hasLargeMeeple ?? local.hasLargeMeeple;
+                    local.hasBuilder     = pData.hasBuilder     ?? local.hasBuilder;
+                    local.hasPig         = pData.hasPig         ?? local.hasPig;
+                    local.score          = pData.score          ?? local.score;
+                });
             }
         }
         

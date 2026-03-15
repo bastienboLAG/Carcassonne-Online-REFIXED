@@ -149,7 +149,8 @@ export class GameSyncCallbacks {
                 this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
             }
 
-            // ✅ Étape 2 : si c'est notre propre echo (invité émetteur), afficher les curseurs meeple
+            // ✅ Émettre tile-placed-own APRÈS la désérialisation du zoneRegistry
+            // pour que la détection princesse/fée ait accès aux zones fusionnées.
             if (!this.isHost && this.turnManager?.isMyTurn) {
                 console.log('📍 [INVITÉ] Echo reçu — affichage curseurs meeple');
                 this.eventBus.emit('tile-placed-own', { x, y, tile });
@@ -257,8 +258,8 @@ export class GameSyncCallbacks {
                         } else if (meeple.type === 'Pig') {
                             player.hasPig = true;
                         } else {
-                            // Ne pas incrémenter ici : meeple-count-update broadcasted par l'hôte
-                            // via incrementPlayerMeeples s'en charge pour éviter le double comptage
+                            if (player.meeples < 7) player.meeples++;
+                        }
                         }
                         this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
                     }
