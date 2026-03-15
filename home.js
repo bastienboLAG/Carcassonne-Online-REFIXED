@@ -1551,6 +1551,7 @@ function attachGameSyncCallbacks() {
                             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
                             delete placedMeeples[key];
                             _releaseFairyIfDetached(key);
+                            eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
                         });
                         if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
 
