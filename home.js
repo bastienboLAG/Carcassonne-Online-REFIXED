@@ -757,6 +757,17 @@ function _onMasterChange(masterId) {
     const master   = document.getElementById(masterId);
     if (!master) return;
 
+    // Cas spécial all-dragon : tiles-dragon n'est pas dans le groupe all-dragon
+    // (il est dans all-tiles) mais conditionne l'activation de toutes les options dragon.
+    // Il faut donc le cocher/décocher en premier avant tout le reste.
+    if (masterId === 'all-dragon') {
+        const tilesDragon = document.getElementById('tiles-dragon');
+        if (tilesDragon && !tilesDragon.disabled) {
+            tilesDragon.checked = master.checked;
+            tilesDragon.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
     // Passe 1 : cocher les enfants non-disabled
     const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
         .filter(el => !el.disabled);
@@ -1730,7 +1741,7 @@ function attachGameSyncCallbacks() {
                 }
                 if (data.type === 'portal-meeple-request') {
                     // L'invité demande à placer un meeple via le portail
-                    // L'hôte valide et broadcast
+                    // L'hôte valide, applique visuellement et broadcast
                     const { x, y, position, meepleType, playerId: fromId } = data;
                     const pPlayer = gameState.players.find(p => p.id === fromId);
                     if (!pPlayer) return;
@@ -1741,8 +1752,17 @@ function attachGameSyncCallbacks() {
                     else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { pPlayer.hasLargeMeeple = false; }
                     else                              { if (pPlayer.meeples > 0) pPlayer.meeples--; }
                     if (undoManager) undoManager.markMeeplePlaced(x, y, position, pKey);
+                    // Rendu visuel côté hôte (le broadcast ne revient pas à l'expéditeur)
+                    if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, pColor);
                     gameSync.multiplayer.broadcast({
                         type: 'portal-meeple-placed',
+                        x, y, position, meepleType,
+                        playerId: fromId,
+                        color: pColor
+                    });
+                    eventBus.emit('meeple-count-updated', { playerId: fromId });
+                    return;
+                }
                         x, y, position, meepleType,
                         playerId: fromId,
                         color: pColor
@@ -3868,7 +3888,7 @@ function poserTuile(x, y, tile, isFirst = false) {
         _showMeepleActionCursors();
     }
 
-    if (undoManager && isMyTurn && isHost) {
+    if (undoManager && isMyTurn) {
         undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
     }
 
