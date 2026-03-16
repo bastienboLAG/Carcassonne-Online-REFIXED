@@ -754,41 +754,51 @@ _updateDragonAvailability();
 function _updateMasterCheckbox(masterId) { _updateMasterCheckboxSafe(masterId); }
 
 function _onMasterChange(masterId) {
-    const master   = document.getElementById(masterId);
+    const master = document.getElementById(masterId);
     if (!master) return;
+    const checked = master.checked;
 
-    // Cas spécial all-dragon : tiles-dragon n'est pas dans le groupe all-dragon
-    // (il est dans all-tiles) mais conditionne l'activation de toutes les options dragon.
-    // Il faut donc le cocher/décocher en premier avant tout le reste.
     if (masterId === 'all-dragon') {
+        // tiles-dragon n'est pas dans le groupe all-dragon (il est dans all-tiles)
+        // mais il conditionne tout. On l'active/désactive directement sans dispatch
+        // pour éviter des appels prématurés à _updateDragonAvailability.
         const tilesDragon = document.getElementById('tiles-dragon');
+        if (tilesDragon && !tilesDragon.disabled) tilesDragon.checked = checked;
+
+        // Cocher ext-dragon en premier (il conditionne ext-fairy-protection)
+        const extDragon = document.getElementById('ext-dragon');
+        if (extDragon && !extDragon.disabled) extDragon.checked = checked;
+
+        // Maintenant que tiles-dragon ET ext-dragon sont dans le bon état,
+        // recalculer les disponibilités — ext-fairy-protection sera activé si checked
+        _updateDragonAvailability();
+
+        // Cocher tous les enfants du groupe qui ne sont pas disabled
+        [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+            .filter(el => !el.disabled)
+            .forEach(c => { c.checked = checked; });
+
+        // Dispatcher les change pour saveLobbyOptions + sync réseau (tiles-dragon inclus)
         if (tilesDragon && !tilesDragon.disabled) {
-            tilesDragon.checked = master.checked;
             tilesDragon.dispatchEvent(new Event('change', { bubbles: true }));
         }
+        [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+            .forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
+
+        saveLobbyOptions();
+        return;
     }
 
-    // Passe 1 : cocher les enfants non-disabled
+    // Tous les autres groupes : comportement standard
     const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
         .filter(el => !el.disabled);
-    children.forEach(c => { c.checked = master.checked; });
+    children.forEach(c => { c.checked = checked; });
 
-    // Mettre à jour les contraintes de dépendance après la passe 1
-    // (ext-dragon vient d'être coché → ext-fairy-protection peut être activé maintenant)
     _updatePigAvailability();
     _updateMerchantsAvailability();
     _updateInnsCthdAvailability();
     _updateDragonAvailability();
 
-    // Passe 2 : maintenant que les enfants précédemment disabled sont débloqués,
-    // les cocher également si la coche maître est cochée
-    if (master.checked) {
-        const newlyEnabled = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
-            .filter(el => !el.disabled && !el.checked);
-        newlyEnabled.forEach(c => { c.checked = true; });
-    }
-
-    // Déclencher les side-effects (saveLobbyOptions, sync)
     const allChildren = [...document.querySelectorAll(`input[data-group="${masterId}"]`)];
     allChildren.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
 
@@ -1752,6 +1762,8 @@ function attachGameSyncCallbacks() {
                     else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { pPlayer.hasLargeMeeple = false; }
                     else                              { if (pPlayer.meeples > 0) pPlayer.meeples--; }
                     if (undoManager) undoManager.markMeeplePlaced(x, y, position, pKey);
+                    // Le portail a été utilisé — remettre à null dans le state hôte
+                    gameState._pendingPortalTile = null;
                     // Rendu visuel côté hôte (le broadcast ne revient pas à l'expéditeur)
                     if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, pColor);
                     gameSync.multiplayer.broadcast({
@@ -3761,7 +3773,8 @@ function handleRemoteUndo(undoneAction) {
             gameState.dragonPhase = { ...gameState.dragonPhase, ...s.dragonPhase };
             if (gameState.dragonPos) _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
         }
-        // Restaurer l'état du portail si présent dans le postUndoState
+        // Restaurer l'état du portail depuis le postUndoState de l'hôte
+        // (l'hôte détecte _pendingPortalTile dans poserTuileSync pour toutes les tuiles)
         if ('pendingPortalTile' in s) {
             gameState._pendingPortalTile = s.pendingPortalTile;
         }
@@ -3881,7 +3894,7 @@ function poserTuile(x, y, tile, isFirst = false) {
         _showMeepleActionCursors();
     }
 
-    if (undoManager && isMyTurn) {
+    if (undoManager && isMyTurn && isHost) {
         undoManager.saveAfterTilePlaced(x, y, tile, placedMeeples);
     }
 
@@ -3905,13 +3918,24 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
     tuilePosee     = true;
     lastPlacedTile = { x, y };
 
-    // ── Extension Dragon : détecter volcano/dragon pour les tuiles reçues du réseau ──
+    // ── Extension Dragon : détecter volcano/dragon/portail pour les tuiles reçues du réseau ──
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
         if (_tileHasVolcanoZone(tile)) {
             gameState._pendingVolcanoPos = { x, y };
         }
         if (_tileHasDragonZone(tile)) {
             gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
+        }
+    }
+    // Portail : détecter même sans dragonRules actif, pour que le postUndoState soit correct
+    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.portal && _tileHasPortalZone(tile)) {
+        const portalZoneIdx = tile.zones?.findIndex(z => z.type === 'portal');
+        if (portalZoneIdx !== -1) {
+            const rawPos = tile.zones[portalZoneIdx].meeplePosition;
+            if (rawPos != null) {
+                const rotatedPos = zoneMerger ? zoneMerger._rotatePosition(rawPos, tile.rotation) : Number(rawPos);
+                gameState._pendingPortalTile = { x, y, zoneIndex: portalZoneIdx, position: rotatedPos };
+            }
         }
     }
 }
@@ -4429,7 +4453,7 @@ function _placeMeepleViaPortal(x, y, position, meepleType) {
         // est filtré pour l'émetteur dans GameSync, donc l'invité doit s'appliquer lui-même)
         placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
 
-        // Mettre à jour les compteurs
+        // Mettre à jour les compteurs locaux
         if (meepleType === 'Abbot')       { player.hasAbbot = false; }
         else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
         else                              { if (player.meeples > 0) player.meeples--; }
@@ -4439,7 +4463,10 @@ function _placeMeepleViaPortal(x, y, position, meepleType) {
 
         if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
 
-        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+        // Mettre à jour l'affichage local uniquement (pas de broadcast —
+        // l'hôte gère son propre state via portal-meeple-request et synchronisera en fin de tour)
+        if (scorePanelUI) scorePanelUI.updateMobile();
+        eventBus.emit('score-updated');
 
         // Envoyer la requête à l'hôte pour validation et broadcast aux autres
         const hostConn = gameSync?.multiplayer?.connections?.[0];
