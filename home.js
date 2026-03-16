@@ -756,20 +756,31 @@ function _updateMasterCheckbox(masterId) { _updateMasterCheckboxSafe(masterId); 
 function _onMasterChange(masterId) {
     const master   = document.getElementById(masterId);
     if (!master) return;
+
+    // Passe 1 : cocher les enfants non-disabled
     const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
         .filter(el => !el.disabled);
     children.forEach(c => { c.checked = master.checked; });
-    // Ré-appliquer les contraintes de dépendance AVANT de dispatcher les change
-    // Note : _updateDragonAvailability est volontairement omis ici car ext-dragon
-    // n'est pas encore "stable" — il sera mis à jour après le dispatch (voir ci-dessous)
+
+    // Mettre à jour les contraintes de dépendance après la passe 1
+    // (ext-dragon vient d'être coché → ext-fairy-protection peut être activé maintenant)
     _updatePigAvailability();
     _updateMerchantsAvailability();
     _updateInnsCthdAvailability();
-    // Déclencher les side-effects (saveLobbyOptions, sync)
-    children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
-    // Appliquer les dépendances dragon APRÈS dispatch : ext-dragon est maintenant coché,
-    // ext-fairy-protection peut donc être activé en une seule passe
     _updateDragonAvailability();
+
+    // Passe 2 : maintenant que les enfants précédemment disabled sont débloqués,
+    // les cocher également si la coche maître est cochée
+    if (master.checked) {
+        const newlyEnabled = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+            .filter(el => !el.disabled && !el.checked);
+        newlyEnabled.forEach(c => { c.checked = true; });
+    }
+
+    // Déclencher les side-effects (saveLobbyOptions, sync)
+    const allChildren = [...document.querySelectorAll(`input[data-group="${masterId}"]`)];
+    allChildren.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
+
     saveLobbyOptions();
 }
 
@@ -4391,14 +4402,37 @@ function _handlePortalActivate() {
 function _placeMeepleViaPortal(x, y, position, meepleType) {
     gameState._pendingPortalTile = null;
 
+    const player = gameState.players.find(p => p.id === multiplayer.playerId);
+    if (!player) return;
+
+    const playerColor = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+    const meepleKey = `${x},${y},${position}`;
+
     if (gameSync && !isHost) {
-        // Invité : envoyer request à l'hôte
+        // Invité : appliquer localement immédiatement (le broadcast de l'hôte
+        // est filtré pour l'émetteur dans GameSync, donc l'invité doit s'appliquer lui-même)
+        placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
+
+        // Mettre à jour les compteurs
+        if (meepleType === 'Abbot')       { player.hasAbbot = false; }
+        else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
+        else                              { if (player.meeples > 0) player.meeples--; }
+
+        // Affichage visuel
+        if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
+
+        if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
+
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+
+        // Envoyer la requête à l'hôte pour validation et broadcast aux autres
         const hostConn = gameSync?.multiplayer?.connections?.[0];
         if (hostConn?.open) {
             hostConn.send({ type: 'portal-meeple-request', x, y, position, meepleType, playerId: multiplayer.playerId });
         }
-        if (undoManager) { undoManager.meeplePlacedThisTurn = true; undoManager.lastMeeplePlaced = null; }
+
         _hideAllCursors();
+        updateMobileButtons();
         return;
     }
 
@@ -4406,16 +4440,11 @@ function _placeMeepleViaPortal(x, y, position, meepleType) {
     const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
     if (!success) return;
 
-    const player = gameState.players.find(p => p.id === multiplayer.playerId);
     // Mettre à jour les flags spéciaux (Abbot, Large, etc.) non gérés par MeeplePlacement
-    if (player) {
-        if (meepleType === 'Abbot')       { player.hasAbbot = false; }
-        else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
-        // meeple normal : déjà décrémenté par MeeplePlacement.placeMeeple — ne pas décrémenter ici
-    }
+    if (meepleType === 'Abbot')       { player.hasAbbot = false; }
+    else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
+    // meeple normal : déjà décrémenté par MeeplePlacement.placeMeeple — ne pas décrémenter ici
 
-    const meepleKey = `${x},${y},${position}`;
-    const playerColor = (player?.color ?? 'blue').charAt(0).toUpperCase() + (player?.color ?? 'blue').slice(1);
     placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
 
     if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
