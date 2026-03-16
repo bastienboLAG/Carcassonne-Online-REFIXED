@@ -61,11 +61,15 @@ export class MeepleCursorsUI {
             return [];
         }
         
+        const EXCLUDED_ZONE_TYPES = new Set(['dragon', 'volcano', 'portal']);
         const validPositions = [];
         
         // Pour chaque zone, récupérer ses positions et les faire tourner
         tile.zones.forEach((zone, index) => {
             console.log(`  Zone ${index}:`, zone.type, 'meeplePosition:', zone.meeplePosition);
+
+            // Exclure zones spéciales non-scorantes
+            if (EXCLUDED_ZONE_TYPES.has(zone.type)) return;
             
             if (zone.meeplePosition !== undefined && zone.meeplePosition !== null) {
                 // ✅ Gérer à la fois nombre et array

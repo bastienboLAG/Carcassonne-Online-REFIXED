@@ -72,7 +72,7 @@ export const MEEPLE_CONFIG = {
     // scale plate 0.40 → ~113x62px
     'Dragon': {
         w: 283, h: 156,
-        plate:       0.99,
+        plate:       0.60,
         panel:       0.00,
         panelMobile: 0.00,
         selector:    0.20,

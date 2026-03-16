@@ -31,6 +31,7 @@ import { MeepleSelectorUI }from './modules/MeepleSelectorUI.js';
 import { MeepleDisplayUI } from './modules/MeepleDisplayUI.js';
 import { LobbyUI }         from './modules/ui/LobbyUI.js';
 import { DragonRules }      from './modules/rules/DragonRules.js';
+import { getMeepleSize }    from './modules/MeepleConfig.js';
 import { ModalUI }         from './modules/ui/ModalUI.js';
 
 // ═══════════════════════════════════════════════════════
@@ -765,6 +766,8 @@ function _onMasterChange(masterId) {
     _updateDragonAvailability();
     // Déclencher les side-effects (saveLobbyOptions, sync)
     children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
+    // Re-appliquer les dépendances dragon APRÈS dispatch (ext-dragon coché → ext-fairy-protection activable)
+    if (masterId === 'all-dragon') _updateDragonAvailability();
     saveLobbyOptions();
 }
 
@@ -2581,10 +2584,11 @@ function _renderDragonPiece(x, y) {
     img.style.left      = '104px';
     img.style.top       = '104px';
     img.style.transform = 'translate(-50%, -50%)';
-    // Scale 0.40 → ~113×62px (défini dans MeepleConfig mais on utilise la valeur directe ici)
-    img.style.width     = '113px';
-    img.style.height    = '62px';
-    img.style.zIndex    = '60';  // au-dessus des meeples (z-index 50)
+    // Taille depuis MeepleConfig (Dragon, plate)
+    const { width: dw, height: dh } = getMeepleSize('Dragon', 'plate');
+    img.style.width     = dw;
+    img.style.height    = dh;
+    img.style.zIndex    = '60';
     img.style.pointerEvents = 'none';
 
     container.appendChild(img);
@@ -4225,10 +4229,10 @@ function _showMeepleActionCursors() {
                 wrapper.style.cssText = 'position:relative;display:inline-block;';
 
                 if (isEmoji) {
-                    // Afficher la galaxie seule
+                    // Afficher la galaxie seule, centrée
                     const emoji = document.createElement('span');
                     emoji.textContent = '🌌';
-                    emoji.style.cssText = 'font-size:36px;line-height:1;display:block;width:40px;height:40px;text-align:center;line-height:40px;';
+                    emoji.style.cssText = 'font-size:32px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;';
                     wrapper.appendChild(emoji);
                 } else {
                     const img = document.createElement('img');

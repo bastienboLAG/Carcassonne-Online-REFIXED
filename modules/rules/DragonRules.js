@@ -358,12 +358,6 @@ export class DragonRules {
             targets.push({ x: tx, y: ty, zoneIndex: ti, position: rotatedPos, zoneType: zone.type, zoneId });
         }
 
-        // Dédupliquer par zoneId (ne garder qu'une position par zone mergée)
-        const seenZones = new Set();
-        return targets.filter(t => {
-            if (seenZones.has(t.zoneId)) return false;
-            seenZones.add(t.zoneId);
-            return true;
-        });
+        return targets;
     }
 }
