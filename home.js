@@ -759,30 +759,39 @@ function _onMasterChange(masterId) {
     const checked = master.checked;
 
     if (masterId === 'all-dragon') {
-        // tiles-dragon n'est pas dans le groupe all-dragon (il est dans all-tiles)
-        // mais il conditionne tout. On l'active/désactive directement sans dispatch
-        // pour éviter des appels prématurés à _updateDragonAvailability.
-        const tilesDragon = document.getElementById('tiles-dragon');
-        if (tilesDragon && !tilesDragon.disabled) tilesDragon.checked = checked;
+        // Cas cocher : activer tiles-dragon en premier (requis pour ext-fairy-protection),
+        // puis ext-dragon, puis recalculer les dépendances pour débloquer ext-fairy-protection,
+        // puis cocher tous les enfants débloqués.
+        // Cas décocher : NE PAS toucher tiles-dragon (les tuiles peuvent être jouées sans les options).
+        //                Décocher uniquement les options du groupe.
+        if (checked) {
+            const tilesDragon = document.getElementById('tiles-dragon');
+            if (tilesDragon && !tilesDragon.disabled) tilesDragon.checked = true;
 
-        // Cocher ext-dragon en premier (il conditionne ext-fairy-protection)
-        const extDragon = document.getElementById('ext-dragon');
-        if (extDragon && !extDragon.disabled) extDragon.checked = checked;
+            const extDragon = document.getElementById('ext-dragon');
+            if (extDragon) extDragon.checked = true;
 
-        // Maintenant que tiles-dragon ET ext-dragon sont dans le bon état,
-        // recalculer les disponibilités — ext-fairy-protection sera activé si checked
-        _updateDragonAvailability();
+            // Recalculer les dépendances : tiles-dragon=true + ext-dragon=true
+            // → ext-fairy-protection passe de disabled=true à disabled=false
+            _updateDragonAvailability();
 
-        // Cocher tous les enfants du groupe qui ne sont pas disabled
-        [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
-            .filter(el => !el.disabled)
-            .forEach(c => { c.checked = checked; });
+            // Cocher TOUS les enfants du groupe (dont ext-fairy-protection maintenant débloqué)
+            document.querySelectorAll(`input[data-group="${masterId}"]`)
+                .forEach(c => { if (!c.disabled) c.checked = true; });
 
-        // Dispatcher les change pour saveLobbyOptions + sync réseau (tiles-dragon inclus)
-        if (tilesDragon && !tilesDragon.disabled) {
-            tilesDragon.dispatchEvent(new Event('change', { bubbles: true }));
+            // Dispatcher tiles-dragon pour sync réseau
+            if (tilesDragon && !tilesDragon.disabled) {
+                tilesDragon.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        } else {
+            // Décocher : uniquement les options du groupe, pas tiles-dragon
+            document.querySelectorAll(`input[data-group="${masterId}"]`)
+                .forEach(c => { c.checked = false; });
+            _updateDragonAvailability();
         }
-        [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+
+        // Dispatcher tous les enfants pour saveLobbyOptions + sync réseau
+        document.querySelectorAll(`input[data-group="${masterId}"]`)
             .forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
 
         saveLobbyOptions();
@@ -5021,6 +5030,12 @@ function setupEventListeners() {
 
         const undoneAction = undoManager.undo(placedMeeples);
         if (!undoneAction) return;
+
+        // Si l'undo annule un meeple portail, restaurer _pendingPortalTile dans gameState
+        // AVANT de construire postUndoState (sinon il serait null dans le payload invité)
+        if (undoneAction.type === 'meeple' && undoManager.afterTilePlacedSnapshot?.pendingPortalTile !== undefined) {
+            gameState._pendingPortalTile = undoManager.afterTilePlacedSnapshot.pendingPortalTile;
+        }
 
         // Enrichir avec l'état post-undo pour que les invités puissent reconstruire
         undoneAction.postUndoState = {
