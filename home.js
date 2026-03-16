@@ -1464,6 +1464,12 @@ function attachGameSyncCallbacks() {
                 const undoneAction = undoManager.undo(placedMeeples);
                 if (!undoneAction) return;
 
+                // Si l'undo annule un meeple portail, restaurer _pendingPortalTile dans gameState
+                // AVANT de construire postUndoState (sinon il serait null dans le payload invité)
+                if (undoneAction.type === 'meeple' && undoManager.afterTilePlacedSnapshot?.pendingPortalTile !== undefined) {
+                    gameState._pendingPortalTile = undoManager.afterTilePlacedSnapshot.pendingPortalTile;
+                }
+
                 // Enrichir undoneAction avec l'état post-undo pour que les invités puissent reconstruire
                 undoneAction.postUndoState = {
                     placedTileKeys: Object.keys(plateau.placedTiles),
@@ -1477,7 +1483,10 @@ function attachGameSyncCallbacks() {
                     })),
                     fairyState:  JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
                     dragonPos:   JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
-                    dragonPhase: JSON.parse(JSON.stringify(gameState.dragonPhase ?? {}))
+                    dragonPhase: JSON.parse(JSON.stringify(gameState.dragonPhase ?? {})),
+                    pendingPortalTile: gameState._pendingPortalTile
+                        ? JSON.parse(JSON.stringify(gameState._pendingPortalTile))
+                        : null
                 };
 
                 // Appliquer visuellement côté hôte
