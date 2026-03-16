@@ -326,12 +326,24 @@ export class DragonRules {
 
         if (!zoneMerger) return targets;
 
+        // Position actuelle du dragon (tuile interdite au portail)
+        const dragonKey = this.gameState.dragonPos
+            ? `${this.gameState.dragonPos.x},${this.gameState.dragonPos.y}`
+            : null;
+
         // Pour chaque entrée de tileToZone, trouver les zones valides
         for (const [key, zoneId] of zoneMerger.tileToZone.entries()) {
             const zone = zoneMerger.registry.getZone(zoneId);
             if (!zone) continue;
             if (zone.isComplete) continue;
             if (EXCLUDED_TYPES.has(zone.type)) continue;
+
+            // Récupérer la position visuelle de cette zone sur cette tuile
+            const parts = key.split(',');
+            const tx = Number(parts[0]), ty = Number(parts[1]), ti = Number(parts[2]);
+
+            // Exclure la tuile sur laquelle se trouve le dragon
+            if (dragonKey && `${tx},${ty}` === dragonKey) continue;
 
             // Vérifier qu'aucun meeple n'est dans cette zone
             const hasMeeple = Object.entries(this.placedMeeples).some(([mKey]) => {
@@ -341,9 +353,6 @@ export class DragonRules {
             });
             if (hasMeeple) continue;
 
-            // Récupérer la position visuelle de cette zone sur cette tuile
-            const parts = key.split(',');
-            const tx = Number(parts[0]), ty = Number(parts[1]), ti = Number(parts[2]);
             const tile = board[`${tx},${ty}`];
             if (!tile) continue;
             const tileZone = tile.zones[ti];

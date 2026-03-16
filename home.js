@@ -760,14 +760,16 @@ function _onMasterChange(masterId) {
         .filter(el => !el.disabled);
     children.forEach(c => { c.checked = master.checked; });
     // Ré-appliquer les contraintes de dépendance AVANT de dispatcher les change
+    // Note : _updateDragonAvailability est volontairement omis ici car ext-dragon
+    // n'est pas encore "stable" — il sera mis à jour après le dispatch (voir ci-dessous)
     _updatePigAvailability();
     _updateMerchantsAvailability();
     _updateInnsCthdAvailability();
-    _updateDragonAvailability();
     // Déclencher les side-effects (saveLobbyOptions, sync)
     children.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
-    // Re-appliquer les dépendances dragon APRÈS dispatch (ext-dragon coché → ext-fairy-protection activable)
-    if (masterId === 'all-dragon') _updateDragonAvailability();
+    // Appliquer les dépendances dragon APRÈS dispatch : ext-dragon est maintenant coché,
+    // ext-fairy-protection peut donc être activé en une seule passe
+    _updateDragonAvailability();
     saveLobbyOptions();
 }
 
@@ -2674,7 +2676,7 @@ function _releaseFairyIfDetached(removedKey) {
 function sendFullStateTo(targetPeerId) {
     if (!isHost || !gameSync) return;
     const _cp = gameState.getCurrentPlayer();
-    const _isHostTurn = _cp?.id === multiplayer.peerId;
+    const _isHostTurn = _cp?.id === multiplayer.playerId;
     const _tuilePayload = _isHostTurn
         ? (tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer))
         : (gameState.currentTilePlaced ? null : currentTileForPlayer);
@@ -2686,8 +2688,8 @@ function sendFullStateTo(targetPeerId) {
         zoneRegistry: zoneMerger.registry,
         tileToZone:   zoneMerger.tileToZone,
         placedMeeples,
-        tuileEnMain: (() => { const cp = gameState.getCurrentPlayer(); const isHostTurn = cp?.id === multiplayer.peerId; if (isHostTurn) return tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer); return gameState.currentTilePlaced ? null : currentTileForPlayer; })(),
-        tuilePosee: gameState.currentTilePlaced,
+        tuileEnMain:  _tuilePayload,
+        tuilePosee:   gameState.currentTilePlaced,
         gameConfig,
         timerElapsed: gameTimerStart ? Math.floor((Date.now() - gameTimerStart) / 1000) : 0
     });
@@ -3296,9 +3298,6 @@ function _postStartSetup() {
 // ═══════════════════════════════════════════════════════
 
 /**
- * Met à jour la barre joueurs mobile
- */
-/**
  * Met à jour le style de la carte mobile du joueur actif selon le tour bonus
  */
 function _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn = false) {
@@ -3639,6 +3638,11 @@ function _applyUndoLocally(undoneAction) {
                 }
             }
         }
+        // Restaurer _pendingPortalTile depuis le snapshot afterTilePlaced si disponible
+        // (il a été mis à null lors du placement via portail)
+        if (undoManager?.afterTilePlacedSnapshot?.pendingPortalTile !== undefined) {
+            gameState._pendingPortalTile = undoManager.afterTilePlacedSnapshot.pendingPortalTile;
+        }
         // Restaurer le rendu de la fée
         if (gameConfig.extensions?.fairyProtection || gameConfig.extensions?.fairyScoreTurn || gameConfig.extensions?.fairyScoreZone) {
             const fs = gameState.fairyState;
@@ -3732,6 +3736,10 @@ function handleRemoteUndo(undoneAction) {
             gameState.dragonPos   = s.dragonPos;
             gameState.dragonPhase = { ...gameState.dragonPhase, ...s.dragonPhase };
             if (gameState.dragonPos) _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+        }
+        // Restaurer l'état du portail si présent dans le postUndoState
+        if ('pendingPortalTile' in s) {
+            gameState._pendingPortalTile = s.pendingPortalTile;
         }
     }
 
@@ -4399,10 +4407,11 @@ function _placeMeepleViaPortal(x, y, position, meepleType) {
     if (!success) return;
 
     const player = gameState.players.find(p => p.id === multiplayer.playerId);
+    // Mettre à jour les flags spéciaux (Abbot, Large, etc.) non gérés par MeeplePlacement
     if (player) {
         if (meepleType === 'Abbot')       { player.hasAbbot = false; }
         else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
-        else                              { if (player.meeples > 0) player.meeples--; }
+        // meeple normal : déjà décrémenté par MeeplePlacement.placeMeeple — ne pas décrémenter ici
     }
 
     const meepleKey = `${x},${y},${position}`;
@@ -4943,18 +4952,21 @@ function setupEventListeners() {
 
         // Enrichir avec l'état post-undo pour que les invités puissent reconstruire
         undoneAction.postUndoState = {
-            placedTileKeys: Object.keys(plateau.placedTiles),
-            zones:          zoneMerger.registry.serialize(),
-            tileToZone:     Array.from(zoneMerger.tileToZone.entries()),
-            placedMeeples:  JSON.parse(JSON.stringify(placedMeeples)),
-            playerMeeples:  gameState.players.map(p => ({
+            placedTileKeys:    Object.keys(plateau.placedTiles),
+            zones:             zoneMerger.registry.serialize(),
+            tileToZone:        Array.from(zoneMerger.tileToZone.entries()),
+            placedMeeples:     JSON.parse(JSON.stringify(placedMeeples)),
+            playerMeeples:     gameState.players.map(p => ({
                 id: p.id, meeples: p.meeples,
                 hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
                 hasBuilder: p.hasBuilder, hasPig: p.hasPig
             })),
-            fairyState:  JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
-            dragonPos:   JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
-            dragonPhase: JSON.parse(JSON.stringify(gameState.dragonPhase ?? {}))
+            fairyState:        JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
+            dragonPos:         JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
+            dragonPhase:       JSON.parse(JSON.stringify(gameState.dragonPhase ?? {})),
+            pendingPortalTile: gameState._pendingPortalTile
+                ? JSON.parse(JSON.stringify(gameState._pendingPortalTile))
+                : null
         };
 
         _applyUndoLocally(undoneAction);
@@ -5058,6 +5070,7 @@ function setupEventListeners() {
 function returnToInitialLobby(message = null) {
     console.log('🔙 Retour au lobby initial...');
     _stopAutoReconnect();
+    stopGameTimer();
 
     // Réinitialiser l'état
     players      = [];
@@ -5163,8 +5176,6 @@ function returnToLobby() {
     tuileEnMain    = null;
     tuilePosee     = false;
     firstTilePlaced = false;
-    zoomLevel      = 1;
-    if (zoomManager) { zoomManager.setZoom(1); }
     placedMeeples  = {};
     lastPlacedTile = null;
     isMyTurn       = false;
@@ -5178,7 +5189,7 @@ function returnToLobby() {
     if (boardEl) boardEl.style.transform = '';
     if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
     zoomLevel = 1;
-    if (zoomManager) { zoomManager.setZoom(1); zoomManager.destroy(); zoomManager = null; }
+    if (zoomManager) { zoomManager.destroy(); zoomManager = null; }
     _navigationSetup = false;
 
     // Relancer le heartbeat lobby avec le bon handler de timeout

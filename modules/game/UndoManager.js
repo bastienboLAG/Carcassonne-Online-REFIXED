@@ -108,7 +108,10 @@ export class UndoManager {
                 hasBuilder: p.hasBuilder,
                 hasPig:     p.hasPig
             })),
-            fairyState: this.deepCopy(this.gameState.fairyState ?? { ownerId: null, meepleKey: null })
+            fairyState: this.deepCopy(this.gameState.fairyState ?? { ownerId: null, meepleKey: null }),
+            pendingPortalTile: this.gameState._pendingPortalTile
+                ? JSON.parse(JSON.stringify(this.gameState._pendingPortalTile))
+                : null
         };
         
         this.tilePlacedThisTurn = true;
