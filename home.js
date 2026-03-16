@@ -1763,13 +1763,6 @@ function attachGameSyncCallbacks() {
                     eventBus.emit('meeple-count-updated', { playerId: fromId });
                     return;
                 }
-                        x, y, position, meepleType,
-                        playerId: fromId,
-                        color: pColor
-                    });
-                    eventBus.emit('meeple-count-updated', { playerId: fromId });
-                    return;
-                }
                 if (originalHandler) originalHandler(data, from);
             })(gameSync.multiplayer.onDataReceived);
         }
@@ -4002,6 +3995,9 @@ eventBus.on('network-dragon-premature', (data) => {
 
 // ── Portail Magique : réception d'un placement via portail ────────────
 eventBus.on('network-portal-meeple-placed', (data) => {
+    // L'hôte a déjà appliqué le placement via portal-meeple-request — ignorer
+    if (isHost) return;
+
     const { x, y, position, meepleType, playerId, color } = data;
     const key = `${x},${y},${position}`;
     placedMeeples[key] = { type: meepleType, color, playerId };
