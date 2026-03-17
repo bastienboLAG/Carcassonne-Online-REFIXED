@@ -100,26 +100,39 @@ export class NavigationManager {
      */
     _setupTouchDrag() {
         const c = this.container;
-        let lastTouchX      = null;
-        let lastTouchY      = null;
-        let touchScrollLeft = 0;
-        let touchScrollTop  = 0;
+        let lastTouchX = null;
+        let lastTouchY = null;
+        let rafPending = false;
+        let pendingDx  = 0;
+        let pendingDy  = 0;
 
         c.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
-                lastTouchX      = e.touches[0].clientX;
-                lastTouchY      = e.touches[0].clientY;
-                touchScrollLeft = c.scrollLeft;
-                touchScrollTop  = c.scrollTop;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+                pendingDx  = 0;
+                pendingDy  = 0;
             }
         }, { passive: true });
 
         c.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1 && lastTouchX !== null) {
-                const dx = e.touches[0].clientX - lastTouchX;
-                const dy = e.touches[0].clientY - lastTouchY;
-                c.scrollLeft = touchScrollLeft - dx * 1.5;
-                c.scrollTop  = touchScrollTop  - dy * 1.5;
+            if (e.touches.length !== 1 || lastTouchX === null) return;
+            const dx = e.touches[0].clientX - lastTouchX;
+            const dy = e.touches[0].clientY - lastTouchY;
+            lastTouchX = e.touches[0].clientX;
+            lastTouchY = e.touches[0].clientY;
+            pendingDx += dx;
+            pendingDy += dy;
+
+            if (!rafPending) {
+                rafPending = true;
+                requestAnimationFrame(() => {
+                    c.scrollLeft -= pendingDx;
+                    c.scrollTop  -= pendingDy;
+                    pendingDx  = 0;
+                    pendingDy  = 0;
+                    rafPending = false;
+                });
             }
         }, { passive: true });
 
