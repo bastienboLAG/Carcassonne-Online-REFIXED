@@ -14,6 +14,7 @@ import { AbbeRules }              from './modules/rules/AbbeRules.js';
 import { InnsRules }              from './modules/rules/InnsRules.js';
 import { BuilderRules }          from './modules/rules/BuilderRules.js';
 import { ZoomManager }           from './modules/game/ZoomManager.js';
+import { NavigationManager }      from './modules/game/NavigationManager.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -139,10 +140,8 @@ let lastPlacedTile = null;
 let placedMeeples  = {};
 
 let zoomLevel  = 1;
-let zoomManager = null; // instance ZoomManager
+let navigationManager = null; // instance NavigationManager (zoom + drag)
 let heartbeatManager = null;
-let _navigationSetup = false;
-let isDragging = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0;
 
 const allColors   = ['black', 'red', 'pink', 'green', 'blue', 'yellow'];
 const colorImages = {
@@ -4887,7 +4886,7 @@ function setupEventListeners() {
 
         const container  = document.getElementById('board-container');
         const CELL        = 208;
-        const level       = zoomManager ? zoomManager.zoomLevel : 1;
+        const level       = navigationManager ? navigationManager.zoomLevel : 1;
         const boardCenter = 10400; // 50 * 208
         // Avec transform-origin: center, la tuile est décalée depuis le centre du board
         const tileCX = (x - 1) * CELL + CELL / 2; // centre tuile en px non-zoomés
@@ -5271,8 +5270,7 @@ function returnToLobby() {
     if (boardEl) boardEl.style.transform = '';
     if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
     zoomLevel = 1;
-    if (zoomManager) { zoomManager.destroy(); zoomManager = null; }
-    _navigationSetup = false;
+    if (navigationManager) { navigationManager.destroy(); navigationManager = null; }
 
     // Relancer le heartbeat lobby avec le bon handler de timeout
     // On initialise _lastPong avec les peers déjà connus pour éviter un faux timeout
@@ -5344,82 +5342,14 @@ function returnToLobby() {
 // NAVIGATION (zoom + drag)
 // ═══════════════════════════════════════════════════════
 function setupNavigation(container, board) {
-    if (_navigationSetup) return;
-    _navigationSetup = true;
-
-    // ── Zoom : délégué à ZoomManager (throttle RAF, PC + Mobile) ──────────
-    if (zoomManager) zoomManager.destroy();
-    zoomManager = new ZoomManager(container, board, {
-        min:           0.2,
-        max:           3,
-        stepWheel:     0.1,
-        isMobile:      isMobile,
-        initialPC:     1,
-        initialMobile: 0.5,
-    });
-    zoomManager.init();
+    if (navigationManager) return; // déjà initialisé
+    navigationManager = new NavigationManager(container, board, { isMobile });
+    navigationManager.init();
     // Synchroniser la variable globale zoomLevel (utilisée ailleurs)
     Object.defineProperty(window, '_zoomLevelProxy', {
-        get: () => zoomManager.zoomLevel,
+        get: () => navigationManager.zoomLevel,
         configurable: true,
     });
-
-    // ── PC : drag souris ──────────────────────────────────────────────────
-    container.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('tile') || e.target.classList.contains('slot')) return;
-        isDragging = true;
-        container.style.cursor = 'grabbing';
-        startX = e.pageX - container.offsetLeft;
-        startY = e.pageY - container.offsetTop;
-        scrollLeft = container.scrollLeft;
-        scrollTop  = container.scrollTop;
-    });
-
-    container.addEventListener('mouseleave', () => { isDragging = false; container.style.cursor = 'grab'; });
-    container.addEventListener('mouseup',    () => { isDragging = false; container.style.cursor = 'grab'; });
-
-    container.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        const x = e.pageX - container.offsetLeft;
-        const y = e.pageY - container.offsetTop;
-        container.scrollLeft = scrollLeft - (x - startX) * 2;
-        container.scrollTop  = scrollTop  - (y - startY) * 2;
-    });
-
-    // ── Mobile : drag tactile 1 doigt ─────────────────────────────────────
-    // (le pinch est géré par ZoomManager)
-    if (isMobile()) {
-        let lastTouchX      = null;
-        let lastTouchY      = null;
-        let touchScrollLeft = 0;
-        let touchScrollTop  = 0;
-
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                lastTouchX      = e.touches[0].clientX;
-                lastTouchY      = e.touches[0].clientY;
-                touchScrollLeft = container.scrollLeft;
-                touchScrollTop  = container.scrollTop;
-            }
-        }, { passive: true });
-
-        container.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1 && lastTouchX !== null) {
-                const dx = e.touches[0].clientX - lastTouchX;
-                const dy = e.touches[0].clientY - lastTouchY;
-                container.scrollLeft = touchScrollLeft - dx * 1.5;
-                container.scrollTop  = touchScrollTop  - dy * 1.5;
-            }
-        }, { passive: true });
-
-        container.addEventListener('touchend', (e) => {
-            if (e.touches.length === 0) { lastTouchX = null; lastTouchY = null; }
-        }, { passive: true });
-    }
-
-    container.scrollLeft = 10400 - container.clientWidth  / 2;
-    container.scrollTop  = 10400 - container.clientHeight / 2;
 }
 
 // ═══════════════════════════════════════════════════════
