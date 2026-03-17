@@ -2375,13 +2375,9 @@ function _updateDragonOverlay() {
     const isMyDragonTurn = mover?.id === multiplayer.playerId;
     const hasMovedThisTurn = !!(undoManager?.dragonMovePlacedThisTurn);
     if (isMyDragonTurn) {
-        overlay.textContent = hasMovedThisTurn
-            ? `🐉 Dragon déplacé — cliquez "Terminer mon tour" pour passer la main`
-            : `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`;
+        overlay.textContent = `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`;
     } else {
-        overlay.textContent = hasMovedThisTurn
-            ? `🐉 ${mover?.name ?? '?'} a déplacé le dragon — en attente…`
-            : `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
+        overlay.textContent = `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
     }
 }
 
