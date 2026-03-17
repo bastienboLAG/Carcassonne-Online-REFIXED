@@ -1837,7 +1837,6 @@ eventBus.on('network-dragon-state-update', (data) => {
         if (wasActive) {
             _clearDragonCursors();
             _updateDragonOverlay(); // cache l'overlay bandeau rouge
-            afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
             if (undoManager) { undoManager.dragonMovePlacedThisTurn = false; undoManager.dragonMoveSnapshot = null; }
             updateTurnDisplay();
         }
@@ -2346,7 +2345,6 @@ function _startDragonTurnUI() {
             if (undoManager) undoManager.dragonMovePlacedThisTurn = true;
             _updateDragonOverlay();
             updateTurnDisplay();
-            afficherToast('🐉 Le dragon est bloqué — terminez votre tour.', 'warning');
         } else {
             _showDragonMoveCursors(validMoves);
         }
@@ -2539,7 +2537,6 @@ function _executeDragonMoveHost(x, y) {
 function _onDragonPhaseEnded() {
     _clearDragonCursors();
     _updateDragonOverlay();
-    afficherToast('🐉 Le dragon s\'est rendormi.', 'info');
 
     if (!isHost) return;
 
@@ -4100,7 +4097,6 @@ eventBus.on('network-princess-ejected', (data) => {
 
     eventBus.emit('meeple-count-updated', {});
     eventBus.emit('score-updated');
-    afficherToast('👸 Meeple éjecté par la Princesse !', 'info');
 });
 
 // ── Fée : affichage des cibles et placement ───────────────────────────
@@ -4185,7 +4181,6 @@ function _handlePrincessEject(meepleKey) {
 
     eventBus.emit('meeple-count-updated', {});
     eventBus.emit('score-updated');
-    afficherToast('👸 Meeple éjecté par la Princesse !', 'success');
 }
 
 function _showMeepleActionCursors() {
@@ -4363,12 +4358,8 @@ function _showMeepleActionCursors() {
         boardEl.appendChild(overlay);
     });
 
-    if (pendingPrincess && princessTargetSet.size > 0) {
-        afficherToast('👸 Princesse : vous pouvez éjecter un meeple de cette ville (optionnel)', 'info', 6000);
-    }
-    if (pendingPortal) {
-        afficherToast('🌌 Portail Magique : vous pouvez placer un meeple n\'importe où (optionnel)', 'info', 6000);
-    }
+
+
 }
 
 /**
@@ -4444,7 +4435,6 @@ function _handlePortalActivate() {
     });
 
     if (targets.length === 0) {
-        afficherToast('🌌 Aucune zone disponible pour le portail', 'info');
         // Restaurer les curseurs normaux
         if (lastPlacedTile && meepleCursorsUI) {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
