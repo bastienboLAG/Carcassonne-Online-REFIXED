@@ -15,6 +15,7 @@ import { InnsRules }              from './modules/rules/InnsRules.js';
 import { BuilderRules }          from './modules/rules/BuilderRules.js';
 import { ZoomManager }           from './modules/game/ZoomManager.js';
 import { NavigationManager }      from './modules/game/NavigationManager.js';
+import { ReconnectionManager }    from './modules/game/ReconnectionManager.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
@@ -113,10 +114,8 @@ let gameTimerStart     = null;
 
 // ── Reconnexion / Pause ──────────────────────────────────────────────────────
 const PAUSE_TIMEOUT_MS = 60_000;  // 1 min (tests) → 3 min (prod)
-let gamePaused         = false;
+let reconnectionManager = null;   // instancié dans _postStartSetup
 const _voluntaryLeaves = new Set(); // peerIds ayant quitté volontairement (leave-game)
-let pauseTimerInterval = null;
-let pauseTimerEnd      = null;
 
 function _isSpectator() {
     if (!gameState || !multiplayer) return false;
@@ -1444,9 +1443,9 @@ function attachGameSyncCallbacks() {
 
     // Callbacks reconnexion (définis après attach car gameSync callbacks obj créé)
     if (gameSync) {
-        gameSync.onGamePaused  = (name) => { _showPauseOverlay(name); };
+        gameSync.onGamePaused  = (name) => { reconnectionManager?._showPauseOverlay(name); };
         gameSync.onGameResumed = (reason)   => {
-            _hidePauseOverlay();
+            reconnectionManager?._hidePauseOverlay();
             if (reason === 'timeout') afficherToast('⏱ Partie reprise (joueur exclu).');
             else afficherToast('✅ Partie reprise !');
         };
@@ -1963,245 +1962,15 @@ function buildPlayersForBroadcast() {
     return enriched;
 }
 
-function pauseGame(disconnectedName) {
-    if (!isHost || gamePaused) return;
-    gamePaused = true;
-
-    // Broadcaster aux invités (sans timeout — attente indéfinie)
-    if (gameSync) gameSync.syncGamePaused(disconnectedName, 0);
-
-    // Afficher l'overlay
-    _showPauseOverlay(disconnectedName);
-}
-
-/**
- * Reprendre la partie (hôte uniquement)
- */
-function resumeGame(reason = 'reconnected') {
-    if (!gamePaused) return;
-    gamePaused = false;
-    clearInterval(pauseTimerInterval);
-    pauseTimerInterval = null;
-    pauseTimerEnd = null;
-    _hidePauseOverlay();
-    if (isHost && gameSync) gameSync.syncGameResumed(reason);
-}
-
-/**
- * Exclure le joueur déconnecté et reprendre la partie (déclenché par le bouton hôte)
- */
-function _excludeDisconnectedPlayer(disconnectedName) {
-    if (!isHost) return;
-    gamePaused = false;
-    _hidePauseOverlay();
-
-    if (gameState) {
-        const idx = gameState.players.findIndex(p => p.name === disconnectedName && p.disconnected);
-        if (idx !== -1) {
-            // Était-ce le tour du joueur exclu ?
-            const wasCurrentPlayer = (idx === gameState.currentPlayerIndex);
-            const peerId = gameState.players[idx].id;
-
-            const isSpectatorPlayer = gameState.players[idx]?.color === 'spectator';
-
-            if (isSpectatorPlayer) {
-                // Spectateur : suppression complète, rien à conserver
-                gameState.players.splice(idx, 1);
-                if (gameState.currentPlayerIndex >= gameState.players.length) {
-                    gameState.currentPlayerIndex = 0;
-                }
-            } else {
-                // Joueur réel : on garde dans gameState pour conserver l'affichage visuel.
-                // TurnManager skippe automatiquement les joueurs disconnected.
-                gameState.players[idx].kicked = true;
-                if (wasCurrentPlayer) {
-                    let next = (idx + 1) % gameState.players.length;
-                    let attempts = 0;
-                    while (gameState.players[next]?.disconnected && attempts < gameState.players.length) {
-                        next = (next + 1) % gameState.players.length;
-                        attempts++;
-                    }
-                    gameState.currentPlayerIndex = next;
-                }
-            }
-            players = players.filter(p => p.id !== peerId);
-
-            // Notifier tous les invités du statut kicked pour qu'ils affichent 🚪 immédiatement
-            multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
-
-            if (gameSync) gameSync.syncGameResumed('timeout');
-
-            if (turnManager) {
-                turnManager.updateTurnState();
-
-                if (wasCurrentPlayer) {
-                    // Le tour appartenait au joueur exclu → passer au suivant
-                    const _t = _hostDrawAndSend();
-                    if (_t) turnManager.receiveYourTurn(_t.id);
-                    gameSync.syncTurnEnd(false, _t?.id ?? null);
-                }
-                // Sinon : le tour en cours continue normalement, on ne fait rien de plus
-
-                eventBus.emit('turn-changed', {
-                    isMyTurn: turnManager.isMyTurn,
-                    currentPlayer: turnManager.getCurrentPlayer()
-                });
-            }
-        } else {
-            // Joueur introuvable (déjà supprimé ?) — juste reprendre
-            if (gameSync) gameSync.syncGameResumed('timeout');
-        }
-    }
-    afficherToast(`👋 ${disconnectedName} a été exclu(e) de la partie.`);
-}
-
-// ── Auto-reconnexion invité ─────────────────────────────────────────────────
-let _autoReconnectTimer = null;
-
-function _startAutoReconnect() {
-    _stopAutoReconnect();
-    window._isAutoReconnecting = true;
-    _showReconnectOverlay();
-    _tryReconnect();
-}
-
-function _stopAutoReconnect() {
-    if (_autoReconnectTimer) {
-        clearTimeout(_autoReconnectTimer);
-        _autoReconnectTimer = null;
-    }
-    window._isAutoReconnecting = false;
-}
-
-async function _tryReconnect() {
-    if (!gameCode || !playerName || !gameState) return;
-    console.log('🔄 Tentative de reconnexion à:', gameCode);
-
-    try {
-        // Désactiver onHostDisconnected pendant la tentative pour éviter boucle
-        multiplayer.onHostDisconnected = null;
-
-        // Détruire l'ancien peer proprement
-        if (multiplayer.peer) {
-            try { multiplayer.peer.destroy(); } catch(e) {}
-            multiplayer.peer = null;
-        }
-        multiplayer.connections = [];
-        multiplayer._connectedPeers.clear();
-
-        // Créer un nouveau peer et rejoindre
-        await multiplayer.joinGame(gameCode);
-
-        // Ne PAS envoyer player-info ici — l'hôte va envoyer game-in-progress
-        // qui déclenchera l'envoi de player-info depuis le handler (seule source)
-        console.log('✅ Reconnexion réussie');
-        // Ne pas remettre _isAutoReconnecting=false ici — le flag doit rester true
-        // jusqu'à ce que game-in-progress soit traité (pour éviter la modale)
-        if (_autoReconnectTimer) { clearTimeout(_autoReconnectTimer); _autoReconnectTimer = null; }
-
-        // Rebrancher GameSync sur le nouveau peer
-        if (gameSync) gameSync.init();
-
-        // Rebrancher onHostDisconnected sur le nouveau peer
-        multiplayer.onHostDisconnected = () => {
-            if (!gameState) return;
-            console.log('🔌 Connexion hôte perdue — nouvelle tentative...');
-            _startAutoReconnect();
-        };
-
-    } catch (err) {
-        console.log('⚠️ Reconnexion échouée, nouvelle tentative dans 5s:', err.message);
-        _autoReconnectTimer = setTimeout(_tryReconnect, 5000);
-    }
-}
-
-function _showPauseOverlay(name) {
-    let overlay = document.getElementById('pause-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'pause-overlay';
-        overlay.style.cssText = `
-            position:fixed; inset:0; background:rgba(0,0,0,0.7);
-            display:flex; flex-direction:column; align-items:center; justify-content:center;
-            z-index:9000; color:#fff; font-family:inherit;
-        `;
-        document.body.appendChild(overlay);
-    }
-
-    const hostBtn = isHost
-        ? `<button id="exclude-player-btn" style="
-            margin-top:20px; padding:10px 24px; font-size:15px; font-weight:bold;
-            background:#e74c3c; color:#fff; border:none; border-radius:8px; cursor:pointer;">
-            Continuer sans ${name}
-          </button>`
-        : '';
-
-    overlay.innerHTML = `
-        <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-            <div style="font-size:48px;margin-bottom:12px;">⏸</div>
-            <h2 style="margin:0 0 8px;font-size:22px;">Partie en pause</h2>
-            <p style="margin:0 0 8px;color:#aaa;font-size:15px;"><strong style="color:#fff">${name}</strong> s'est déconnecté(e).</p>
-            <p style="margin:0 0 4px;color:#aaa;font-size:13px;">En attente de reconnexion…</p>
-            ${gameCode ? `<p style="margin:12px 0 0;font-size:13px;color:#aaa;">Code de la partie : <strong style="color:#fff;letter-spacing:2px;">${gameCode}</strong></p>` : ''}
-            ${hostBtn}
-        </div>
-    `;
-    overlay.style.display = 'flex';
-
-    if (isHost) {
-        document.getElementById('exclude-player-btn')?.addEventListener('click', () => {
-            _excludeDisconnectedPlayer(name);
-        });
-    }
-}
-
-function _hidePauseOverlay() {
-    const overlay = document.getElementById('pause-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
-
-function _showReconnectOverlay() {
-    let overlay = document.getElementById('reconnect-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'reconnect-overlay';
-        overlay.style.cssText = `
-            position:fixed; inset:0; background:rgba(0,0,0,0.75);
-            display:flex; flex-direction:column; align-items:center; justify-content:center;
-            z-index:9500; color:#fff; font-family:inherit;
-        `;
-        document.body.appendChild(overlay);
-    }
-    const codeHtml = gameCode
-        ? `<p style="margin:20px 0 0;font-size:13px;color:#aaa;">Code : <strong style="color:#fff;letter-spacing:2px;">${gameCode}</strong></p>`
-        : '';
-    overlay.innerHTML = `
-        <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-            <div style="font-size:48px;margin-bottom:12px;">🔌</div>
-            <h2 style="margin:0 0 8px;font-size:22px;">Connexion perdue</h2>
-            <p style="margin:0 0 16px;color:#aaa;font-size:15px;">Reconnexion en cours…</p>
-            <div style="display:flex;justify-content:center;gap:8px;">
-                <span style="width:10px;height:10px;border-radius:50%;background:#4a90e2;animation:rc-bounce 1.2s infinite ease-in-out;"></span>
-                <span style="width:10px;height:10px;border-radius:50%;background:#4a90e2;animation:rc-bounce 1.2s infinite ease-in-out 0.2s;"></span>
-                <span style="width:10px;height:10px;border-radius:50%;background:#4a90e2;animation:rc-bounce 1.2s infinite ease-in-out 0.4s;"></span>
-            </div>
-            ${codeHtml}
-        </div>
-        <style>
-            @keyframes rc-bounce {
-                0%,80%,100% { transform:scale(0.6); opacity:0.5; }
-                40%          { transform:scale(1.0); opacity:1;   }
-            }
-        </style>
-    `;
-    _hidePauseOverlay();
-    overlay.style.display = 'flex';
-}
-
-function _hideReconnectOverlay() {
-    const overlay = document.getElementById('reconnect-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
+function pauseGame(disconnectedName)              { reconnectionManager?.pauseGame(disconnectedName); }
+function resumeGame(reason = 'reconnected')       { reconnectionManager?.resumeGame(reason); }
+function _excludeDisconnectedPlayer(name)         { reconnectionManager?.excludeDisconnectedPlayer(name); }
+function _startAutoReconnect()                    { reconnectionManager?.startAutoReconnect(); }
+function _stopAutoReconnect()                     { reconnectionManager?.stopAutoReconnect(); }
+function _showPauseOverlay(name)                  { reconnectionManager?._showPauseOverlay(name); }
+function _hidePauseOverlay()                      { reconnectionManager?._hidePauseOverlay(); }
+function _showReconnectOverlay()                  { reconnectionManager?._showReconnectOverlay(); }
+function _hideReconnectOverlay()                  { reconnectionManager?.hideReconnectOverlay(); }
 
 
 /**
@@ -3021,6 +2790,24 @@ async function startGameForInvite(fullStateData = null) {
  * Configuration commune post-démarrage
  */
 function _postStartSetup() {
+    // Instancier le ReconnectionManager avec les dépendances nécessaires
+    reconnectionManager = new ReconnectionManager({
+        multiplayer,
+        gameSync,
+        turnManager,
+        eventBus,
+        getGameState:            () => gameState,
+        getPlayers:              () => players,
+        setPlayers:              (p) => { players = p; },
+        getIsHost:               () => isHost,
+        getGameCode:             () => gameCode,
+        getPlayerName:           () => playerName,
+        hostDrawAndSend:         _hostDrawAndSend,
+        buildPlayersForBroadcast,
+        afficherToast,
+        onGameSyncInit:          () => { if (gameSync) gameSync.init(); },
+    });
+
     ruleRegistry.register('base', BaseRules, gameConfig);
     ruleRegistry.enable('base');
 
@@ -3235,7 +3022,7 @@ function _postStartSetup() {
                         delete heartbeatManager._lastPong[oldPeerId];
                     }
                     sendFullStateTo(from);
-                    if (gamePaused) resumeGame('reconnected');
+                    if (reconnectionManager?.gamePaused) resumeGame('reconnected');
                     afficherToast(`✅ ${name} s'est reconnecté !`);
                     multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                     eventBus.emit('score-updated');
@@ -5208,12 +4995,8 @@ function returnToLobby() {
 
     document.getElementById('back-to-lobby-btn').style.display = 'none';
 
-    // Reset pause
-    gamePaused = false;
-    clearInterval(pauseTimerInterval);
-    pauseTimerInterval = null;
-    pauseTimerEnd = null;
-    _hidePauseOverlay();
+    // Reset pause/reconnexion
+    if (reconnectionManager) { reconnectionManager.destroy(); reconnectionManager = null; }
 
     // Restaurer tous les boutons masqués pour le mode spectateur
     ['end-turn-btn', 'undo-btn', 'mobile-end-turn-btn', 'mobile-undo-btn'].forEach(id => {
