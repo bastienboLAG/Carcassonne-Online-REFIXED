@@ -3039,16 +3039,19 @@ function _postStartSetup() {
                         heartbeatManager._connectedPeers = multiplayer._connectedPeers;
                         heartbeatManager._lastPong[from] = Date.now();
                     }
-                    // Kick auto du fantôme : le joueur a choisi de revenir en spec,
-                    // on ferme la modale et on exclut proprement le fantôme.
-                    _excludeDisconnectedPlayer(name);
+                    // Marquer le fantôme comme kicked (sans syncGameResumed qui ferait
+                    // returnToLobby côté invités) — l'exclusion est silencieuse
+                    const ghostIdx = gameState.players.findIndex(p => p.name === name && p.disconnected && p.color !== 'spectator');
+                    if (ghostIdx !== -1) {
+                        gameState.players[ghostIdx].kicked = true;
+                    }
                     sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                     eventBus.emit('score-updated');
                     if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
                     updateTurnDisplay();
                     afficherToast(`👁 ${name} observe la partie.`);
-                    console.log(`👁 Retour spectateur (fantôme conservé + kick auto): ${name}`);
+                    console.log(`👁 Retour spectateur (fantôme conservé + kick silencieux): ${name}`);
                 }
                 return;
             }
@@ -4770,8 +4773,13 @@ function setupEventListeners() {
             }
         } else {
             // Invité : délègue à l'hôte
+            const _tileId = tuileEnMain.id;
             unplaceableManager.hideUnplaceableBadge();
-            if (gameSync) gameSync.syncUnplaceableConfirm(tuileEnMain.id);
+            if (tilePreviewUI) tilePreviewUI.showBackside();
+            tuileEnMain = null;
+            waitingToRedraw = true;
+            updateTurnDisplay();
+            if (gameSync) gameSync.syncUnplaceableConfirm(_tileId);
         }
     };
 
