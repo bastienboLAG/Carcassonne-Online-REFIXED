@@ -376,6 +376,48 @@ export class ModalUI {
             extensionsSection.appendChild(tbContainer);
         }
 
+        // Extension Princesse & Dragon
+        const hasDragonExt = config.tileGroups?.dragon || config.extensions?.dragon
+            || config.extensions?.princess || config.extensions?.portal
+            || config.extensions?.fairyProtection || config.extensions?.fairyScoreTurn
+            || config.extensions?.fairyScoreZone;
+        if (hasDragonExt) {
+            const dragonContainer = document.createElement('div');
+            dragonContainer.style.cssText = `
+                font-family: 'Courier New', monospace;
+                color: #e0e0e0;
+                line-height: 1.6;
+                margin-top: 8px;
+            `;
+
+            const dragonLine = document.createElement('div');
+            dragonLine.textContent = '└─ ✓ Princesse & Dragon';
+            dragonLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
+            dragonContainer.appendChild(dragonLine);
+
+            const makeSubLine = (text, active) => {
+                const el = document.createElement('div');
+                el.textContent = `   └─ ${active ? '✓' : '✗'} ${text}`;
+                el.style.cssText = `
+                    margin-left: 5px;
+                    font-size: 14px;
+                    padding-left: 20px;
+                    color: ${active ? '#a8d8a8' : '#888'};
+                    ${active ? '' : 'font-style: italic;'}
+                `;
+                return el;
+            };
+
+            dragonContainer.appendChild(makeSubLine('Dragon',         config.extensions?.dragon          ?? false));
+            dragonContainer.appendChild(makeSubLine('Princesse',      config.extensions?.princess        ?? false));
+            dragonContainer.appendChild(makeSubLine('Portail Magique',config.extensions?.portal          ?? false));
+            dragonContainer.appendChild(makeSubLine('Protection Fée', config.extensions?.fairyProtection ?? false));
+            dragonContainer.appendChild(makeSubLine('Fée : +1pt/tour',config.extensions?.fairyScoreTurn  ?? false));
+            dragonContainer.appendChild(makeSubLine('Fée : +1pt/zone',config.extensions?.fairyScoreZone  ?? false));
+
+            extensionsSection.appendChild(dragonContainer);
+        }
+
         content.appendChild(extensionsSection);
 
         // Section Tuiles
@@ -395,6 +437,9 @@ export class ModalUI {
             }
             if (config.tileGroups?.traders_builders) {
                 list.push('Marchands & Bâtisseurs : +24 tuiles');
+            }
+            if (config.tileGroups?.dragon) {
+                list.push('Princesse & Dragon : +29 tuiles');
             }
             return list;
         })());
