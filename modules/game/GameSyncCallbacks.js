@@ -30,6 +30,7 @@ export class GameSyncCallbacks {
         updateTurnDisplay,
         poserTuileSync,
         afficherMessage,
+        onUpdateMobileTilePreview = null,
         isHost = false,
     }) {
         this.gameSync        = gameSync;
@@ -58,6 +59,7 @@ export class GameSyncCallbacks {
         this.updateTurnDisplay = updateTurnDisplay;   // () => void
         this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
         this.afficherMessage   = afficherMessage;     // (msg) => void
+        this.onUpdateMobileTilePreview = onUpdateMobileTilePreview; // () => void — preview mobile
         this.isHost            = isHost;
         this.onGamePaused      = null; // (name) => void
         this.onGameResumed     = null; // (reason) => void
@@ -316,6 +318,7 @@ export class GameSyncCallbacks {
         gs.onTileDestroyed = (tileId, playerName, action, count, playerId) => {
             console.log('🗑️ [SYNC] Tuile détruite:', tileId, 'par', playerName);
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
+            if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
             this.onTileDestroyed(tileId, playerName, action, count, playerId);
         };
 

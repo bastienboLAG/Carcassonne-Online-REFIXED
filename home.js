@@ -1071,6 +1071,7 @@ function attachGameSyncCallbacks() {
         updateTurnDisplay,
         poserTuileSync,
         afficherMessage: (msg) => { afficherToast(msg); },
+        onUpdateMobileTilePreview: updateMobileTilePreview,
         isHost,
     }).attach(isHost);
 
@@ -3717,7 +3718,7 @@ function setupEventListeners() {
             if (!result.special) {
                 // Cas normal : afficher modale active + setRedrawMode
                 unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, true, result.action, result.isRiver);
-                gameSync.syncTileDestroyed(result.tileId, result.playerName, result.action);
+                gameSync.syncTileDestroyed(result.tileId, result.playerName, result.action, 1, multiplayer.playerId);
                 waitingToRedraw = true;
                 updateTurnDisplay();
             } else {
