@@ -27,6 +27,11 @@ import {
     renderDragonPiece, renderFairyPiece, removeFairyPiece, releaseFairyIfDetached,
 } from './modules/game/DragonUI.js';
 import {
+    initTurnUI,
+    updateTurnDisplay, updateMobileButtons, updateMobileTilePreview,
+    afficherMessage, afficherToast, hideToast,
+} from './modules/ui/TurnUI.js';
+import {
     initLobbyOptions,
     applyPreset,
     saveLobbyOptions,
@@ -1917,6 +1922,27 @@ async function startGameForInvite(fullStateData = null) {
  * Configuration commune post-démarrage
  */
 function _postStartSetup() {
+    // Initialiser TurnUI
+    initTurnUI({
+        getGameState:          () => gameState,
+        getGameConfig:         () => gameConfig,
+        getMultiplayer:        () => multiplayer,
+        getTurnManager:        () => turnManager,
+        getUndoManager:        () => undoManager,
+        getFinalScoresManager: () => finalScoresManager,
+        getScorePanelUI:       () => scorePanelUI,
+        getDeck:               () => deck,
+        getIsHost:             () => isHost,
+        getIsMyTurn:           () => isMyTurn,
+        setIsMyTurn:           (v) => { isMyTurn = v; },
+        getIsSpectator:        () => _isSpectator(),
+        getWaitingToRedraw:    () => waitingToRedraw,
+        getTuilePosee:         () => tuilePosee,
+        getTuileEnMain:        () => tuileEnMain,
+        getEventBus:           () => eventBus,
+        isMobile,
+    });
+
     // Initialiser DragonUI
     initDragonUI({
         getGameState:         () => gameState,
@@ -2286,242 +2312,6 @@ function _postStartSetup() {
 /**
  * Met à jour le style de la carte mobile du joueur actif selon le tour bonus
  */
-function _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn = false) {
-    if (!isMobile()) return;
-    const currentPlayer = gameState?.getCurrentPlayer();
-    if (!currentPlayer) return;
-    document.querySelectorAll('.mobile-player-card').forEach(card => {
-        card.classList.remove('active-bonus', 'active-dragon');
-        if (card.dataset.playerId === currentPlayer.id) {
-            if (isDragonTurn)      card.classList.add('active-dragon');
-            else if (isBonusTurn)  card.classList.add('active-bonus');
-        }
-    });
-}
-
-
-
-/**
- * Met à jour la preview de tuile mobile
- */
-function updateMobileTilePreview() {
-    if (!isMobile()) return;
-    const preview = document.getElementById('mobile-tile-preview');
-    const counter = document.getElementById('mobile-tile-counter');
-    if (!preview) return;
-
-    if (tuileEnMain) {
-        preview.innerHTML = `<img id="mobile-tile-img" src="${tuileEnMain.imagePath}" style="transform: rotate(${tuileEnMain.rotation}deg);">`;
-    } else {
-        preview.innerHTML = '<img src="./assets/verso.png">';
-    }
-
-    if (counter && deck) {
-        counter.textContent = `${deck.remaining()} / ${deck.total()}`;
-    }
-}
-
-/**
- * Met à jour l'état des boutons mobile (actif/inactif)
- */
-function updateMobileButtons() {
-    if (!isMobile()) return;
-
-    const endBtn  = document.getElementById('mobile-end-turn-btn');
-    const undoBtn = document.getElementById('mobile-undo-btn');
-
-    if (endBtn) {
-        if (finalScoresManager?.gameEnded) {
-            endBtn.textContent = '📊 Scores';
-            endBtn.disabled = false;
-        } else if (waitingToRedraw && isMyTurn) {
-            endBtn.textContent = '🎲 Repiocher';
-            endBtn.disabled = false;
-        } else {
-            endBtn.textContent = 'Terminer mon tour';
-            const isDragonPhaseM = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-            const dragonMoverM   = isDragonPhaseM ? gameState.players[gameState.dragonPhase.moverIndex] : null;
-            const isMyDragonM    = isDragonPhaseM && dragonMoverM?.id === multiplayer.playerId;
-            const canEnd = isMyTurn && tuilePosee && !isDragonPhaseM ||
-                           isMyDragonM && !!undoManager?.dragonMovePlacedThisTurn;
-            endBtn.disabled = !canEnd;
-        }
-        endBtn.style.opacity = endBtn.disabled ? '0.4' : '1';
-    }
-
-    if (undoBtn) {
-        const isDragonPhaseU2 = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-        const dragonMoverU2   = isDragonPhaseU2 ? gameState.players[gameState.dragonPhase.moverIndex] : null;
-        const isMyDragonU2    = isDragonPhaseU2 && dragonMoverU2?.id === multiplayer.playerId;
-        const canUndo = !finalScoresManager?.gameEnded && (
-            isMyDragonU2 && !!undoManager?.dragonMovePlacedThisTurn ||
-            !isDragonPhaseU2 && isMyTurn && (isHost ? !!undoManager?.canUndo() : !!tuilePosee)
-        );
-        undoBtn.disabled = !canUndo;
-        undoBtn.style.opacity = canUndo ? '1' : '0.4';
-    }
-}
-
-// ═══════════════════════════════════════════════════════
-// FONCTIONS JEU
-// ═══════════════════════════════════════════════════════
-function updateTurnDisplay() {
-    if (!gameState || gameState.players.length === 0) {
-        // Partie pas encore prête : griser le bouton plutôt que laisser le style CSS par défaut
-        isMyTurn = false;
-        const endTurnBtn = document.getElementById('end-turn-btn');
-        if (endTurnBtn) {
-            endTurnBtn.textContent = 'Terminer mon tour';
-            endTurnBtn.disabled = true;
-            endTurnBtn.style.opacity    = '0.5';
-            endTurnBtn.style.cursor     = 'not-allowed';
-            endTurnBtn.style.background = '';
-            endTurnBtn.style.color      = '';
-        }
-        return;
-    }
-
-    const currentPlayer = gameState.getCurrentPlayer();
-    isMyTurn = currentPlayer.id === multiplayer.playerId && !_isSpectator();
-
-    const endTurnBtn = document.getElementById('end-turn-btn');
-    if (endTurnBtn) {
-        if (finalScoresManager?.gameEnded) {
-            endTurnBtn.textContent = '📊 Détails des scores';
-            endTurnBtn.disabled   = false;
-            endTurnBtn.style.opacity = '1';
-            endTurnBtn.style.cursor  = 'pointer';
-            endTurnBtn.classList.add('final-score-btn');
-        } else if (waitingToRedraw && isMyTurn) {
-            endTurnBtn.textContent = '🎲 Repiocher';
-            endTurnBtn.disabled   = false;
-            endTurnBtn.style.opacity = '1';
-            endTurnBtn.style.cursor  = 'pointer';
-            endTurnBtn.classList.remove('final-score-btn');
-        } else {
-            endTurnBtn.textContent = 'Terminer mon tour';
-            endTurnBtn.classList.remove('final-score-btn');
-            const isDragonPhase  = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-            const dragonMoverEnd = isDragonPhase ? gameState.players[gameState.dragonPhase.moverIndex] : null;
-            const isMyDragonEnd  = isDragonPhase && dragonMoverEnd?.id === multiplayer.playerId;
-            // Pendant la phase dragon : terminer seulement si le mover a déplacé le dragon ce tour
-            const canEnd = isMyTurn && tuilePosee && !isDragonPhase ||
-                           isMyDragonEnd && !!undoManager?.dragonMovePlacedThisTurn;
-            endTurnBtn.disabled = !canEnd;
-            endTurnBtn.style.opacity = canEnd ? '1' : '0.5';
-            endTurnBtn.style.cursor  = canEnd ? 'pointer' : 'not-allowed';
-            endTurnBtn.style.background = canEnd ? '#2ecc71' : '';
-            endTurnBtn.style.color      = canEnd ? '#000' : '';
-        }
-    }
-
-    const undoBtn = document.getElementById('undo-btn');
-    if (undoBtn) {
-        const isDragonPhaseU = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-        const dragonMoverU   = isDragonPhaseU ? gameState.players[gameState.dragonPhase.moverIndex] : null;
-        const isMyDragonU    = isDragonPhaseU && dragonMoverU?.id === multiplayer.playerId;
-        const canUndo = !finalScoresManager?.gameEnded && (
-            isMyDragonU && !!undoManager?.dragonMovePlacedThisTurn ||
-            !isDragonPhaseU && isMyTurn && (isHost ? !!undoManager?.canUndo() : !!tuilePosee)
-        );
-        undoBtn.disabled = !canUndo;
-        undoBtn.style.opacity    = canUndo ? '1' : '0.5';
-        undoBtn.style.cursor     = canUndo ? 'pointer' : 'not-allowed';
-        undoBtn.style.background = canUndo ? '#f1c40f' : '';
-        undoBtn.style.color      = canUndo ? '#000' : '';
-    }
-
-    scorePanelUI?.updateMobile();
-
-    // Mettre à jour le contour doré si tour bonus, rouge si tour dragon
-    const isBonusTurn  = turnManager?.isBonusTurn ?? false;
-    const isDragonTurn = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-    console.log('🐉 [updateTurnDisplay] isDragonTurn:', isDragonTurn, '| dragonPhase.active:', gameState?.dragonPhase?.active, '| isBonusTurn:', isBonusTurn);
-    if (scorePanelUI) scorePanelUI.onTurnChanged(isBonusTurn, isDragonTurn);
-    _updateMobileActiveBonusStyle(isBonusTurn, isDragonTurn);
-
-    updateMobileButtons();
-    eventBus.emit('score-updated');
-
-    // Fermer le toast du tour bonus dès qu'il se termine
-    if (!isBonusTurn) {
-        const toast = document.getElementById('disconnect-toast');
-        if (toast && toast.dataset.isBonusToast === 'true') {
-            toast.style.opacity = '0';
-            setTimeout(() => { if (toast) toast.style.display = 'none'; }, 400);
-            delete toast.dataset.isBonusToast;
-        }
-    }
-}
-
-function afficherMessage(msg) {
-    document.getElementById('tile-preview').innerHTML =
-        `<p style="text-align: center; color: white;">${msg}</p>`;
-}
-
-function hideToast() {
-    const toast = document.getElementById('disconnect-toast');
-    if (!toast || toast.style.display === 'none') return;
-    toast.style.opacity = '0';
-    setTimeout(() => { toast.style.display = 'none'; }, 400);
-}
-
-function afficherToast(msg, type = 'error') {
-    const borderColor = type === 'bonus' ? 'gold'
-                      : type === 'success' ? '#2ecc71'
-                      : type === 'info'    ? '#3498db'
-                      :                      '#e74c3c'; // 'error' par défaut
-    let toast = document.getElementById('disconnect-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'disconnect-toast';
-        document.body.appendChild(toast);
-    }
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(30,30,30,0.92);
-        color: white;
-        padding: 12px 20px 12px 24px;
-        border-radius: 10px;
-        border-left: 4px solid ${borderColor};
-        font-size: 15px;
-        font-weight: bold;
-        z-index: 9999;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        transition: opacity 0.4s;
-    `;
-
-    toast.innerHTML = '';
-
-    const text = document.createElement('span');
-    text.textContent = msg;
-    toast.appendChild(text);
-
-    const close = document.createElement('span');
-    close.textContent = '✕';
-    close.style.cssText = `
-        cursor: pointer;
-        font-size: 14px;
-        opacity: 0.7;
-        flex-shrink: 0;
-    `;
-    close.onmouseenter = () => close.style.opacity = '1';
-    close.onmouseleave = () => close.style.opacity = '0.7';
-    close.onclick = () => {
-        toast.style.opacity = '0';
-        setTimeout(() => { toast.style.display = 'none'; }, 400);
-    };
-    toast.appendChild(close);
-
-    toast.style.opacity = '1';
-    toast.style.display = 'flex';
-}
 
 /**
  * Gérer une annulation reçue d'un autre joueur
