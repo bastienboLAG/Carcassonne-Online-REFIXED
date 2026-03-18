@@ -286,16 +286,17 @@ export function syncAllOptions() {
 // ── UI Lobby ───────────────────────────────────────────────────────────────
 
 export function updateOptionsAccess() {
-    const startButton   = _id('start-game-btn');
-    const restricted    = _getInLobby() && !_getIsHost();
+    const startButton = _id('start-game-btn');
+    const restricted  = _getInLobby() && !_getIsHost();
 
-    // Bloquer les interactions invité via pointer-events sur le conteneur
-    // Ne PAS toucher .disabled pour ne pas écraser les états de dépendance
-    const homeRight = document.querySelector('.home-right');
-    if (homeRight) {
-        homeRight.style.pointerEvents = restricted ? 'none' : '';
-        homeRight.style.opacity       = restricted ? '0.7' : '';
-    }
+    // Bloquer les interactions sans toucher .disabled (pour ne pas écraser les états de dépendance)
+    document.querySelectorAll('.home-right input').forEach(el => {
+        el.style.pointerEvents = restricted ? 'none' : '';
+    });
+    document.querySelectorAll('.home-right label').forEach(el => {
+        el.style.pointerEvents = restricted ? 'none' : '';
+        el.style.opacity       = restricted ? '0.7' : '';
+    });
 
     if (startButton) {
         startButton.style.pointerEvents = restricted ? 'none' : 'auto';
