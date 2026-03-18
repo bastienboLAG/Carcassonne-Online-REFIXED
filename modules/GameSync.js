@@ -659,7 +659,7 @@ export class GameSync {
             case 'tile-destroyed':
                 if (this.onTileDestroyed && data.playerId !== this.multiplayer.playerId) {
                     console.log('🗑️ [SYNC] Tuile détruite reçue:', data.tileId);
-                    this.onTileDestroyed(data.tileId, data.playerName, data.action, data.count ?? 1);
+                    this.onTileDestroyed(data.tileId, data.playerName, data.action, data.count ?? 1, data.playerId);
                 }
                 break;
             

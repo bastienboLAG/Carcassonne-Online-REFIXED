@@ -313,10 +313,10 @@ export class GameSyncCallbacks {
         };
 
         // ── Tuile détruite ────────────────────────────────────────────────────
-        gs.onTileDestroyed = (tileId, playerName, action) => {
+        gs.onTileDestroyed = (tileId, playerName, action, count, playerId) => {
             console.log('🗑️ [SYNC] Tuile détruite:', tileId, 'par', playerName);
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
-            this.onTileDestroyed(tileId, playerName, action);
+            this.onTileDestroyed(tileId, playerName, action, count, playerId);
         };
 
         // ── Tuile donnée directement par l'hôte (après implaçable) ─────────

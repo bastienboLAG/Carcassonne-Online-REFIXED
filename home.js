@@ -1010,11 +1010,13 @@ function attachGameSyncCallbacks() {
         getPlacedMeeples: () => placedMeeples,
         onRemoteUndo:     handleRemoteUndo,
         onFinalScores:    (scores, destroyedTilesCount = 0) => finalScoresManager.receiveFromNetwork(scores, destroyedTilesCount),
-        onTileDestroyed:  (tileId, pName, action, count = 1) => {
+        onTileDestroyed:  (tileId, pName, action, count = 1, playerId = null) => {
             // N'incrémenter que si la tuile est détruite, pas remélangée
             if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
             // Si c'est notre tuile qui est remélangée (invité actif), mettre en attente de repioche
-            const isMyTileDestroyed = isMyTurn && !isHost && action === 'dragon-reshuffle';
+            const currentPlayer = gameState?.getCurrentPlayer();
+            const isMyTileDestroyed = !isHost && action === 'dragon-reshuffle'
+                && (playerId === multiplayer.playerId || currentPlayer?.id === multiplayer.playerId);
             if (isMyTileDestroyed) {
                 waitingToRedraw = true;
                 if (tilePreviewUI) tilePreviewUI.showBackside();
