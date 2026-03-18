@@ -310,34 +310,21 @@ export class ModalUI {
             innsLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
             innsContainer.appendChild(innsLine);
 
-            const makeSubLine = (text, active) => {
+            const makeSubLine = (text) => {
                 const el = document.createElement('div');
-                el.textContent = `   └─ ${active ? '✓' : '✗'} ${text}`;
+                el.textContent = `   └─ ✓ ${text}`;
                 el.style.cssText = `
                     margin-left: 5px;
                     font-size: 14px;
                     padding-left: 20px;
-                    color: ${active ? '#a8d8a8' : '#888'};
-                    ${active ? '' : 'font-style: italic;'}
+                    color: #a8d8a8;
                 `;
                 return el;
             };
 
-            innsContainer.appendChild(makeSubLine('Grand Meeple', config.extensions?.largeMeeple));
-
-            if (config.extensions?.cathedrals) {
-                const catLine = makeSubLine('Cathédrales', true);
-                innsContainer.appendChild(catLine);
-            } else {
-                innsContainer.appendChild(makeSubLine('Cathédrales', false));
-            }
-
-            if (config.extensions?.inns) {
-                const innLine = makeSubLine('Auberges', true);
-                innsContainer.appendChild(innLine);
-            } else {
-                innsContainer.appendChild(makeSubLine('Auberges', false));
-            }
+            if (config.extensions?.largeMeeple) innsContainer.appendChild(makeSubLine('Grand Meeple'));
+            if (config.extensions?.cathedrals)  innsContainer.appendChild(makeSubLine('Cathédrales'));
+            if (config.extensions?.inns)         innsContainer.appendChild(makeSubLine('Auberges'));
 
             extensionsSection.appendChild(innsContainer);
         }
@@ -357,21 +344,21 @@ export class ModalUI {
             tbLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
             tbContainer.appendChild(tbLine);
 
-            const makeSubLine = (text, active) => {
+            const makeSubLine = (text) => {
                 const el = document.createElement('div');
-                el.textContent = `   └─ ${active ? '✓' : '✗'} ${text}`;
+                el.textContent = `   └─ ✓ ${text}`;
                 el.style.cssText = `
                     margin-left: 5px;
                     font-size: 14px;
                     padding-left: 20px;
-                    color: ${active ? '#a8d8a8' : '#888'};
-                    ${active ? '' : 'font-style: italic;'}
+                    color: #a8d8a8;
                 `;
                 return el;
             };
-            tbContainer.appendChild(makeSubLine('Bâtisseur',    config.extensions?.tradersBuilders ?? false));
-            tbContainer.appendChild(makeSubLine('Marchandises', config.extensions?.merchants        ?? false));
-            tbContainer.appendChild(makeSubLine('Meeple Cochon', config.extensions?.pig            ?? false));
+
+            if (config.extensions?.tradersBuilders) tbContainer.appendChild(makeSubLine('Bâtisseur'));
+            if (config.extensions?.merchants)        tbContainer.appendChild(makeSubLine('Marchandises'));
+            if (config.extensions?.pig)              tbContainer.appendChild(makeSubLine('Meeple Cochon'));
 
             extensionsSection.appendChild(tbContainer);
         }
@@ -395,25 +382,24 @@ export class ModalUI {
             dragonLine.style.cssText = 'margin-left: 5px; font-size: 15px;';
             dragonContainer.appendChild(dragonLine);
 
-            const makeSubLine = (text, active) => {
+            const makeSubLine = (text) => {
                 const el = document.createElement('div');
-                el.textContent = `   └─ ${active ? '✓' : '✗'} ${text}`;
+                el.textContent = `   └─ ✓ ${text}`;
                 el.style.cssText = `
                     margin-left: 5px;
                     font-size: 14px;
                     padding-left: 20px;
-                    color: ${active ? '#a8d8a8' : '#888'};
-                    ${active ? '' : 'font-style: italic;'}
+                    color: #a8d8a8;
                 `;
                 return el;
             };
 
-            dragonContainer.appendChild(makeSubLine('Dragon',         config.extensions?.dragon          ?? false));
-            dragonContainer.appendChild(makeSubLine('Princesse',      config.extensions?.princess        ?? false));
-            dragonContainer.appendChild(makeSubLine('Portail Magique',config.extensions?.portal          ?? false));
-            dragonContainer.appendChild(makeSubLine('Protection Fée', config.extensions?.fairyProtection ?? false));
-            dragonContainer.appendChild(makeSubLine('Fée : +1pt/tour',config.extensions?.fairyScoreTurn  ?? false));
-            dragonContainer.appendChild(makeSubLine('Fée : +1pt/zone',config.extensions?.fairyScoreZone  ?? false));
+            if (config.extensions?.dragon)          dragonContainer.appendChild(makeSubLine('Dragon'));
+            if (config.extensions?.princess)         dragonContainer.appendChild(makeSubLine('Princesse'));
+            if (config.extensions?.portal)           dragonContainer.appendChild(makeSubLine('Portail Magique'));
+            if (config.extensions?.fairyProtection)  dragonContainer.appendChild(makeSubLine('Protection Fée'));
+            if (config.extensions?.fairyScoreTurn)   dragonContainer.appendChild(makeSubLine('Fée : +1pt/tour'));
+            if (config.extensions?.fairyScoreZone)   dragonContainer.appendChild(makeSubLine('Fée : +3pts/zone'));
 
             extensionsSection.appendChild(dragonContainer);
         }
