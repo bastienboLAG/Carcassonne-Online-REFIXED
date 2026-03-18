@@ -112,13 +112,15 @@ function _updateDragonAvailability() {
 function _updateMasterCheckboxSafe(masterId) {
     const master   = _id(masterId);
     if (!master) return;
-    const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
-        .filter(el => !el.disabled);
-    if (children.length === 0) return;
-    const checkedCount = children.filter(c => c.checked).length;
+    // Compter tous les enfants (y compris disabled) pour refléter l'état réel
+    const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)];
+    // Mais ignorer ceux qui sont disabled ET non-cochés (contrainte de dépendance active)
+    const relevant = children.filter(el => !el.disabled || el.checked);
+    if (relevant.length === 0) return;
+    const checkedCount = relevant.filter(c => c.checked).length;
     if (checkedCount === 0) {
         master.checked = false; master.indeterminate = false;
-    } else if (checkedCount === children.length) {
+    } else if (checkedCount === relevant.length) {
         master.checked = true;  master.indeterminate = false;
     } else {
         master.checked = false; master.indeterminate = true;

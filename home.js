@@ -702,8 +702,10 @@ async function _doJoin(isSpectator = false) {
                     const checkbox = document.getElementById(data.option);
                     if (checkbox) checkbox.checked = data.value;
                 }
-                // Mettre à jour disponibilités et coches maîtres sans broadcaster
+                // Mettre à jour disponibilités, coches maîtres et accès invité
                 updateAllAvailability();
+                updateOptionsAccess();
+                updateAllAvailability(); // recalculer les maîtres après le disable invité
             }
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
@@ -721,6 +723,8 @@ async function _doJoin(isSpectator = false) {
                     if (radio) radio.checked = true;
                 }
                 updateAllAvailability();
+                updateOptionsAccess();
+                updateAllAvailability(); // recalculer les maîtres après le disable invité
             }
             if (data.type === 'game-starting') {
                 console.log("🎮 [INVITÉ] L'hôte démarre la partie !");
