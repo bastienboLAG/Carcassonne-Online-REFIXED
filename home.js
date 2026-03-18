@@ -1940,6 +1940,7 @@ function _postStartSetup() {
         getWaitingToRedraw:    () => waitingToRedraw,
         getTuilePosee:         () => tuilePosee,
         getTuileEnMain:        () => tuileEnMain,
+        getTilePreviewUI:      () => tilePreviewUI,
         getEventBus:           () => eventBus,
         isMobile,
     });

@@ -30,16 +30,19 @@ export class TilePreviewUI {
 
     showTile(tuileEnMain) {
         if (!this.previewElement) return;
+        this.isShowingBackside = false;
         this.previewElement.innerHTML = `<img id="current-tile-img" src="${tuileEnMain.imagePath}" style="cursor: pointer; transform: rotate(${tuileEnMain.rotation}deg);" title="Cliquez pour tourner">`;
     }
 
     showBackside() {
         if (!this.previewElement) return;
+        this.isShowingBackside = true;
         this.previewElement.innerHTML = '<img src="./assets/verso.png" style="width: 120px; border: 2px solid #666;">';
     }
 
     showMessage(msg) {
         if (!this.previewElement) return;
+        this.isShowingBackside = false;
         this.previewElement.innerHTML = `<p style="text-align: center; color: white;">${msg}</p>`;
     }
 

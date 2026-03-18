@@ -70,8 +70,11 @@ export function updateMobileTilePreview() {
     const counter = document.getElementById('mobile-tile-counter');
     if (!preview) return;
 
-    const tuileEnMain = _deps.getTuileEnMain();
-    if (tuileEnMain) {
+    const tuileEnMain     = _deps.getTuileEnMain();
+    const tilePreviewUI   = _deps.getTilePreviewUI();
+    const isBackside      = tilePreviewUI?.isShowingBackside ?? false;
+
+    if (tuileEnMain && !isBackside) {
         preview.innerHTML = `<img id="mobile-tile-img" src="${tuileEnMain.imagePath}" style="transform: rotate(${tuileEnMain.rotation}deg);">`;
     } else {
         preview.innerHTML = '<img src="./assets/verso.png">';
