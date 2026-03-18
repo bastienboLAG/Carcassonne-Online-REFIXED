@@ -26,6 +26,7 @@ import {
     updateLobbyUI as _updateLobbyUI,
     loadPresets,
     updateAllAvailability,
+    updateMasterCheckboxes,
 } from './modules/LobbyOptions.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
@@ -702,10 +703,10 @@ async function _doJoin(isSpectator = false) {
                     const checkbox = document.getElementById(data.option);
                     if (checkbox) checkbox.checked = data.value;
                 }
-                // Mettre à jour disponibilités, coches maîtres et accès invité
+                // Mettre à jour disponibilités, accès invité, puis coches maîtres
                 updateAllAvailability();
                 updateOptionsAccess();
-                updateAllAvailability(); // recalculer les maîtres après le disable invité
+                updateMasterCheckboxes();
             }
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
@@ -724,7 +725,7 @@ async function _doJoin(isSpectator = false) {
                 }
                 updateAllAvailability();
                 updateOptionsAccess();
-                updateAllAvailability(); // recalculer les maîtres après le disable invité
+                updateMasterCheckboxes();
             }
             if (data.type === 'game-starting') {
                 console.log("🎮 [INVITÉ] L'hôte démarre la partie !");
