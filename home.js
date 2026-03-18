@@ -18,6 +18,15 @@ import { NavigationManager }      from './modules/game/NavigationManager.js';
 import { ReconnectionManager }    from './modules/game/ReconnectionManager.js';
 import { startGameTimer, startGameTimerFrom, stopGameTimer, getElapsedSeconds } from './modules/game/GameTimer.js';
 import {
+    initDragonUI,
+    tileHasDragonZone, tileHasVolcanoZone, tileHasPortalZone,
+    broadcastDragonState,
+    updateDragonOverlay, clearDragonCursors, showDragonMoveCursors,
+    startDragonTurnUI, onDragonMoveConfirm, executeDragonMoveHost,
+    onDragonPhaseEnded, advanceDragonTurnHost,
+    renderDragonPiece, renderFairyPiece, removeFairyPiece, releaseFairyIfDetached,
+} from './modules/game/DragonUI.js';
+import {
     initLobbyOptions,
     applyPreset,
     saveLobbyOptions,
@@ -298,7 +307,7 @@ eventBus.on('tile-placed-own', (data) => {
     if (unplaceableManager) unplaceableManager.resetSeenImplacable();
     updateMobileButtons();
     updateTurnDisplay();
-    const _isVolcanoTileOwn = !!(gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.dragon && _tileHasVolcanoZone(tile));
+    const _isVolcanoTileOwn = !!(gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.dragon && tileHasVolcanoZone(tile));
 
     // Détection princesse — ici le zoneRegistry est déjà désérialisé
     if (gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.princess && dragonRules) {
@@ -313,7 +322,7 @@ eventBus.on('tile-placed-own', (data) => {
     }
 
     // Détection portail — ici le zoneRegistry est déjà désérialisé
-    if (gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.portal && dragonRules && _tileHasPortalZone(tile)) {
+    if (gameConfig?.tileGroups?.dragon && gameConfig?.extensions?.portal && dragonRules && tileHasPortalZone(tile)) {
         const portalZoneIdx = tile.zones?.findIndex(z => z.type === 'portal');
         if (portalZoneIdx !== -1) {
             const rawPos = tile.zones[portalZoneIdx].meeplePosition;
@@ -380,20 +389,20 @@ eventBus.on('meeple-count-updated', (data) => {
 
 // ── Extension Dragon : affichage pion dragon ─────────────────────────
 eventBus.on('dragon-moved', (data) => {
-    _renderDragonPiece(data.x, data.y);
+    renderDragonPiece(data.x, data.y);
 });
 
 eventBus.on('dragon-phase-ended', () => {
-    _renderDragonPiece(gameState?.dragonPos?.x, gameState?.dragonPos?.y);
+    renderDragonPiece(gameState?.dragonPos?.x, gameState?.dragonPos?.y);
 });
 
 // ── Extension Fée : affichage pion fée ───────────────────────────────
 eventBus.on('fairy-placed', (data) => {
-    _renderFairyPiece(data.meepleKey);
+    renderFairyPiece(data.meepleKey);
 });
 
 eventBus.on('fairy-removed', () => {
-    _removeFairyPiece();
+    removeFairyPiece();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -1005,7 +1014,7 @@ function attachGameSyncCallbacks() {
             // Retirer visuellement l'Abbé
             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
             delete placedMeeples[key];
-            _releaseFairyIfDetached(key);
+            releaseFairyIfDetached(key);
             const player = gameState.players.find(p => p.id === playerId);
             if (player) player.hasAbbot = true;
             // Hôte marque le rappel abbé pour undo centralisé
@@ -1226,7 +1235,7 @@ function attachGameSyncCallbacks() {
                             else                                { if (p.meeples < 7) p.meeples++; }
                             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
                             delete placedMeeples[key];
-                            _releaseFairyIfDetached(key);
+                            releaseFairyIfDetached(key);
                             eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
                         });
                         if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
@@ -1264,7 +1273,7 @@ function attachGameSyncCallbacks() {
                     const { x: vx, y: vy } = gameState._pendingVolcanoPos;
                     dragonRules.onVolcanoPlaced(vx, vy);
                     gameState._pendingVolcanoPos = null;
-                    _broadcastDragonState();
+                    broadcastDragonState();
                 }
 
                 // ── Extension Dragon : démarrer phase dragon si tuile dragon posée ──
@@ -1276,9 +1285,9 @@ function attachGameSyncCallbacks() {
                     if (undoManager) undoManager.reset();
                     const started = dragonRules.onDragonTilePlaced(playerIndex);
                     if (started) {
-                        _broadcastDragonState();
+                        broadcastDragonState();
                         gameSync.syncDragonPhaseStarted(gameState.dragonPhase);
-                        _startDragonTurnUI(); // ← hôte aussi
+                        startDragonTurnUI(); // ← hôte aussi
                         return; // phase dragon prend le relais — pas de pioche maintenant
                     }
                 }
@@ -1355,7 +1364,7 @@ function attachGameSyncCallbacks() {
                         console.warn('⚠️ [Dragon] dragon-move-request rejeté de', from);
                         return;
                     }
-                    _executeDragonMoveHost(data.x, data.y);
+                    executeDragonMoveHost(data.x, data.y);
                     return;
                 }
                 if (data.type === 'dragon-end-turn-request') {
@@ -1364,7 +1373,7 @@ function attachGameSyncCallbacks() {
                         console.warn('⚠️ [Dragon] dragon-end-turn-request rejeté de', from);
                         return;
                     }
-                    _advanceDragonTurnHost();
+                    advanceDragonTurnHost();
                     return;
                 }
                 if (data.type === 'princess-eject-request') {
@@ -1425,13 +1434,13 @@ eventBus.on('network-dragon-state-update', (data) => {
         data.eatenKeys.forEach(key => {
             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
             delete placedMeeples[key];
-            _releaseFairyIfDetached(key);
+            releaseFairyIfDetached(key);
         });
         eventBus.emit('meeple-count-updated', {});
     }
     // Rendu pion dragon
     if (gameState.dragonPos) {
-        _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+        renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
     }
 
     // Détecter si le dragon vient de se déplacer (position changée)
@@ -1441,8 +1450,8 @@ eventBus.on('network-dragon-state-update', (data) => {
     if (!gameState.dragonPhase.active) {
         // Phase terminée
         if (wasActive) {
-            _clearDragonCursors();
-            _updateDragonOverlay(); // cache l'overlay bandeau rouge
+            clearDragonCursors();
+            updateDragonOverlay(); // cache l'overlay bandeau rouge
             if (undoManager) { undoManager.dragonMovePlacedThisTurn = false; undoManager.dragonMoveSnapshot = null; }
             updateTurnDisplay();
         }
@@ -1453,18 +1462,18 @@ eventBus.on('network-dragon-state-update', (data) => {
         if (dragonMoved && isMyDragonTurn) {
             // L'hôte vient de confirmer notre déplacement → marquer "a déplacé" et attendre clic
             if (undoManager) undoManager.dragonMovePlacedThisTurn = true;
-            _clearDragonCursors();
-            _updateDragonOverlay();
+            clearDragonCursors();
+            updateDragonOverlay();
             updateTurnDisplay();
         } else if (dragonMoved && !isMyDragonTurn) {
             // Un autre joueur a déplacé → on attend que ce joueur clique Terminer
-            _clearDragonCursors();
-            _updateDragonOverlay();
+            clearDragonCursors();
+            updateDragonOverlay();
             updateTurnDisplay();
         } else if (!dragonMoved) {
             // moverIndex a changé (avancement de tour dragon) → afficher curseurs si c'est notre tour
             if (undoManager) { undoManager.dragonMovePlacedThisTurn = false; undoManager.dragonMoveSnapshot = null; }
-            _startDragonTurnUI();
+            startDragonTurnUI();
         }
     }
     eventBus.emit('score-updated');
@@ -1479,7 +1488,7 @@ eventBus.on('network-fairy-placed', (data) => {
     const owner = gameState.players.find(p => p.id === data.ownerId);
     if (owner) owner.hasFairy = true;
     // Afficher la fée
-    _renderFairyPiece(data.meepleKey);
+    renderFairyPiece(data.meepleKey);
     // Côté hôte : marquer la fée comme posée ce tour pour que l'undo invité fonctionne
     if (isHost && undoManager) undoManager.markFairyPlaced();
 });
@@ -1554,8 +1563,8 @@ function _hostDrawAndSend() {
     //   Modale 1 (unplaceable-modal) : info "dragon sans volcan" + bouton Confirmer
     //   → clic Confirmer → remélange Fisher-Yates + syncDeck
     //   Modale 2 (tile-destroyed-modal) : "remélangée, cliquez Repiocher"
-    if (_tileHasDragonZone(tileData)) {
-        const volcanoOnBoard = Object.values(plateau.placedTiles ?? {}).some(t => _tileHasVolcanoZone(t));
+    if (tileHasDragonZone(tileData)) {
+        const volcanoOnBoard = Object.values(plateau.placedTiles ?? {}).some(t => tileHasVolcanoZone(t));
         console.log('🐉 [DIAG] tuile dragon détectée:', tileData.id,
             '| tileGroups.dragon:', gameConfig.tileGroups?.dragon,
             '| extensions.dragon:', gameConfig.extensions?.dragon,
@@ -1563,8 +1572,8 @@ function _hostDrawAndSend() {
             '| placedTiles count:', Object.keys(plateau.placedTiles ?? {}).length);
     }
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
-        _tileHasDragonZone(tileData) &&
-        !Object.values(plateau.placedTiles ?? {}).some(t => _tileHasVolcanoZone(t))) {
+        tileHasDragonZone(tileData) &&
+        !Object.values(plateau.placedTiles ?? {}).some(t => tileHasVolcanoZone(t))) {
         console.log('🐉 [HÔTE] Tuile dragon sans volcan — badge implaçable:', tileData.id);
 
         tuileEnMain = tileData;
@@ -1605,447 +1614,6 @@ function _hostDrawAndSend() {
 /**
  * Indique si une tuile contient une zone dragon (déclencheur de phase dragon).
  */
-function _tileHasDragonZone(tileData) {
-    return tileData?.zones?.some(z => z.type === 'dragon') ?? false;
-}
-
-/**
- * Indique si une tuile contient une zone volcano.
- */
-function _tileHasVolcanoZone(tileData) {
-    return tileData?.zones?.some(z => z.type === 'volcano') ?? false;
-}
-
-/**
- * Indique si une tuile contient une zone portail.
- */
-function _tileHasPortalZone(tileData) {
-    return tileData?.zones?.some(z => z.type === 'portal') ?? false;
-}
-
-// ═══════════════════════════════════════════════════════
-// EXTENSION DRAGON — réseau & UI
-// ═══════════════════════════════════════════════════════
-
-/**
- * Broadcast l'état dragon complet à tous les invités.
- */
-function _broadcastDragonState(eatenKeys = []) {
-    if (!gameSync) return;
-    multiplayer.broadcast({
-        type: 'dragon-state-update',
-        dragonPos:   gameState.dragonPos,
-        dragonPhase: gameState.dragonPhase,
-        fairyState:  gameState.fairyState,
-        eatenKeys,
-        players:     gameState.players.map(p => ({
-            id: p.id, meeples: p.meeples, hasAbbot: p.hasAbbot,
-            hasLargeMeeple: p.hasLargeMeeple, hasBuilder: p.hasBuilder,
-            hasPig: p.hasPig, score: p.score
-        }))
-    });
-}
-
-/**
- * Affiche les curseurs de déplacement du dragon pour le joueur actif du tour dragon.
- * Appelé côté hôte ou invité selon moverIndex.
- */
-function _startDragonTurnUI() {
-    const phase = gameState.dragonPhase;
-    console.log('🐉 [_startDragonTurnUI] phase.active:', phase.active, '| moverIndex:', phase.moverIndex, '| movesRemaining:', phase.movesRemaining);
-    if (!phase.active) return;
-
-    const mover = gameState.players[phase.moverIndex];
-    const isMyDragonTurn = mover?.id === multiplayer.playerId;
-    console.log('🐉 [_startDragonTurnUI] mover:', mover?.name, '| isMyDragonTurn:', isMyDragonTurn, '| dragonPos:', JSON.stringify(gameState.dragonPos));
-
-    _updateDragonOverlay();
-    updateTurnDisplay();
-
-    if (isMyDragonTurn && dragonRules) {
-        const validMoves = dragonRules.getValidDragonMoves();
-        console.log('🐉 [_startDragonTurnUI] validMoves:', JSON.stringify(validMoves));
-        if (validMoves.length === 0) {
-            // Dragon bloqué dès le début de ce tour : on ne peut pas déplacer,
-            // mais on peut quand même terminer son tour (ou annuler si on est arrivé là par undo).
-            // On marque dragonMovePlacedThisTurn pour débloquer le bouton "Terminer mon tour".
-            if (undoManager) undoManager.dragonMovePlacedThisTurn = true;
-            _updateDragonOverlay();
-            updateTurnDisplay();
-        } else {
-            _showDragonMoveCursors(validMoves);
-        }
-    }
-}
-
-/**
- * Affiche/met à jour le bandeau d'info phase dragon.
- */
-function _updateDragonOverlay() {
-    const phase = gameState.dragonPhase;
-    if (!phase.active) {
-        const overlay = document.getElementById('dragon-phase-overlay');
-        if (overlay) overlay.style.display = 'none';
-        return;
-    }
-    const mover = gameState.players[phase.moverIndex];
-    let overlay = document.getElementById('dragon-phase-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'dragon-phase-overlay';
-        overlay.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);' +
-            'background:rgba(180,30,30,0.92);color:#fff;padding:8px 20px;border-radius:8px;' +
-            'font-weight:bold;z-index:1000;pointer-events:none;text-align:center;';
-        document.body.appendChild(overlay);
-    }
-    overlay.style.display = 'block';
-    const isMyDragonTurn = mover?.id === multiplayer.playerId;
-    const hasMovedThisTurn = !!(undoManager?.dragonMovePlacedThisTurn);
-    if (isMyDragonTurn) {
-        overlay.textContent = `🐉 À vous de déplacer le dragon ! (${phase.movesRemaining} déplacements restants)`;
-    } else {
-        overlay.textContent = `🐉 ${mover?.name ?? '?'} déplace le dragon… (${phase.movesRemaining} restants)`;
-    }
-}
-
-/**
- * Affiche les curseurs de déplacement du dragon sur les tuiles adjacentes valides.
- */
-function _showDragonMoveCursors(validMoves) {
-    _clearDragonCursors();
-    const boardEl = document.getElementById('board');
-    console.log('🐉 [_showDragonMoveCursors] validMoves:', JSON.stringify(validMoves), '| boardEl:', !!boardEl);
-    if (!boardEl) return;
-
-    // Position 13 = centre de la grille 5×5 (row 2, col 2, 0-indexed)
-    const pos = 13;
-    const row = Math.floor((pos - 1) / 5); // 2
-    const col = (pos - 1) % 5;             // 2
-    const offsetX = 20.8 + col * 41.6;     // centre
-    const offsetY = 20.8 + row * 41.6;
-
-    validMoves.forEach(({ x, y }) => {
-        // Overlay positionné par grid comme abbé/fée
-        const overlay = document.createElement('div');
-        overlay.className = 'dragon-move-cursor-overlay';
-        overlay.style.cssText = `grid-column:${x};grid-row:${y};position:relative;` +
-            'width:208px;height:208px;pointer-events:none;z-index:101;';
-
-        const btn = document.createElement('div');
-        btn.className = 'dragon-move-cursor';
-        btn.dataset.dx = x;
-        btn.dataset.dy = y;
-        btn.style.cssText = `position:absolute;left:${offsetX}px;top:${offsetY}px;` +
-            'width:42px;height:42px;border-radius:50%;' +
-            'border:3px solid #c83200;box-shadow:0 0 10px 3px rgba(200,50,0,0.7);' +
-            'background:rgba(200,50,0,0.25);cursor:pointer;pointer-events:auto;' +
-            'transform:translate(-50%,-50%);display:flex;align-items:center;' +
-            'justify-content:center;font-size:22px;animation:abbeRecallPulse 1.2s ease-in-out infinite;';
-        btn.textContent = '🐉';
-
-        const openSelector = (clientX, clientY) => {
-            if (!meepleSelectorUI) { _onDragonMoveConfirm(x, y); return; }
-            meepleSelectorUI.show(x, y, pos, 'dragon-move', clientX, clientY,
-                (_sx, _sy, _spos, meepleType) => {
-                    if (meepleType === 'Dragon') _onDragonMoveConfirm(x, y);
-                    // Annulé → curseurs restent (ne pas clearDragonCursors)
-                }
-            );
-        };
-
-        btn.addEventListener('click', (e) => { e.stopPropagation(); openSelector(e.clientX, e.clientY); });
-        btn.addEventListener('touchend', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            openSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-        }, { passive: false });
-
-        overlay.appendChild(btn);
-        boardEl.appendChild(overlay);
-    });
-}
-
-function _clearDragonCursors() {
-    document.querySelectorAll('.dragon-move-cursor, .dragon-move-cursor-overlay').forEach(el => el.remove());
-}
-
-/**
- * Confirmé via sélecteur — exécuter le déplacement dragon.
- */
-function _onDragonMoveConfirm(x, y) {
-    if (!dragonRules || !gameState.dragonPhase.active) return;
-    const mover = gameState.players[gameState.dragonPhase.moverIndex];
-    if (mover?.id !== multiplayer.playerId) return;
-
-    _clearDragonCursors();
-
-    if (isHost) {
-        _executeDragonMoveHost(x, y);
-    } else {
-        // Invité : envoyer la demande à l'hôte
-        const hostConn = gameSync?.getHostConnection?.() ?? gameSync?.multiplayer?.connections?.[0];
-        if (hostConn?.open) {
-            hostConn.send({ type: 'dragon-move-request', x, y, playerId: multiplayer.playerId });
-        }
-    }
-}
-
-/**
- * Exécution côté hôte d'un déplacement dragon (local ou reçu d'un invité).
- */
-function _executeDragonMoveHost(x, y) {
-    // Snapshot undo pour ce déplacement (par joueur dragon)
-    if (undoManager) undoManager.saveDragonMove(placedMeeples);
-
-    const { eaten, blocked } = dragonRules.executeDragonMove(x, y);
-
-    // Retirer visuellement les meeples mangés côté hôte
-    eaten.forEach(({ key }) => {
-        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-        _releaseFairyIfDetached(key);
-    });
-
-    // Fix 5 — Builder/Cochon orphelins : si le dragon a mangé des meeples normaux,
-    // vérifier si des Builder/Cochon dans la même zone fusionnée n'ont plus de meeple
-    // normal de leur propriétaire dans cette zone → les rendre aussi.
-    if (eaten.length > 0 && zoneMerger) {
-        const orphanKeys = [];
-        for (const [key, meeple] of Object.entries(placedMeeples)) {
-            if (meeple.type !== 'Builder' && meeple.type !== 'Pig') continue;
-            const parts = key.split(',');
-            const bx = Number(parts[0]), by = Number(parts[1]), bp = Number(parts[2]);
-            const zoneId = zoneMerger.findMergedZoneForPosition(bx, by, bp)?.id;
-            if (zoneId == null) continue;
-            // Vérifier s'il reste un meeple normal du même joueur dans cette zone
-            const hasNormalMeeple = Object.entries(placedMeeples).some(([k2, m2]) => {
-                if (k2 === key) return false;
-                if (m2.playerId !== meeple.playerId) return false;
-                if (m2.type === 'Builder' || m2.type === 'Pig') return false;
-                const [x2, y2, p2] = k2.split(',').map(Number);
-                return zoneMerger.findMergedZoneForPosition(x2, y2, p2)?.id === zoneId;
-            });
-            if (!hasNormalMeeple) orphanKeys.push(key);
-        }
-        orphanKeys.forEach(key => {
-            const meeple = placedMeeples[key];
-            const player = gameState.players.find(p => p.id === meeple.playerId);
-            if (player) {
-                if (meeple.type === 'Builder') player.hasBuilder = true;
-                else if (meeple.type === 'Pig') player.hasPig = true;
-            }
-            delete placedMeeples[key];
-            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-            eaten.push({ key, meeple });
-            console.log(`🐉 [Fix5] Builder/Cochon orphelin rendu: ${key}`);
-        });
-    }
-
-    // Broadcast état dragon (les invités retirent aussi les meeples mangés)
-    _broadcastDragonState(eaten.map(e => e.key));
-
-    if (!gameState.dragonPhase.active) {
-        // Phase terminée par un autre mécanisme (sécurité)
-        _onDragonPhaseEnded();
-    } else {
-        // Dans tous les cas (bloqué, épuisé, ou mouvements restants) :
-        // on attend que le joueur clique "Terminer mon tour"
-        _clearDragonCursors();
-        _updateDragonOverlay();
-        updateTurnDisplay();
-    }
-}
-
-/**
- * Fin de phase dragon — reprendre le tour normal.
- */
-function _onDragonPhaseEnded() {
-    _clearDragonCursors();
-    _updateDragonOverlay();
-
-    if (!isHost) return;
-
-    // Piocher la prochaine tuile pour le joueur qui suit le joueur déclencheur
-    if (deck.remaining() <= 0) {
-        if (gameSync) gameSync.syncTurnEnd();
-        finalScoresManager.computeAndApply(placedMeeples);
-        return;
-    }
-    if (turnManager) turnManager.endTurnRemote(false);
-    const _nextTile = _hostDrawAndSend();
-    if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
-    if (gameSync) gameSync.syncTurnEnd(false, _nextTile?.id ?? null);
-    updateTurnDisplay();
-}
-
-/**
- * [HÔTE] Avance la phase dragon au joueur suivant, ou la termine si plus de mouvements.
- * Appelé au clic "Terminer mon tour" pendant la phase dragon.
- */
-function _advanceDragonTurnHost() {
-    if (!dragonRules || !gameState.dragonPhase.active) return;
-
-    // Réinitialiser le flag undo dragon
-    if (undoManager) { undoManager.dragonMoveSnapshot = null; undoManager.dragonMovePlacedThisTurn = false; }
-
-    if (gameState.dragonPhase.movesRemaining <= 0) {
-        // Plus de mouvements — terminer la phase
-        gameState.endDragonPhase();
-        _broadcastDragonState();
-        _onDragonPhaseEnded();
-        return;
-    }
-
-    // Chercher le prochain joueur qui peut bouger.
-    // NE PAS décrémenter movesRemaining ici — seul moveDragon() le fait (déplacement physique).
-    // On parcourt au max activePlayers joueurs pour éviter une boucle infinie.
-    const activePlayers = gameState.players.filter(p =>
-        p.color !== 'spectator' && !p.disconnected && !p.kicked
-    ).length;
-
-    for (let attempts = 0; attempts < activePlayers; attempts++) {
-        gameState.advanceDragonMover();
-        const validMoves = dragonRules.getValidDragonMoves();
-        if (validMoves.length > 0) {
-            // Ce joueur peut bouger — lui donner la main
-            _broadcastDragonState();
-            _startDragonTurnUI();
-            updateTurnDisplay();
-            return;
-        }
-        // Ce joueur est bloqué — on le saute sans consommer de mouvement
-        console.log(`🐉 [Dragon] ${gameState.players[gameState.dragonPhase.moverIndex]?.name} bloqué, tour sauté`);
-    }
-
-    // Tous les joueurs sont bloqués — terminer la phase
-    gameState.endDragonPhase();
-    _broadcastDragonState();
-    _onDragonPhaseEnded();
-}
-
-// ── Rendu pion Dragon ─────────────────────────────────────────────────
-
-/**
- * Affiche le pion dragon centré sur la tuile (x, y).
- * Crée ou déplace l'élément existant.
- */
-function _renderDragonPiece(x, y) {
-    if (x == null || y == null) return;
-    const boardEl = document.getElementById('board');
-    if (!boardEl) return;
-
-    // Retirer l'ancien pion dragon s'il est sur une autre tuile
-    const existing = document.getElementById('dragon-piece');
-    if (existing) existing.remove();
-
-    // Trouver ou créer le conteneur meeple de la tuile cible
-    let container = boardEl.querySelector(`.meeple-container[data-pos="${x},${y}"]`);
-    if (!container) {
-        container = document.createElement('div');
-        container.className = 'meeple-container';
-        container.dataset.pos = `${x},${y}`;
-        container.style.gridColumn = x;
-        container.style.gridRow    = y;
-        container.style.position   = 'relative';
-        container.style.width      = '208px';
-        container.style.height     = '208px';
-        container.style.pointerEvents = 'none';
-        container.style.zIndex     = '50';
-        boardEl.appendChild(container);
-    }
-
-    const img = document.createElement('img');
-    img.id  = 'dragon-piece';
-    img.src = './assets/Meeples/Dragon.png';
-    // Position 13 = centre (row=2, col=2) → offsetX=offsetY=104px
-    img.style.position  = 'absolute';
-    img.style.left      = '104px';
-    img.style.top       = '104px';
-    img.style.transform = 'translate(-50%, -50%)';
-    // Taille depuis MeepleConfig (Dragon, plate)
-    const { width: dw, height: dh } = getMeepleSize('Dragon', 'plate');
-    img.style.width     = dw;
-    img.style.height    = dh;
-    img.style.zIndex    = '60';
-    img.style.pointerEvents = 'none';
-
-    container.appendChild(img);
-}
-
-// ── Rendu pion Fée ────────────────────────────────────────────────────
-
-/**
- * Affiche la fée décalée par rapport au meeple auquel elle est attachée.
- * @param {string} meepleKey  "x,y,position"
- */
-function _renderFairyPiece(meepleKey) {
-    _removeFairyPiece();
-    if (!meepleKey) return;
-
-    const boardEl = document.getElementById('board');
-    if (!boardEl) return;
-
-    const parts = meepleKey.split(',');
-    const mx = Number(parts[0]);
-    const my = Number(parts[1]);
-    const pos = Number(parts[2]);
-
-    // Calculer la position du meeple attaché (grille 5×5, 208px par tuile)
-    const row = Math.floor((pos - 1) / 5);
-    const col = (pos - 1) % 5;
-    const baseX = 20.8 + col * 41.6;
-    const baseY = 20.8 + row * 41.6;
-
-    // Décalage fixe : -18px horizontalement, -20px verticalement (en haut à gauche du meeple)
-    const fairyX = baseX - 18;
-    const fairyY = baseY - 20;
-
-    let container = boardEl.querySelector(`.meeple-container[data-pos="${mx},${my}"]`);
-    if (!container) {
-        container = document.createElement('div');
-        container.className = 'meeple-container';
-        container.dataset.pos = `${mx},${my}`;
-        container.style.gridColumn = mx;
-        container.style.gridRow    = my;
-        container.style.position   = 'relative';
-        container.style.width      = '208px';
-        container.style.height     = '208px';
-        container.style.pointerEvents = 'none';
-        container.style.zIndex     = '50';
-        boardEl.appendChild(container);
-    }
-
-    const img = document.createElement('img');
-    img.id  = 'fairy-piece';
-    img.src = './assets/Meeples/Fairy.png';
-    img.style.position  = 'absolute';
-    img.style.left      = `${fairyX}px`;
-    img.style.top       = `${fairyY}px`;
-    img.style.transform = 'translate(-50%, -50%)';
-    // Scale 0.55 → ~39×62px
-    img.style.width     = '39px';
-    img.style.height    = '62px';
-    img.style.zIndex    = '61';
-    img.style.pointerEvents = 'none';
-
-    container.appendChild(img);
-}
-
-function _removeFairyPiece() {
-    document.getElementById('fairy-piece')?.remove();
-}
-
-/**
- * Si la fée est attachée au meepleKey donné (qui vient d'être retiré du plateau),
- * libérer la fée : ownerId → null, meepleKey conservé pour l'affichage visuel.
- * La fée reste visible sur le plateau mais n'appartient plus à personne —
- * n'importe quel joueur pourra la récupérer via les curseurs habituels.
- * La mise à jour sera propagée aux invités via le prochain turn-ended.
- */
-function _releaseFairyIfDetached(removedKey) {
-    if (!gameState.fairyState) return;
-    if (gameState.fairyState.meepleKey !== removedKey) return;
-    gameState.fairyState.ownerId = null;
-    gameState.players.forEach(p => { p.hasFairy = false; });
-}
 
 function sendFullStateTo(targetPeerId) {
     if (!isHost || !gameSync) return;
@@ -2128,10 +1696,10 @@ function applyFullStateSync(data) {
     // Reconstruire pion dragon et fée si extension active
     if (gameConfig.tileGroups?.dragon) {
         if (gameState.dragonPos) {
-            _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+            renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
         }
         if (gameState.fairyState?.meepleKey) {
-            _renderFairyPiece(gameState.fairyState.meepleKey);
+            renderFairyPiece(gameState.fairyState.meepleKey);
         }
     }
 
@@ -2349,6 +1917,26 @@ async function startGameForInvite(fullStateData = null) {
  * Configuration commune post-démarrage
  */
 function _postStartSetup() {
+    // Initialiser DragonUI
+    initDragonUI({
+        getGameState:         () => gameState,
+        getGameConfig:        () => gameConfig,
+        getMultiplayer:       () => multiplayer,
+        getGameSync:          () => gameSync,
+        getDragonRules:       () => dragonRules,
+        getUndoManager:       () => undoManager,
+        getZoneMerger:        () => zoneMerger,
+        getPlacedMeeples:     () => placedMeeples,
+        getMeepleSelectorUI:  () => meepleSelectorUI,
+        getDeck:              () => deck,
+        getTurnManager:       () => turnManager,
+        getFinalScoresManager:() => finalScoresManager,
+        getIsHost:            () => isHost,
+        getMeepleSize,
+        onUpdateTurnDisplay:  () => updateTurnDisplay(),
+        onHostDrawAndSend:    () => _hostDrawAndSend(),
+    });
+
     // Instancier le ReconnectionManager avec les dépendances nécessaires
     reconnectionManager = new ReconnectionManager({
         multiplayer,
@@ -2958,21 +2546,21 @@ function _applyUndoLocally(undoneAction) {
         });
         // Remettre le dragon à sa position précédente
         if (gameState.dragonPos) {
-            _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+            renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
         }
         // Remettre la fée
         if (gameConfig.extensions?.fairyProtection) {
             const fs = gameState.fairyState;
-            if (fs?.meepleKey) _renderFairyPiece(fs.meepleKey);
-            else _removeFairyPiece();
+            if (fs?.meepleKey) renderFairyPiece(fs.meepleKey);
+            else removeFairyPiece();
         }
-        _updateDragonOverlay();
+        updateDragonOverlay();
         // Réafficher les curseurs dragon pour ce joueur
         if (dragonRules && gameState.dragonPhase.active) {
             const mover = gameState.players[gameState.dragonPhase.moverIndex];
             if (mover?.id === multiplayer.playerId) {
                 const validMoves = dragonRules.getValidDragonMoves();
-                _showDragonMoveCursors(validMoves);
+                showDragonMoveCursors(validMoves);
             }
         }
         eventBus.emit('score-updated');
@@ -2996,7 +2584,7 @@ function _applyUndoLocally(undoneAction) {
         );
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             const _lastTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
-            const _isVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && _tileHasVolcanoZone(_lastTile));
+            const _isVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && tileHasVolcanoZone(_lastTile));
             if (!_isVolcano) {
                 meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             }
@@ -3044,12 +2632,12 @@ function _applyUndoLocally(undoneAction) {
         // Restaurer le rendu de la fée
         if (gameConfig.extensions?.fairyProtection || gameConfig.extensions?.fairyScoreTurn || gameConfig.extensions?.fairyScoreZone) {
             const fs = gameState.fairyState;
-            if (fs?.meepleKey) _renderFairyPiece(fs.meepleKey);
-            else _removeFairyPiece();
+            if (fs?.meepleKey) renderFairyPiece(fs.meepleKey);
+            else removeFairyPiece();
         }
         if (lastPlacedTile && meepleCursorsUI && isMyTurn) {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
-            const _undoIsVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && _tileHasVolcanoZone(_undoTile));
+            const _undoIsVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && tileHasVolcanoZone(_undoTile));
             if (!_undoIsVolcano) {
                 meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             }
@@ -3127,13 +2715,13 @@ function handleRemoteUndo(undoneAction) {
             gameState.players.forEach(p => { p.hasFairy = false; });
             const fairyOwner = gameState.players.find(p => p.id === s.fairyState.ownerId);
             if (fairyOwner) fairyOwner.hasFairy = true;
-            if (s.fairyState.meepleKey) _renderFairyPiece(s.fairyState.meepleKey);
-            else _removeFairyPiece();
+            if (s.fairyState.meepleKey) renderFairyPiece(s.fairyState.meepleKey);
+            else removeFairyPiece();
         }
         if (s.dragonPos !== undefined) {
             gameState.dragonPos   = s.dragonPos;
             gameState.dragonPhase = { ...gameState.dragonPhase, ...s.dragonPhase };
-            if (gameState.dragonPos) _renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+            if (gameState.dragonPos) renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
         }
         // Restaurer l'état du portail depuis le postUndoState de l'hôte
         // (l'hôte détecte _pendingPortalTile dans poserTuileSync pour toutes les tuiles)
@@ -3209,13 +2797,13 @@ function poserTuile(x, y, tile, isFirst = false) {
     if (gameSync) gameSync.syncTilePlacement(x, y, tile, zoneMerger);
 
     // ── Extension Dragon : détecter volcano et zone dragon (avant curseurs) ──
-    const _isVolcanoTile = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && _tileHasVolcanoZone(tile));
+    const _isVolcanoTile = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && tileHasVolcanoZone(tile));
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
         if (_isVolcanoTile) {
             gameState._pendingVolcanoPos = { x, y };
             console.log('🌋 [Dragon] Volcano posé en (' + x + ',' + y + ') — migration en fin de tour');
         }
-        if (_tileHasDragonZone(tile)) {
+        if (tileHasDragonZone(tile)) {
             gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
             console.log('🐉 [Dragon] Tuile dragon posée — phase dragon en attente après meeple');
         }
@@ -3234,7 +2822,7 @@ function poserTuile(x, y, tile, isFirst = false) {
 
     // ── Extension Portail Magique : proposer de placer un meeple ailleurs ──
     const _hasPortalZone = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.portal
-        && _tileHasPortalZone(tile));
+        && tileHasPortalZone(tile));
     if (_hasPortalZone && dragonRules && isMyTurn && !undoManager?.meeplePlacedThisTurn) {
         // Trouver la zone portail et sa position sur la tuile
         const portalZoneIdx = tile.zones?.findIndex(z => z.type === 'portal');
@@ -3282,15 +2870,15 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
 
     // ── Extension Dragon : détecter volcano/dragon/portail pour les tuiles reçues du réseau ──
     if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
-        if (_tileHasVolcanoZone(tile)) {
+        if (tileHasVolcanoZone(tile)) {
             gameState._pendingVolcanoPos = { x, y };
         }
-        if (_tileHasDragonZone(tile)) {
+        if (tileHasDragonZone(tile)) {
             gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
         }
     }
     // Portail : détecter même sans dragonRules actif, pour que le postUndoState soit correct
-    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.portal && _tileHasPortalZone(tile)) {
+    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.portal && tileHasPortalZone(tile)) {
         const portalZoneIdx = tile.zones?.findIndex(z => z.type === 'portal');
         if (portalZoneIdx !== -1) {
             const rawPos = tile.zones[portalZoneIdx].meeplePosition;
@@ -3321,7 +2909,7 @@ function handleAbbeRecall(x, y, key, meeple) {
 
     // Mettre à jour placedMeeples
     delete placedMeeples[key];
-    _releaseFairyIfDetached(key);
+    releaseFairyIfDetached(key);
 
     // Rendre l'Abbé au joueur
     const player = gameState.players.find(p => p.id === meeple.playerId);
@@ -3881,7 +3469,7 @@ function _handleFairyPlacement(meepleKey) {
     if (!dragonRules) return;
 
     dragonRules.placeFairy(multiplayer.playerId, meepleKey);
-    _renderFairyPiece(meepleKey);
+    renderFairyPiece(meepleKey);
     if (undoManager) undoManager.markFairyPlaced();
 
     if (gameSync) {
@@ -4015,10 +3603,10 @@ function setupEventListeners() {
             if (!isMyDragonTurn) return; // pas notre tour dragon
             if (!undoManager?.dragonMovePlacedThisTurn) return; // n'a pas encore déplacé
 
-            _clearDragonCursors();
+            clearDragonCursors();
 
             if (isHost) {
-                _advanceDragonTurnHost();
+                advanceDragonTurnHost();
             } else {
                 // Invité → envoie dragon-end-turn-request à l'hôte
                 const hostConn = gameSync?.multiplayer?.connections?.[0];
@@ -4058,7 +3646,7 @@ function setupEventListeners() {
             const { x: vx, y: vy } = gameState._pendingVolcanoPos;
             dragonRules.onVolcanoPlaced(vx, vy);
             gameState._pendingVolcanoPos = null;
-            _broadcastDragonState();
+            broadcastDragonState();
         }
 
         // ⭐ Vérifier le bonus bâtisseur AVANT le scoring
@@ -4128,7 +3716,7 @@ function setupEventListeners() {
                         }
                         document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
                         delete placedMeeples[key];
-                        _releaseFairyIfDetached(key);
+                        releaseFairyIfDetached(key);
                     }
                 });
 
@@ -4176,8 +3764,8 @@ function setupEventListeners() {
             gameState._pendingDragonTile = null;
             const started = dragonRules.onDragonTilePlaced(playerIndex);
             if (started) {
-                _broadcastDragonState();
-                _startDragonTurnUI();
+                broadcastDragonState();
+                startDragonTurnUI();
                 return; // on ne passe pas au joueur suivant — la phase dragon prend le relais
             }
         }
@@ -4559,7 +4147,7 @@ function returnToLobby() {
     });
 
     // Nettoyer les overlays dragon/princesse
-    _clearDragonCursors();
+    clearDragonCursors();
     document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
     const dragonOverlay = document.getElementById('dragon-phase-overlay');
     if (dragonOverlay) dragonOverlay.style.display = 'none';
