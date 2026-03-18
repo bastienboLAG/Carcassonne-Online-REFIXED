@@ -166,8 +166,13 @@ eventBus.on('tile-drawn', (data) => {
     // Mettre à jour isRiverPhase : true si la tuile courante est une tuile river
     if (slotsUI) slotsUI.isRiverPhase = tuileEnMain.id.startsWith('river-');
 
-    if (tilePreviewUI) tilePreviewUI.showTile(tuileEnMain);
-    updateMobileTilePreview();
+    // Ne pas afficher la tuile dans le preview si :
+    // - on attend de repiocher après une tuile implaçable (bug 1)
+    // - c'est un message réseau d'un autre joueur et la tuile est déjà posée (bug 2)
+    const _skipPreview = waitingToRedraw
+        || (data.fromNetwork && !data.fromYourTurn && !data.fromUndo && gameState?.currentTilePlaced);
+    if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
+    if (!_skipPreview) updateMobileTilePreview();
 
     // Snapshot + reset builder : au début de notre propre tour (local ou via your-turn réseau)
     const isOwnTurnStart = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
@@ -2938,15 +2943,18 @@ function _postStartSetup() {
                 const name = data.name;
                 const allPlayerColors = ['black','red','pink','green','blue','yellow'];
 
-                // Chercher un joueur déconnecté OU actif avec le même pseudo
+                // Chercher un joueur déconnecté OU actif OU kicked avec le même pseudo
                 // (l'auto-reconnexion peut arriver avant le timeout heartbeat)
                 const disconnectedEntry = gameState.findDisconnectedByName(name);
-                const activeEntry = !disconnectedEntry
+                const kickedEntry = !disconnectedEntry
+                    ? gameState.players.find(p => p.name === name && p.kicked && p.color !== 'spectator')
+                    : null;
+                const activeEntry = !disconnectedEntry && !kickedEntry
                     ? gameState.players.find(p => p.name === name && p.id !== from)
                     : null;
                 const reconnectOldPeerId = disconnectedEntry
                     ? disconnectedEntry[0]
-                    : activeEntry?.id ?? null;
+                    : (kickedEntry?.id ?? activeEntry?.id ?? null);
 
                 const isKnown = !!reconnectOldPeerId;
 
