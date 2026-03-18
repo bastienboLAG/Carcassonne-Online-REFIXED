@@ -377,6 +377,15 @@ function loadLobbyOptions() {
     });
 }
 
+export function updateAllAvailability() {
+    _updatePigAvailability();
+    _updateMerchantsAvailability();
+    _updateInnsCthdAvailability();
+    _updateDragonAvailability();
+    const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
+    MASTER_IDS.forEach(_updateMasterCheckboxSafe);
+}
+
 // ── Initialisation ─────────────────────────────────────────────────────────
 
 const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];

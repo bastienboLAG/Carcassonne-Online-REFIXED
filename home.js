@@ -25,6 +25,7 @@ import {
     updateColorPickerVisibility,
     updateLobbyUI as _updateLobbyUI,
     loadPresets,
+    updateAllAvailability,
 } from './modules/LobbyOptions.js';
 import { TurnManager }            from './modules/game/TurnManager.js';
 import { UndoManager }            from './modules/game/UndoManager.js';
@@ -699,12 +700,10 @@ async function _doJoin(isSpectator = false) {
                     if (radio) radio.checked = true;
                 } else {
                     const checkbox = document.getElementById(data.option);
-                    if (checkbox) {
-                        checkbox.checked = data.value;
-                        // Déclencher les mises à jour de disponibilité sans broadcaster
-                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
+                    if (checkbox) checkbox.checked = data.value;
                 }
+                // Mettre à jour disponibilités et coches maîtres sans broadcaster
+                updateAllAvailability();
             }
             if (data.type === 'options-sync') {
                 // ✅ Réception de l'état complet des options
@@ -721,6 +720,7 @@ async function _doJoin(isSpectator = false) {
                     const radio = document.querySelector(`input[name="start"][value="${opts['start']}"]`);
                     if (radio) radio.checked = true;
                 }
+                updateAllAvailability();
             }
             if (data.type === 'game-starting') {
                 console.log("🎮 [INVITÉ] L'hôte démarre la partie !");
