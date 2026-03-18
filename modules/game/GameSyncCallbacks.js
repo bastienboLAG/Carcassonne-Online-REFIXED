@@ -335,6 +335,7 @@ export class GameSyncCallbacks {
             if (this.unplaceableManager) this.unplaceableManager.hideUnplaceableBadge();
             // Afficher le verso dans la preview
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
+            if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
             // Si c'est notre tour (invité actif) → modale avec repiocher, sinon info
             const isActivePlayer = activePeerId === this.gameSync?.multiplayer?.playerId;
             if (this.onUnplaceableHandled) this.onUnplaceableHandled(tileId, playerName, action, isRiver, isActivePlayer);
