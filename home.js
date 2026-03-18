@@ -195,9 +195,10 @@ eventBus.on('tile-drawn', (data) => {
     // - bug 1 : invité attend sa tuile de remplacement (waitingToRedraw) et ce tile-drawn n'est pas la sienne
     // - bug 2 : tile-drawn réseau d'un autre joueur alors que la tuile est déjà posée (déco passive)
     const _guestWaiting = waitingToRedraw && !isHost && !data.fromYourTurn;
+    const _hostWaiting  = waitingToRedraw && isHost && !data.fromYourTurn;
     const _otherPlayerTile = data.fromNetwork && !data.fromYourTurn && !data.fromUndo
         && !isMyTurn && gameState?.currentTilePlaced;
-    const _skipPreview = _guestWaiting || _otherPlayerTile;
+    const _skipPreview = _guestWaiting || _hostWaiting || _otherPlayerTile;
     if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
     if (!_skipPreview) updateMobileTilePreview();
 
