@@ -112,15 +112,13 @@ function _updateDragonAvailability() {
 function _updateMasterCheckboxSafe(masterId) {
     const master   = _id(masterId);
     if (!master) return;
-    // Compter tous les enfants (y compris disabled) pour refléter l'état réel
-    const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)];
-    // Mais ignorer ceux qui sont disabled ET non-cochés (contrainte de dépendance active)
-    const relevant = children.filter(el => !el.disabled || el.checked);
-    if (relevant.length === 0) return;
-    const checkedCount = relevant.filter(c => c.checked).length;
+    const children = [...document.querySelectorAll(`input[data-group="${masterId}"]`)]
+        .filter(el => !el.disabled);
+    if (children.length === 0) return;
+    const checkedCount = children.filter(c => c.checked).length;
     if (checkedCount === 0) {
         master.checked = false; master.indeterminate = false;
-    } else if (checkedCount === relevant.length) {
+    } else if (checkedCount === children.length) {
         master.checked = true;  master.indeterminate = false;
     } else {
         master.checked = false; master.indeterminate = true;
@@ -288,16 +286,16 @@ export function syncAllOptions() {
 // ── UI Lobby ───────────────────────────────────────────────────────────────
 
 export function updateOptionsAccess() {
-    const configInputs  = document.querySelectorAll('.home-right input');
-    const configLabels  = document.querySelectorAll('.home-right label');
     const startButton   = _id('start-game-btn');
     const restricted    = _getInLobby() && !_getIsHost();
 
-    configInputs.forEach(input => { input.disabled = restricted; });
-    configLabels.forEach(label => {
-        label.style.opacity       = restricted ? '0.5' : '1';
-        label.style.pointerEvents = restricted ? 'none' : 'auto';
-    });
+    // Bloquer les interactions invité via pointer-events sur le conteneur
+    // Ne PAS toucher .disabled pour ne pas écraser les états de dépendance
+    const homeRight = document.querySelector('.home-right');
+    if (homeRight) {
+        homeRight.style.pointerEvents = restricted ? 'none' : '';
+        homeRight.style.opacity       = restricted ? '0.7' : '';
+    }
 
     if (startButton) {
         startButton.style.pointerEvents = restricted ? 'none' : 'auto';
