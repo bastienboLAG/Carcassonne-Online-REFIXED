@@ -1831,6 +1831,8 @@ async function startGame() {
     if (scorePanelUI)     scorePanelUI.config      = gameConfig;
     attachGameSyncCallbacks();
 
+    _postStartSetup();
+
     setupEventListeners();
     setupNavigation(document.getElementById('board-container'), document.getElementById('board'));
 
@@ -1844,7 +1846,6 @@ async function startGame() {
     updateTurnDisplay();
     slotsUI.createCentralSlot();
 
-    _postStartSetup();
     console.log('✅ Initialisation hôte terminée');
 }
 
