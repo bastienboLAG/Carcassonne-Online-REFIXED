@@ -174,6 +174,12 @@ eventBus.on('tile-drawn', (data) => {
     if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
     if (!_skipPreview) updateMobileTilePreview();
 
+    // Invité : waitingToRedraw reste true jusqu'à la tuile de remplacement (fromYourTurn)
+    if (waitingToRedraw && data.fromYourTurn) {
+        waitingToRedraw = false;
+        updateTurnDisplay();
+    }
+
     // Snapshot + reset builder : au début de notre propre tour (local ou via your-turn réseau)
     const isOwnTurnStart = !data.fromUndo && (!data.fromNetwork || data.fromYourTurn);
     // Nouveau tour — effacer les pending du tour précédent
@@ -1080,6 +1086,9 @@ async function _doJoin(isSpectator = false) {
                 }
             }
             if (data.type === 'players-update') {
+                // Si le jeu est déjà initialisé (rejoindre en cours de partie),
+                // ignorer ce message — il sera traité par le handler de jeu
+                if (turnManager) return;
                 players = data.players;
                 lobbyUI.setPlayers(players);
                 const me = players.find(p => p.id === multiplayer.playerId);
@@ -4444,10 +4453,11 @@ function setupEventListeners() {
             if (isHost) {
                 const _t = _hostDrawAndSend();
                 if (_t) turnManager.receiveYourTurn(_t.id);
+                waitingToRedraw = false; // hôte : reset immédiat car il reçoit sa tuile localement
             } else {
                 if (gameSync) gameSync.syncUnplaceableRedraw();
+                // invité : waitingToRedraw reste true jusqu'à réception de tile-drawn fromYourTurn
             }
-            waitingToRedraw = false;
             updateTurnDisplay();
             return;
         }
