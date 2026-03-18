@@ -383,11 +383,26 @@ export function updateMasterCheckboxes() {
     MASTER_IDS.forEach(_updateMasterCheckboxSafe);
 }
 
+function _updateTileCount() {
+    const el = document.getElementById('tiles-count');
+    if (!el) return;
+    let total = 72; // base toujours incluse
+    if (_checked('tiles-abbot'))           total += 8;
+    if (_checked('tiles-inns-cathedrals')) total += 18;
+    if (_checked('tiles-traders-builders'))total += 24;
+    if (_checked('tiles-dragon'))          total += 29;
+    // Rivière : +12 si startType river (radio)
+    const startVal = document.querySelector('input[name="start"]:checked')?.value;
+    if (startVal === 'river') total += 12;
+    el.textContent = `(${total} tuiles)`;
+}
+
 export function updateAllAvailability() {
     _updatePigAvailability();
     _updateMerchantsAvailability();
     _updateInnsCthdAvailability();
     _updateDragonAvailability();
+    _updateTileCount();
     updateMasterCheckboxes();
 }
 
@@ -443,6 +458,14 @@ export function initLobbyOptions({ getIsHost, getInLobby, multiplayer }) {
     ).forEach(el => el.addEventListener('change', saveLobbyOptions));
     document.querySelectorAll('input[name="unplaceable"], input[name="start"]')
         .forEach(el => el.addEventListener('change', saveLobbyOptions));
+
+    // Compteur de tuiles — mis à jour à chaque changement de tuile ou de départ
+    ['tiles-abbot', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'tiles-dragon'].forEach(id => {
+        _id(id)?.addEventListener('change', _updateTileCount);
+    });
+    document.querySelectorAll('input[name="start"]')
+        .forEach(el => el.addEventListener('change', _updateTileCount));
+    _updateTileCount();
 
     // Chargement initial
     loadLobbyOptions();
