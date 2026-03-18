@@ -16,6 +16,7 @@ import { BuilderRules }          from './modules/rules/BuilderRules.js';
 import { ZoomManager }           from './modules/game/ZoomManager.js';
 import { NavigationManager }      from './modules/game/NavigationManager.js';
 import { ReconnectionManager }    from './modules/game/ReconnectionManager.js';
+import { startGameTimer, startGameTimerFrom, stopGameTimer, getElapsedSeconds } from './modules/game/GameTimer.js';
 import {
     initLobbyOptions,
     applyPreset,
@@ -121,8 +122,6 @@ let meepleDisplayUI = null;
 let unplaceableManager = null;
 let dragonRules = null;   // Extension Princesse & Dragon
 let finalScoresManager = null;
-let gameTimerInterval  = null;
-let gameTimerStart     = null;
 
 // ── Reconnexion / Pause ──────────────────────────────────────────────────────
 const PAUSE_TIMEOUT_MS = 60_000;  // 1 min (tests) → 3 min (prod)
@@ -1497,56 +1496,7 @@ eventBus.on('fairy-detached-show-targets', () => {
 // ═══════════════════════════════════════════════════════
 // DÉMARRAGE — HÔTE
 // ═══════════════════════════════════════════════════════
-function _updateTimerEls(text) {
-    ['game-timer', 'mobile-game-timer'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = text;
-    });
-}
-
-function _showTimerEls() {
-    ['game-timer', 'mobile-game-timer'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = '';
-    });
-}
-
-function startGameTimer() {
-    gameTimerStart = Date.now();
-    _showTimerEls();
-    clearInterval(gameTimerInterval);
-    gameTimerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - gameTimerStart) / 1000);
-        const h = Math.floor(elapsed / 3600);
-        const m = Math.floor((elapsed % 3600) / 60);
-        const s = elapsed % 60;
-        _updateTimerEls(h > 0
-            ? `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
-    }, 1000);
-}
-
-function startGameTimerFrom(elapsedSeconds) {
-    gameTimerStart = Date.now() - (elapsedSeconds * 1000);
-    _showTimerEls();
-    clearInterval(gameTimerInterval);
-    gameTimerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - gameTimerStart) / 1000);
-        const h = Math.floor(elapsed / 3600);
-        const m = Math.floor((elapsed % 3600) / 60);
-        const s = elapsed % 60;
-        _updateTimerEls(h > 0
-            ? `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-            : `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
-    }, 1000);
-}
-
-function stopGameTimer() {
-    clearInterval(gameTimerInterval);
-    gameTimerInterval = null;
-}
-
-// ── Pause / Reconnexion ─────────────────────────────────────────────────────
+// ── Pause / Reconnexion ─────────────────────────────────────────────────────────
 
 /**
  * Déclencher la pause (hôte uniquement)
@@ -2115,7 +2065,7 @@ function sendFullStateTo(targetPeerId) {
         tuileEnMain:  _tuilePayload,
         tuilePosee:   gameState.currentTilePlaced,
         gameConfig,
-        timerElapsed: gameTimerStart ? Math.floor((Date.now() - gameTimerStart) / 1000) : 0
+        timerElapsed: getElapsedSeconds()
     });
 }
 
