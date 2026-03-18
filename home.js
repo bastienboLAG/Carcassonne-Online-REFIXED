@@ -167,15 +167,17 @@ eventBus.on('tile-drawn', (data) => {
     if (slotsUI) slotsUI.isRiverPhase = tuileEnMain.id.startsWith('river-');
 
     // Ne pas afficher la tuile dans le preview si :
-    // - on attend de repiocher après une tuile implaçable (bug 1)
-    // - c'est un message réseau d'un autre joueur et la tuile est déjà posée (bug 2)
-    const _skipPreview = waitingToRedraw
-        || (data.fromNetwork && !data.fromYourTurn && !data.fromUndo && gameState?.currentTilePlaced);
+    // - bug 1 : invité attend sa tuile de remplacement (waitingToRedraw) et ce tile-drawn n'est pas la sienne
+    // - bug 2 : tile-drawn réseau d'un autre joueur alors que la tuile est déjà posée (déco passive)
+    const _guestWaiting = waitingToRedraw && !isHost && !data.fromYourTurn;
+    const _otherPlayerTile = data.fromNetwork && !data.fromYourTurn && !data.fromUndo
+        && !isMyTurn && gameState?.currentTilePlaced;
+    const _skipPreview = _guestWaiting || _otherPlayerTile;
     if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
     if (!_skipPreview) updateMobileTilePreview();
 
-    // Invité : waitingToRedraw reste true jusqu'à la tuile de remplacement (fromYourTurn)
-    if (waitingToRedraw && data.fromYourTurn) {
+    // Invité : quand sa tuile de remplacement arrive (fromYourTurn), remettre waitingToRedraw à false
+    if (waitingToRedraw && !isHost && data.fromYourTurn) {
         waitingToRedraw = false;
         updateTurnDisplay();
     }
@@ -4963,6 +4965,12 @@ function setupEventListeners() {
 // ═══════════════════════════════════════════════════════
 function returnToInitialLobby(message = null) {
     console.log('🔙 Retour au lobby initial...');
+
+    // Si une partie est en cours, faire d'abord le cleanup complet
+    if (turnManager) {
+        returnToLobby();
+    }
+
     _stopAutoReconnect();
     stopGameTimer();
 
