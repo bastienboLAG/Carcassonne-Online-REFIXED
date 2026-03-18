@@ -1013,7 +1013,15 @@ function attachGameSyncCallbacks() {
         onTileDestroyed:  (tileId, pName, action, count = 1) => {
             // N'incrémenter que si la tuile est détruite, pas remélangée
             if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
-            unplaceableManager.showTileDestroyedModal(tileId, pName, false, action);
+            // Si c'est notre tuile qui est remélangée (invité actif), mettre en attente de repioche
+            const isMyTileDestroyed = isMyTurn && !isHost && action === 'dragon-reshuffle';
+            if (isMyTileDestroyed) {
+                waitingToRedraw = true;
+                if (tilePreviewUI) tilePreviewUI.showBackside();
+                updateMobileTilePreview();
+                updateTurnDisplay();
+            }
+            unplaceableManager.showTileDestroyedModal(tileId, pName, isMyTileDestroyed, action);
         },
         onDeckReshuffled: (tiles, idx) => { deck.tiles = tiles; deck.currentIndex = idx; },
         onAbbeRecalled: (x, y, key, playerId, points) => {
