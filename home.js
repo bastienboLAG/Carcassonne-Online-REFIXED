@@ -32,6 +32,10 @@ import {
     afficherMessage, afficherToast, hideToast,
 } from './modules/ui/TurnUI.js';
 import {
+    initMeepleActionsUI,
+    handleAbbeRecall, countAbbePoints,
+} from './modules/ui/MeepleActionsUI.js';
+import {
     initLobbyOptions,
     applyPreset,
     saveLobbyOptions,
@@ -1977,6 +1981,22 @@ function _postStartSetup() {
         onHostDrawAndSend:    () => _hostDrawAndSend(),
     });
 
+    // Initialiser MeepleActionsUI
+    initMeepleActionsUI({
+        getGameState:          () => gameState,
+        getMultiplayer:        () => multiplayer,
+        getPlacedMeeples:      () => placedMeeples,
+        getPlateau:            () => plateau,
+        getEventBus:           () => eventBus,
+        getUndoManager:        () => undoManager,
+        getGameSync:           () => gameSync,
+        releaseFairyIfDetached,
+        hideAllCursors:        () => _hideAllCursors(),
+        setPendingAbbePoints:  (v) => { pendingAbbePoints = v; },
+        updateTurnDisplay,
+        updateMobileButtons,
+    });
+
     // Instancier le ReconnectionManager avec les dépendances nécessaires
     reconnectionManager = new ReconnectionManager({
         multiplayer,
@@ -2702,56 +2722,6 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
  * Rappeler l'Abbé depuis le plateau
  * Appelé quand le joueur clique sur l'Abbé rappelable en phase 2
  */
-function handleAbbeRecall(x, y, key, meeple) {
-    console.log('↩️ Rappel Abbé:', key);
-
-    // Calculer les points (abbaye/jardin : tuile centrale + adjacentes)
-    const points = _countAbbePoints(x, y);
-
-    // Retirer l'Abbé du plateau visuellement
-    document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-
-    // Mettre à jour placedMeeples
-    delete placedMeeples[key];
-    releaseFairyIfDetached(key);
-
-    // Rendre l'Abbé au joueur
-    const player = gameState.players.find(p => p.id === meeple.playerId);
-    if (player) {
-        player.hasAbbot = true;
-        eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
-    }
-
-    // Cacher les overlays
-    _hideAllCursors();
-
-    // Marquer dans UndoManager
-    if (undoManager) undoManager.markAbbeRecalled(x, y, key, meeple.playerId, points);
-
-    // Stocker les points à ajouter en fin de tour
-    pendingAbbePoints = { playerId: meeple.playerId, points };
-
-    // Sync réseau
-    if (gameSync) gameSync.syncAbbeRecall(x, y, key, meeple.playerId, points);
-
-    updateTurnDisplay();
-    updateMobileButtons();
-    eventBus.emit('score-updated');
-}
-
-/**
- * Compter les points d'un Abbé/Jardin à la position (x,y)
- * = 1 (tuile centrale) + nombre de tuiles adjacentes (max 8)
- */
-function _countAbbePoints(x, y) {
-    let count = 1; // la tuile elle-même
-    const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-    dirs.forEach(([dx, dy]) => {
-        if (plateau.placedTiles[`${x+dx},${y+dy}`]) count++;
-    });
-    return count;
-}
-
 // ═══════════════════════════════════════════════════════
 // MEEPLES
 // ═══════════════════════════════════════════════════════
