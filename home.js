@@ -35,7 +35,7 @@ import {
     initMeepleActionsUI,
     handleAbbeRecall, countAbbePoints,
     clearFairyCursors, hideAllCursors, showFairyTargets,
-    handleFairyPlacement, showMeepleActionCursors,
+    handleFairyPlacement,
 } from './modules/ui/MeepleActionsUI.js';
 import {
     initLobbyOptions,

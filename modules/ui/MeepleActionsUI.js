@@ -59,11 +59,6 @@ export function handleFairyPlacement(meepleKey) {
     _deps.updateTurnDisplay();
 }
 
-// placeholder — sera implémenté au morceau suivant
-export function showMeepleActionCursors() {
-    // sera remplacé au morceau 4
-}
-
 
 export function countAbbePoints(x, y) {
     let count = 1;
