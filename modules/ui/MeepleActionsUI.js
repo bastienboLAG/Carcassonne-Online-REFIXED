@@ -18,7 +18,195 @@ function _mp()            { return _deps.getMultiplayer(); }
 function _pm()            { return _deps.getPlacedMeeples(); }
 function _plateau()       { return _deps.getPlateau(); }
 
-// ── Curseurs ───────────────────────────────────────────────────────────────
+// ── Curseurs d'action meeple ───────────────────────────────────────────────
+
+export function showMeepleActionCursors() {
+    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
+
+    const gameState = _gs();
+    const multiplayer = _mp();
+    const placedMeeples = _pm();
+    const gameConfig  = _deps.getGameConfig();
+    const undoManager = _deps.getUndoManager();
+    const dragonRules = _deps.getDragonRules();
+    const gameSync    = _deps.getGameSync();
+    const isHost      = _deps.getIsHost();
+
+    if (!gameState || !_deps.getMeepleCursorsUI()) return;
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    const currentFairyKey   = gameState.fairyState?.meepleKey ?? null;
+    const pendingPrincess   = gameState._pendingPrincessTile ?? null;
+    const princessTargetSet = new Set(pendingPrincess?.targets ?? []);
+    console.log(`👸 [showMeepleActionCursors] pendingPrincess:`, pendingPrincess, '| princessTargets:', [...princessTargetSet], '| placedMeeples:', Object.keys(placedMeeples));
+
+    const actionsByKey = {};
+
+    // 1. Rappel abbé
+    if (gameConfig?.extensions?.abbot && !undoManager?.abbeRecalledThisTurn) {
+        Object.entries(placedMeeples).forEach(([key, meeple]) => {
+            if (meeple.type?.toLowerCase() !== 'abbot' || meeple.playerId !== multiplayer.playerId) return;
+            actionsByKey[key] = actionsByKey[key] ?? [];
+            actionsByKey[key].push({ type: 'abbe-recall', meeple });
+        });
+    }
+
+    // 2. Attacher la fée
+    const _fairyEnabled = dragonRules && (
+        gameConfig?.extensions?.fairyProtection
+     || gameConfig?.extensions?.fairyScoreTurn
+     || gameConfig?.extensions?.fairyScoreZone
+    );
+    if (_fairyEnabled && !undoManager?.meeplePlacedThisTurn) {
+        const fairyTargets = dragonRules.getFairyTargets(multiplayer.playerId);
+        fairyTargets.forEach(({ key, meeple }) => {
+            if (key === currentFairyKey) return;
+            actionsByKey[key] = actionsByKey[key] ?? [];
+            actionsByKey[key].push({ type: 'fairy', meeple });
+        });
+    }
+
+    // 3. Éjection princesse
+    if (pendingPrincess) {
+        princessTargetSet.forEach(key => {
+            const meeple = placedMeeples[key];
+            if (!meeple) return;
+            actionsByKey[key] = actionsByKey[key] ?? [];
+            actionsByKey[key].push({ type: 'princess', meeple });
+        });
+    }
+
+    // 4. Portail magique
+    const pendingPortal = gameState._pendingPortalTile ?? null;
+    if (pendingPortal && !undoManager?.meeplePlacedThisTurn && dragonRules) {
+        const portalKey = `${pendingPortal.x},${pendingPortal.y},${pendingPortal.position}`;
+        actionsByKey[portalKey] = actionsByKey[portalKey] ?? [];
+        actionsByKey[portalKey].push({ type: 'portal', meeple: null, isPortalZone: true });
+    }
+
+    if (Object.keys(actionsByKey).length === 0) {
+        if (pendingPrincess && princessTargetSet.size === 0) gameState._pendingPrincessTile = null;
+        gameState._pendingPortalTile = null;
+        return;
+    }
+
+    Object.entries(actionsByKey).forEach(([key, actions]) => {
+        const meeple = placedMeeples[key];
+        const isPortalEntry = actions.some(a => a.type === 'portal' && a.isPortalZone);
+        if (!meeple && !isPortalEntry) return;
+        const parts   = key.split(',');
+        const mx      = Number(parts[0]), my = Number(parts[1]), mp = Number(parts[2]);
+        const row     = Math.floor((mp - 1) / 5);
+        const col     = (mp - 1) % 5;
+        const offsetX = 20.8 + col * 41.6;
+        const offsetY = 20.8 + row * 41.6;
+
+        const overlay = document.createElement('div');
+        overlay.className        = 'meeple-action-overlay';
+        overlay.style.gridColumn = mx;
+        overlay.style.gridRow    = my;
+        overlay.style.cssText   += 'position:relative;width:208px;height:208px;pointer-events:none;z-index:101;';
+
+        const btn = document.createElement('div');
+        btn.className = 'meeple-action-cursor';
+        btn.dataset.key = key;
+        btn.style.cssText = `position:absolute;left:${offsetX}px;top:${offsetY}px;width:32px;height:32px;border-radius:50%;border:3px solid rgb(200,0,175);box-shadow:0 0 8px 2px rgba(200,0,175,0.7),inset 0 0 4px rgba(0,0,0,0.8);cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);animation:abbeRecallPulse 1.2s ease-in-out infinite;`;
+
+        const openSelector = (clientX, clientY) => {
+            const oldSel = document.getElementById('meeple-selector');
+            if (oldSel) oldSel.remove();
+
+            const selector = document.createElement('div');
+            selector.id = 'meeple-selector';
+            selector.style.cssText = `position:fixed;left:${clientX}px;top:${clientY - 80}px;transform:translateX(-50%);z-index:1000;display:flex;align-items:flex-end;gap:0;padding:2px;background:rgba(44,62,80,0.5);border-radius:8px;border:2px solid gold;box-shadow:0 4px 20px rgba(0,0,0,0.5);`;
+
+            const targetColor = meeple ? meeple.color.charAt(0).toUpperCase() + meeple.color.slice(1) : '';
+
+            actions.forEach(action => {
+                const option = document.createElement('div');
+                option.style.cssText = 'cursor:pointer;padding:4px;border-radius:5px;position:relative;';
+
+                let imgSrc, overlayEmoji, isEmoji = false;
+                if (action.type === 'abbe-recall') {
+                    const myColor = (gameState.players.find(p => p.id === multiplayer.playerId)?.color ?? 'blue');
+                    imgSrc = `./assets/Meeples/${myColor.charAt(0).toUpperCase()+myColor.slice(1)}/Abbot.png`;
+                    overlayEmoji = '↩️';
+                } else if (action.type === 'fairy') {
+                    imgSrc = `./assets/Meeples/Fairy.png`;
+                    overlayEmoji = null;
+                } else if (action.type === 'portal') {
+                    isEmoji = true;
+                } else {
+                    imgSrc = `./assets/Meeples/${targetColor}/${meeple.type}.png`;
+                    overlayEmoji = '↩️';
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'position:relative;display:inline-block;';
+
+                if (isEmoji) {
+                    const emoji = document.createElement('span');
+                    emoji.textContent = '🌌';
+                    emoji.style.cssText = 'font-size:32px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;';
+                    wrapper.appendChild(emoji);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = imgSrc; img.style.cssText = 'width:40px;height:40px;display:block;';
+                    wrapper.appendChild(img);
+                    if (overlayEmoji) {
+                        const badge = document.createElement('span');
+                        badge.textContent = overlayEmoji;
+                        badge.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;line-height:1;pointer-events:none;text-shadow:0 0 3px rgba(0,0,0,0.8);';
+                        wrapper.appendChild(badge);
+                    }
+                }
+                option.appendChild(wrapper);
+                option.onmouseenter = () => { option.style.background = 'rgba(255,215,0,0.2)'; };
+                option.onmouseleave = () => { option.style.background = 'transparent'; };
+                option.onclick = (e) => {
+                    e.stopPropagation(); selector.remove();
+                    if (action.type === 'abbe-recall') {
+                        const [ax, ay] = key.split(',').map(Number);
+                        handleAbbeRecall(ax, ay, key, meeple);
+                    } else if (action.type === 'fairy') {
+                        handleFairyPlacement(key);
+                    } else if (action.type === 'portal') {
+                        _deps.onHandlePortalActivate();
+                    } else {
+                        if (isHost) {
+                            _deps.onHandlePrincessEject(key);
+                        } else {
+                            const hostConn = gameSync?.multiplayer?.connections?.[0];
+                            if (hostConn?.open) {
+                                hostConn.send({ type: 'princess-eject-request', meepleKey: key, playerId: multiplayer.playerId });
+                            }
+                            hideAllCursors();
+                            document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
+                            gameState._pendingPrincessTile = null;
+                            gameState._pendingPortalTile = null;
+                            if (undoManager) { undoManager.meeplePlacedThisTurn = true; undoManager.lastMeeplePlaced = null; }
+                        }
+                    }
+                };
+                selector.appendChild(option);
+            });
+
+            document.body.appendChild(selector);
+            setTimeout(() => {
+                const close = (e) => { if (!selector.contains(e.target)) { selector.remove(); document.removeEventListener('click', close); } };
+                document.addEventListener('click', close);
+            }, 0);
+        };
+
+        btn.addEventListener('click',    (e) => { e.stopPropagation(); openSelector(e.clientX, e.clientY); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); openSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: false });
+
+        overlay.appendChild(btn);
+        boardEl.appendChild(overlay);
+    });
+}
+
 
 export function clearFairyCursors() {
     document.querySelectorAll('.fairy-cursor,.fairy-cursor-overlay,.meeple-action-cursor,.meeple-action-overlay').forEach(el => el.remove());
