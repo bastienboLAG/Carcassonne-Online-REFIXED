@@ -438,3 +438,82 @@ export function placeMeepleViaPortal(x, y, position, meepleType) {
     hideAllCursors();
     _deps.updateMobileButtons();
 }
+
+// ── Éjection princesse ─────────────────────────────────────────────────────
+
+export function handlePrincessEject(meepleKey) {
+    const gameState     = _gs();
+    const multiplayer   = _mp();
+    const placedMeeples = _pm();
+    const dragonRules   = _deps.getDragonRules();
+    const undoManager   = _deps.getUndoManager();
+    const gameSync      = _deps.getGameSync();
+    const zoneMerger    = _deps.getZoneMerger();
+    const eventBus      = _deps.getEventBus();
+
+    hideAllCursors();
+    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
+    gameState._pendingPrincessTile = null;
+    gameState._pendingPortalTile   = null;
+
+    if (!dragonRules) return;
+    dragonRules.executePrincess(meepleKey);
+
+    if (undoManager) {
+        undoManager.meeplePlacedThisTurn = true;
+        undoManager.lastMeeplePlaced     = null;
+    }
+
+    document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
+    const meeple = placedMeeples[meepleKey];
+    if (meeple) {
+        const player = gameState.players.find(p => p.id === meeple.playerId);
+        if (player) {
+            if (meeple.type === 'Abbot') player.hasAbbot = true;
+            else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') player.hasLargeMeeple = true;
+            else if (meeple.type === 'Builder') player.hasBuilder = true;
+            else if (meeple.type === 'Pig') player.hasPig = true;
+            else if (player.meeples < 7) player.meeples++;
+        }
+        delete placedMeeples[meepleKey];
+    }
+
+    const orphanKeys = [];
+    if (zoneMerger) {
+        for (const [key, m] of Object.entries(placedMeeples)) {
+            if (m.type !== 'Builder') continue;
+            const parts = key.split(',');
+            const bx = Number(parts[0]), by = Number(parts[1]), bp = Number(parts[2]);
+            const zoneId = zoneMerger.findMergedZoneForPosition(bx, by, bp)?.id;
+            if (zoneId == null) continue;
+            const hasNormalMeeple = Object.entries(placedMeeples).some(([k2, m2]) => {
+                if (k2 === key) return false;
+                if (m2.playerId !== m.playerId) return false;
+                if (m2.type === 'Builder' || m2.type === 'Pig') return false;
+                const [x2, y2, p2] = k2.split(',').map(Number);
+                return zoneMerger.findMergedZoneForPosition(x2, y2, p2)?.id === zoneId;
+            });
+            if (!hasNormalMeeple) orphanKeys.push(key);
+        }
+        orphanKeys.forEach(key => {
+            const m = placedMeeples[key];
+            const p = gameState.players.find(pl => pl.id === m.playerId);
+            if (p) p.hasBuilder = true;
+            delete placedMeeples[key];
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+        });
+    }
+
+    if (gameSync) {
+        gameSync.multiplayer.broadcast({
+            type: 'princess-ejected',
+            meepleKey,
+            orphanKeys,
+            playerId: multiplayer.playerId
+        });
+        gameSync.syncScoreUpdate([], [], [], zoneMerger);
+    }
+
+    eventBus.emit('meeple-count-updated', {});
+    eventBus.emit('score-updated');
+}

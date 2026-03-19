@@ -37,6 +37,7 @@ import {
     clearFairyCursors, hideAllCursors, showFairyTargets,
     handleFairyPlacement, showMeepleActionCursors,
     handlePortalActivate, placeMeepleViaPortal,
+    handlePrincessEject,
 } from './modules/ui/MeepleActionsUI.js';
 import {
     initLobbyOptions,
@@ -1403,7 +1404,7 @@ function attachGameSyncCallbacks() {
                 if (data.type === 'princess-eject-request') {
                     // L'invité demande à éjecter un meeple via la princesse
                     // L'hôte applique localement puis broadcast à tous
-                    _handlePrincessEject(data.meepleKey);
+                    handlePrincessEject(data.meepleKey);
                     return;
                 }
                 if (data.type === 'portal-meeple-request') {
@@ -2009,7 +2010,7 @@ function _postStartSetup() {
         hideAllCursors:         () => hideAllCursors(),
         setPendingAbbePoints:   (v) => { pendingAbbePoints = v; },
         onHandlePortalActivate: () => handlePortalActivate(),
-        onHandlePrincessEject:  (key) => _handlePrincessEject(key),
+        onHandlePrincessEject:  (key) => handlePrincessEject(key),
         updateTurnDisplay,
         updateMobileButtons,
     });
@@ -2830,85 +2831,6 @@ eventBus.on('network-princess-ejected', (data) => {
  * Affiche des curseurs sur tous les meeples du joueur actif
  * auxquels la fée peut s'attacher. Cliquable comme les curseurs abbé.
  */
-/**
- * Exécute l'éjection princesse d'un meeple.
- * @param {string} meepleKey
- */
-function _handlePrincessEject(meepleKey) {
-    // Nettoyer TOUS les curseurs (action + placement meeple normal)
-    hideAllCursors();
-    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
-    gameState._pendingPrincessTile = null;
-    gameState._pendingPortalTile = null;
-
-    if (!dragonRules) return;
-    dragonRules.executePrincess(meepleKey);
-
-    // L'éjection princesse est une action meeple — désactive les curseurs
-    // et permet l'undo via afterTilePlacedSnapshot (même comportement que pose de meeple)
-    if (undoManager) {
-        undoManager.meeplePlacedThisTurn = true;
-        undoManager.lastMeeplePlaced     = null; // pas de meeple DOM à retirer, juste restaurer le snapshot
-    }
-
-    // Retirer visuellement le meeple éjecté
-    document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
-    const meeple = placedMeeples[meepleKey];
-    if (meeple) {
-        const player = gameState.players.find(p => p.id === meeple.playerId);
-        if (player) {
-            if (meeple.type === 'Abbot') player.hasAbbot = true;
-            else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') player.hasLargeMeeple = true;
-            else if (meeple.type === 'Builder') player.hasBuilder = true;
-            else if (meeple.type === 'Pig') player.hasPig = true;
-            else if (player.meeples < 7) player.meeples++;
-        }
-        delete placedMeeples[meepleKey];
-    }
-
-    // Bâtisseur orphelin : si le meeple éjecté était le dernier normal dans sa zone
-    // (pas de cochon — il n'existe que dans les champs, pas les villes)
-    const orphanKeys = [];
-    if (zoneMerger) {
-        for (const [key, m] of Object.entries(placedMeeples)) {
-            if (m.type !== 'Builder') continue;
-            const parts = key.split(',');
-            const bx = Number(parts[0]), by = Number(parts[1]), bp = Number(parts[2]);
-            const zoneId = zoneMerger.findMergedZoneForPosition(bx, by, bp)?.id;
-            if (zoneId == null) continue;
-            const hasNormalMeeple = Object.entries(placedMeeples).some(([k2, m2]) => {
-                if (k2 === key) return false;
-                if (m2.playerId !== m.playerId) return false;
-                if (m2.type === 'Builder' || m2.type === 'Pig') return false;
-                const [x2, y2, p2] = k2.split(',').map(Number);
-                return zoneMerger.findMergedZoneForPosition(x2, y2, p2)?.id === zoneId;
-            });
-            if (!hasNormalMeeple) orphanKeys.push(key);
-        }
-        orphanKeys.forEach(key => {
-            const m = placedMeeples[key];
-            const p = gameState.players.find(pl => pl.id === m.playerId);
-            if (p) p.hasBuilder = true;
-            delete placedMeeples[key];
-            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-        });
-    }
-
-    // Broadcast aux invités
-    if (gameSync) {
-        gameSync.multiplayer.broadcast({
-            type: 'princess-ejected',
-            meepleKey,
-            orphanKeys,
-            playerId: multiplayer.playerId
-        });
-        gameSync.syncScoreUpdate([], [], [], zoneMerger);
-    }
-
-    eventBus.emit('meeple-count-updated', {});
-    eventBus.emit('score-updated');
-}
-
 
 
 function afficherSelecteurMeeple(x, y, position, zoneType, mouseX, mouseY) {
