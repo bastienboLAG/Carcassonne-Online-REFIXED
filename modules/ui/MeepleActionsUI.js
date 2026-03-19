@@ -18,7 +18,52 @@ function _mp()            { return _deps.getMultiplayer(); }
 function _pm()            { return _deps.getPlacedMeeples(); }
 function _plateau()       { return _deps.getPlateau(); }
 
-// ── Comptage points abbé ───────────────────────────────────────────────────
+// ── Curseurs ───────────────────────────────────────────────────────────────
+
+export function clearFairyCursors() {
+    document.querySelectorAll('.fairy-cursor,.fairy-cursor-overlay,.meeple-action-cursor,.meeple-action-overlay').forEach(el => el.remove());
+}
+
+export function hideAllCursors() {
+    _deps.getMeepleCursorsUI()?.hideCursors();
+    clearFairyCursors();
+}
+
+export function showFairyTargets() {
+    showMeepleActionCursors();
+}
+
+// ── Placement fée ──────────────────────────────────────────────────────────
+
+export function handleFairyPlacement(meepleKey) {
+    clearFairyCursors();
+    const dragonRules = _deps.getDragonRules();
+    if (!dragonRules) return;
+
+    const multiplayer = _mp();
+    dragonRules.placeFairy(multiplayer.playerId, meepleKey);
+    _deps.renderFairyPiece(meepleKey);
+    const undoManager = _deps.getUndoManager();
+    if (undoManager) undoManager.markFairyPlaced();
+
+    const gameSync = _deps.getGameSync();
+    if (gameSync) {
+        multiplayer.broadcast({
+            type: 'fairy-placed-sync',
+            ownerId:   multiplayer.playerId,
+            meepleKey,
+        });
+    }
+
+    hideAllCursors();
+    _deps.updateTurnDisplay();
+}
+
+// placeholder — sera implémenté au morceau suivant
+export function showMeepleActionCursors() {
+    // sera remplacé au morceau 4
+}
+
 
 export function countAbbePoints(x, y) {
     let count = 1;

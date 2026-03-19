@@ -34,6 +34,8 @@ import {
 import {
     initMeepleActionsUI,
     handleAbbeRecall, countAbbePoints,
+    clearFairyCursors, hideAllCursors, showFairyTargets,
+    handleFairyPlacement, showMeepleActionCursors,
 } from './modules/ui/MeepleActionsUI.js';
 import {
     initLobbyOptions,
@@ -302,7 +304,7 @@ eventBus.on('turn-ended', (data) => {
 
 // ✅ Étape 3 : echo du placement meeple invité
 eventBus.on('meeple-placed-own', (data) => {
-    _hideAllCursors();
+    hideAllCursors();
     updateMobileButtons();
     updateTurnDisplay();
 });
@@ -347,7 +349,7 @@ eventBus.on('tile-placed-own', (data) => {
         if (!_isVolcanoTileOwn) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
-        _showMeepleActionCursors();
+        showMeepleActionCursors();
     }
 });
 
@@ -1519,8 +1521,8 @@ eventBus.on('network-fairy-placed', (data) => {
 eventBus.on('fairy-detached-show-targets', () => {
     if (!isMyTurn || !gameConfig.extensions?.fairyProtection) return;
     if (undoManager?.meeplePlacedThisTurn) return;
-    _clearFairyCursors();
-    _showMeepleActionCursors();
+    clearFairyCursors();
+    showMeepleActionCursors();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -1990,8 +1992,11 @@ function _postStartSetup() {
         getEventBus:           () => eventBus,
         getUndoManager:        () => undoManager,
         getGameSync:           () => gameSync,
+        getDragonRules:        () => dragonRules,
+        getMeepleCursorsUI:    () => meepleCursorsUI,
         releaseFairyIfDetached,
-        hideAllCursors:        () => _hideAllCursors(),
+        renderFairyPiece,
+        hideAllCursors:        () => hideAllCursors(),
         setPendingAbbePoints:  (v) => { pendingAbbePoints = v; },
         updateTurnDisplay,
         updateMobileButtons,
@@ -2412,7 +2417,7 @@ function _applyUndoLocally(undoneAction) {
             if (!_isVolcano) {
                 meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             }
-            _showMeepleActionCursors();
+            showMeepleActionCursors();
         }
         eventBus.emit('score-updated');
         updateTurnDisplay();
@@ -2465,7 +2470,7 @@ function _applyUndoLocally(undoneAction) {
             if (!_undoIsVolcano) {
                 meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
             }
-            _showMeepleActionCursors();
+            showMeepleActionCursors();
         }
 
     } else if (undoneAction.type === 'tile') {
@@ -2501,7 +2506,7 @@ function _applyUndoLocally(undoneAction) {
         }
 
         if (slotsUI && firstTilePlaced) slotsUI.refreshAllSlots();
-        _hideAllCursors();
+        hideAllCursors();
     }
 }
 
@@ -2665,7 +2670,7 @@ function poserTuile(x, y, tile, isFirst = false) {
         if (!_isVolcanoTile) {
             meepleCursorsUI.showCursors(x, y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
-        _showMeepleActionCursors();
+        showMeepleActionCursors();
     }
 
     if (undoManager && isMyTurn && isHost) {
@@ -2819,7 +2824,7 @@ eventBus.on('network-princess-ejected', (data) => {
  */
 function _handlePrincessEject(meepleKey) {
     // Nettoyer TOUS les curseurs (action + placement meeple normal)
-    _hideAllCursors();
+    hideAllCursors();
     document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
     gameState._pendingPrincessTile = null;
     gameState._pendingPortalTile = null;
@@ -2892,7 +2897,7 @@ function _handlePrincessEject(meepleKey) {
     eventBus.emit('score-updated');
 }
 
-function _showMeepleActionCursors() {
+function showMeepleActionCursors() {
     document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
 
     if (!gameState || !meepleCursorsUI) return;
@@ -3032,7 +3037,7 @@ function _showMeepleActionCursors() {
                 option.onclick = (e) => {
                     e.stopPropagation(); selector.remove();
                     if (action.type === 'abbe-recall') { const [ax, ay] = key.split(',').map(Number); handleAbbeRecall(ax, ay, key, meeple); }
-                    else if (action.type === 'fairy')  { _handleFairyPlacement(key); }
+                    else if (action.type === 'fairy')  { handleFairyPlacement(key); }
                     else if (action.type === 'portal') { _handlePortalActivate(); }
                     else {
                         if (isHost) {
@@ -3042,7 +3047,7 @@ function _showMeepleActionCursors() {
                             if (hostConn?.open) {
                                 hostConn.send({ type: 'princess-eject-request', meepleKey: key, playerId: multiplayer.playerId });
                             }
-                            _hideAllCursors();
+                            hideAllCursors();
                             document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
                             gameState._pendingPrincessTile = null;
                             gameState._pendingPortalTile = null;
@@ -3079,7 +3084,7 @@ function _handlePortalActivate() {
     if (!dragonRules || !gameState._pendingPortalTile) return;
 
     // Nettoyer les curseurs actuels
-    _hideAllCursors();
+    hideAllCursors();
     document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
 
     const boardEl = document.getElementById('board');
@@ -3109,7 +3114,7 @@ function _handlePortalActivate() {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
             if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
-        _showMeepleActionCursors();
+        showMeepleActionCursors();
     };
     cancelBtn.addEventListener('click', cancelAction);
     cancelBtn.addEventListener('touchend', (e) => { e.preventDefault(); cancelAction(e); }, { passive: false });
@@ -3149,7 +3154,7 @@ function _handlePortalActivate() {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
             if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
-        _showMeepleActionCursors();
+        showMeepleActionCursors();
     }
 }
 
@@ -3191,7 +3196,7 @@ function _placeMeepleViaPortal(x, y, position, meepleType) {
             hostConn.send({ type: 'portal-meeple-request', x, y, position, meepleType, playerId: multiplayer.playerId });
         }
 
-        _hideAllCursors();
+        hideAllCursors();
         updateMobileButtons();
         return;
     }
@@ -3220,42 +3225,8 @@ function _placeMeepleViaPortal(x, y, position, meepleType) {
     }
 
     eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
-    _hideAllCursors();
+    hideAllCursors();
     updateMobileButtons();
-}
-
-function _showFairyTargets() { _showMeepleActionCursors(); }
-
-function _clearFairyCursors() {
-    document.querySelectorAll('.fairy-cursor,.fairy-cursor-overlay,.meeple-action-cursor,.meeple-action-overlay').forEach(el => el.remove());
-}
-
-function _hideAllCursors() {
-    meepleCursorsUI?.hideCursors();
-    _clearFairyCursors();
-}
-
-/**
- * Pose la fée sur le meeple désigné — appelé après validation dans le sélecteur.
- */
-function _handleFairyPlacement(meepleKey) {
-    _clearFairyCursors();
-    if (!dragonRules) return;
-
-    dragonRules.placeFairy(multiplayer.playerId, meepleKey);
-    renderFairyPiece(meepleKey);
-    if (undoManager) undoManager.markFairyPlaced();
-
-    if (gameSync) {
-        multiplayer.broadcast({
-            type: 'fairy-placed-sync',
-            ownerId:   multiplayer.playerId,
-            meepleKey,
-        });
-    }
-
-    _hideAllCursors();
-    updateTurnDisplay();
 }
 
 function afficherSelecteurMeeple(x, y, position, zoneType, mouseX, mouseY) {
@@ -3267,7 +3238,7 @@ function placerMeeple(x, y, position, meepleType) {
 
     if (gameSync && !isHost) {
         // ✅ Étape 3 : invité purement réactif — envoie request, attend echo hôte
-        _hideAllCursors();
+        hideAllCursors();
         gameSync.syncMeeplePlacementRequest(x, y, position, meepleType);
         return;
     }
@@ -3301,7 +3272,7 @@ function placerMeeple(x, y, position, meepleType) {
     if (undoManager && (isMyTurn || isHost)) {
         undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);
     }
-    _hideAllCursors();
+    hideAllCursors();
 }
 
 function incrementPlayerMeeples(playerId) {
@@ -3396,7 +3367,7 @@ function setupEventListeners() {
 
         // ✅ Étape 4 : invité purement réactif — envoie la request, attend turn-ended de l'hôte
         if (gameSync && !isHost) {
-            _hideAllCursors();
+            hideAllCursors();
             // Transmettre les points Abbé en attente à l'hôte via la request
             const _pendingAbbe = pendingAbbePoints ? { ...pendingAbbePoints } : null;
             pendingAbbePoints = null;
@@ -3523,7 +3494,7 @@ function setupEventListeners() {
         }
 
         // Nettoyer les curseurs et overlays abbé
-        _hideAllCursors();
+        hideAllCursors();
         document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
 
         // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
