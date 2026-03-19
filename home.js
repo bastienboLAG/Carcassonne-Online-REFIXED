@@ -36,6 +36,7 @@ import {
     handleAbbeRecall, countAbbePoints,
     clearFairyCursors, hideAllCursors, showFairyTargets,
     handleFairyPlacement, showMeepleActionCursors,
+    handlePortalActivate, placeMeepleViaPortal,
 } from './modules/ui/MeepleActionsUI.js';
 import {
     initLobbyOptions,
@@ -1985,22 +1986,29 @@ function _postStartSetup() {
 
     // Initialiser MeepleActionsUI
     initMeepleActionsUI({
-        getGameState:          () => gameState,
-        getMultiplayer:        () => multiplayer,
-        getPlacedMeeples:      () => placedMeeples,
-        getPlateau:            () => plateau,
-        getGameConfig:         () => gameConfig,
-        getEventBus:           () => eventBus,
-        getUndoManager:        () => undoManager,
-        getGameSync:           () => gameSync,
-        getDragonRules:        () => dragonRules,
-        getMeepleCursorsUI:    () => meepleCursorsUI,
-        getIsHost:             () => isHost,
+        getGameState:           () => gameState,
+        getMultiplayer:         () => multiplayer,
+        getPlacedMeeples:       () => placedMeeples,
+        getPlateau:             () => plateau,
+        getGameConfig:          () => gameConfig,
+        getEventBus:            () => eventBus,
+        getUndoManager:         () => undoManager,
+        getGameSync:            () => gameSync,
+        getDragonRules:         () => dragonRules,
+        getMeepleCursorsUI:     () => meepleCursorsUI,
+        getMeepleSelectorUI:    () => meepleSelectorUI,
+        getMeepleDisplayUI:     () => meepleDisplayUI,
+        getScorePanelUI:        () => scorePanelUI,
+        getMeeplePlacement:     () => meeplePlacement,
+        getZoneMerger:          () => zoneMerger,
+        getLastPlacedTile:      () => lastPlacedTile,
+        getIsHost:              () => isHost,
+        afficherSelecteurMeeple,
         releaseFairyIfDetached,
         renderFairyPiece,
-        hideAllCursors:        () => hideAllCursors(),
-        setPendingAbbePoints:  (v) => { pendingAbbePoints = v; },
-        onHandlePortalActivate: () => _handlePortalActivate(),
+        hideAllCursors:         () => hideAllCursors(),
+        setPendingAbbePoints:   (v) => { pendingAbbePoints = v; },
+        onHandlePortalActivate: () => handlePortalActivate(),
         onHandlePrincessEject:  (key) => _handlePrincessEject(key),
         updateTurnDisplay,
         updateMobileButtons,
@@ -2902,158 +2910,6 @@ function _handlePrincessEject(meepleKey) {
 }
 
 
-/**
- * Active le portail magique : affiche les curseurs sur toutes les zones valides du plateau.
- * Le curseur portail devient un ✕ rouge pour annuler.
- */
-function _handlePortalActivate() {
-    if (!dragonRules || !gameState._pendingPortalTile) return;
-
-    // Nettoyer les curseurs actuels
-    hideAllCursors();
-    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
-
-    const boardEl = document.getElementById('board');
-    if (!boardEl) return;
-
-    const targets = dragonRules.getPortalTargets(zoneMerger, plateau.placedTiles);
-    const pendingPortal = gameState._pendingPortalTile;
-
-    // Curseur ✕ rouge sur la zone portail pour annuler
-    const { x: px, y: py, position: ppos } = pendingPortal;
-    const cancelOverlay = document.createElement('div');
-    cancelOverlay.className = 'meeple-action-overlay portal-cancel-overlay';
-    cancelOverlay.style.cssText = `position:relative;width:208px;height:208px;pointer-events:none;z-index:102;grid-column:${px};grid-row:${py};`;
-    const prow = Math.floor((ppos - 1) / 5);
-    const pcol = (ppos - 1) % 5;
-    const cancelBtn = document.createElement('div');
-    cancelBtn.className = 'meeple-action-cursor portal-cancel-btn';
-    cancelBtn.style.cssText = `position:absolute;left:${20.8 + pcol * 41.6}px;top:${20.8 + prow * 41.6}px;width:32px;height:32px;border-radius:50%;border:3px solid #e74c3c;box-shadow:0 0 8px 2px rgba(231,76,60,0.7);background:rgba(231,76,60,0.2);cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:16px;color:white;font-weight:bold;z-index:102;`;
-    cancelBtn.textContent = '✕';
-    cancelBtn.title = 'Annuler le portail';
-    const cancelAction = (e) => {
-        e.stopPropagation();
-        // Nettoyer les curseurs portail
-        document.querySelectorAll('.portal-target-overlay, .portal-cancel-overlay').forEach(el => el.remove());
-        // Restaurer les curseurs normaux
-        if (lastPlacedTile && meepleCursorsUI) {
-            const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
-            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
-        }
-        showMeepleActionCursors();
-    };
-    cancelBtn.addEventListener('click', cancelAction);
-    cancelBtn.addEventListener('touchend', (e) => { e.preventDefault(); cancelAction(e); }, { passive: false });
-    cancelOverlay.appendChild(cancelBtn);
-    boardEl.appendChild(cancelOverlay);
-
-    // Curseurs sur toutes les zones valides du plateau
-    targets.forEach(({ x, y, position, zoneType }) => {
-        const overlay = document.createElement('div');
-        overlay.className = 'meeple-action-overlay portal-target-overlay';
-        overlay.style.cssText = `position:relative;width:208px;height:208px;pointer-events:none;z-index:101;grid-column:${x};grid-row:${y};`;
-
-        const row = Math.floor((position - 1) / 5);
-        const col = (position - 1) % 5;
-        const btn = document.createElement('div');
-        btn.className = 'meeple-action-cursor';
-        btn.style.cssText = `position:absolute;left:${20.8 + col * 41.6}px;top:${20.8 + row * 41.6}px;width:32px;height:32px;border-radius:50%;border:3px solid #8e44ad;box-shadow:0 0 8px 2px rgba(142,68,173,0.7),inset 0 0 4px rgba(0,0,0,0.8);cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);z-index:101;`;
-
-        const openPortalSelector = (clientX, clientY) => {
-            document.getElementById('meeple-selector')?.remove();
-            // Sélecteur meeple standard sans Bâtisseur/Cochon
-            meepleSelectorUI.showPortal(x, y, position, zoneType, clientX, clientY, (sx, sy, spos, meepleType) => {
-                document.querySelectorAll('.portal-target-overlay, .portal-cancel-overlay').forEach(el => el.remove());
-                _placeMeepleViaPortal(sx, sy, spos, meepleType);
-            });
-        };
-
-        btn.addEventListener('click',    (e) => { e.stopPropagation(); openPortalSelector(e.clientX, e.clientY); });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); openPortalSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: false });
-        overlay.appendChild(btn);
-        boardEl.appendChild(overlay);
-    });
-
-    if (targets.length === 0) {
-        // Restaurer les curseurs normaux
-        if (lastPlacedTile && meepleCursorsUI) {
-            const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
-            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
-        }
-        showMeepleActionCursors();
-    }
-}
-
-/**
- * Place un meeple via le portail magique (hôte ou invité).
- */
-function _placeMeepleViaPortal(x, y, position, meepleType) {
-    gameState._pendingPortalTile = null;
-
-    const player = gameState.players.find(p => p.id === multiplayer.playerId);
-    if (!player) return;
-
-    const playerColor = player.color.charAt(0).toUpperCase() + player.color.slice(1);
-    const meepleKey = `${x},${y},${position}`;
-
-    if (gameSync && !isHost) {
-        // Invité : appliquer localement immédiatement (le broadcast de l'hôte
-        // est filtré pour l'émetteur dans GameSync, donc l'invité doit s'appliquer lui-même)
-        placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
-
-        // Mettre à jour les compteurs locaux
-        if (meepleType === 'Abbot')       { player.hasAbbot = false; }
-        else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
-        else                              { if (player.meeples > 0) player.meeples--; }
-
-        // Affichage visuel
-        if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
-
-        if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
-
-        // Mettre à jour l'affichage local uniquement (pas de broadcast —
-        // l'hôte gère son propre state via portal-meeple-request et synchronisera en fin de tour)
-        if (scorePanelUI) scorePanelUI.updateMobile();
-        eventBus.emit('score-updated');
-
-        // Envoyer la requête à l'hôte pour validation et broadcast aux autres
-        const hostConn = gameSync?.multiplayer?.connections?.[0];
-        if (hostConn?.open) {
-            hostConn.send({ type: 'portal-meeple-request', x, y, position, meepleType, playerId: multiplayer.playerId });
-        }
-
-        hideAllCursors();
-        updateMobileButtons();
-        return;
-    }
-
-    // Hôte/solo : placer directement
-    const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
-    if (!success) return;
-
-    // Mettre à jour les flags spéciaux (Abbot, Large, etc.) non gérés par MeeplePlacement
-    if (meepleType === 'Abbot')       { player.hasAbbot = false; }
-    else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
-    // meeple normal : déjà décrémenté par MeeplePlacement.placeMeeple — ne pas décrémenter ici
-
-    placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
-
-    if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
-
-    // Broadcast
-    if (gameSync) {
-        gameSync.multiplayer.broadcast({
-            type: 'portal-meeple-placed',
-            x, y, position, meepleType,
-            playerId: multiplayer.playerId,
-            color: playerColor
-        });
-    }
-
-    eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
-    hideAllCursors();
-    updateMobileButtons();
-}
 
 function afficherSelecteurMeeple(x, y, position, zoneType, mouseX, mouseY) {
     meepleSelectorUI.show(x, y, position, zoneType, mouseX, mouseY, placerMeeple);

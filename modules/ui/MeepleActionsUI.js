@@ -299,3 +299,142 @@ export function handleAbbeRecall(x, y, key, meeple) {
     _deps.updateMobileButtons();
     eventBus.emit('score-updated');
 }
+
+// ── Portail magique ────────────────────────────────────────────────────────
+
+export function handlePortalActivate() {
+    const gameState   = _gs();
+    const dragonRules = _deps.getDragonRules();
+    if (!dragonRules || !gameState._pendingPortalTile) return;
+
+    hideAllCursors();
+    document.querySelectorAll('.meeple-action-cursor, .meeple-action-overlay').forEach(el => el.remove());
+
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+
+    const plateau       = _plateau();
+    const placedMeeples = _pm();
+    const targets       = dragonRules.getPortalTargets(_deps.getZoneMerger(), plateau.placedTiles);
+    const pendingPortal = gameState._pendingPortalTile;
+    const meepleCursorsUI  = _deps.getMeepleCursorsUI();
+    const meepleSelectorUI = _deps.getMeepleSelectorUI();
+
+    const { x: px, y: py, position: ppos } = pendingPortal;
+    const cancelOverlay = document.createElement('div');
+    cancelOverlay.className = 'meeple-action-overlay portal-cancel-overlay';
+    cancelOverlay.style.cssText = `position:relative;width:208px;height:208px;pointer-events:none;z-index:102;grid-column:${px};grid-row:${py};`;
+    const prow = Math.floor((ppos - 1) / 5);
+    const pcol = (ppos - 1) % 5;
+    const cancelBtn = document.createElement('div');
+    cancelBtn.className = 'meeple-action-cursor portal-cancel-btn';
+    cancelBtn.style.cssText = `position:absolute;left:${20.8 + pcol * 41.6}px;top:${20.8 + prow * 41.6}px;width:32px;height:32px;border-radius:50%;border:3px solid #e74c3c;box-shadow:0 0 8px 2px rgba(231,76,60,0.7);background:rgba(231,76,60,0.2);cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:16px;color:white;font-weight:bold;z-index:102;`;
+    cancelBtn.textContent = '✕';
+    cancelBtn.title = 'Annuler le portail';
+    const cancelAction = (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.portal-target-overlay, .portal-cancel-overlay').forEach(el => el.remove());
+        const lastPlacedTile = _deps.getLastPlacedTile();
+        if (lastPlacedTile && meepleCursorsUI) {
+            const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, _deps.afficherSelecteurMeeple);
+        }
+        showMeepleActionCursors();
+    };
+    cancelBtn.addEventListener('click', cancelAction);
+    cancelBtn.addEventListener('touchend', (e) => { e.preventDefault(); cancelAction(e); }, { passive: false });
+    cancelOverlay.appendChild(cancelBtn);
+    boardEl.appendChild(cancelOverlay);
+
+    targets.forEach(({ x, y, position, zoneType }) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'meeple-action-overlay portal-target-overlay';
+        overlay.style.cssText = `position:relative;width:208px;height:208px;pointer-events:none;z-index:101;grid-column:${x};grid-row:${y};`;
+        const row = Math.floor((position - 1) / 5);
+        const col = (position - 1) % 5;
+        const btn = document.createElement('div');
+        btn.className = 'meeple-action-cursor';
+        btn.style.cssText = `position:absolute;left:${20.8 + col * 41.6}px;top:${20.8 + row * 41.6}px;width:32px;height:32px;border-radius:50%;border:3px solid #8e44ad;box-shadow:0 0 8px 2px rgba(142,68,173,0.7),inset 0 0 4px rgba(0,0,0,0.8);cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);z-index:101;`;
+        const openPortalSelector = (clientX, clientY) => {
+            document.getElementById('meeple-selector')?.remove();
+            meepleSelectorUI.showPortal(x, y, position, zoneType, clientX, clientY, (sx, sy, spos, meepleType) => {
+                document.querySelectorAll('.portal-target-overlay, .portal-cancel-overlay').forEach(el => el.remove());
+                placeMeepleViaPortal(sx, sy, spos, meepleType);
+            });
+        };
+        btn.addEventListener('click',    (e) => { e.stopPropagation(); openPortalSelector(e.clientX, e.clientY); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); openPortalSelector(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: false });
+        overlay.appendChild(btn);
+        boardEl.appendChild(overlay);
+    });
+
+    if (targets.length === 0) {
+        const lastPlacedTile = _deps.getLastPlacedTile();
+        if (lastPlacedTile && meepleCursorsUI) {
+            const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, _deps.afficherSelecteurMeeple);
+        }
+        showMeepleActionCursors();
+    }
+}
+
+export function placeMeepleViaPortal(x, y, position, meepleType) {
+    const gameState     = _gs();
+    const multiplayer   = _mp();
+    const placedMeeples = _pm();
+    const gameSync      = _deps.getGameSync();
+    const undoManager   = _deps.getUndoManager();
+    const eventBus      = _deps.getEventBus();
+    const isHost        = _deps.getIsHost();
+
+    gameState._pendingPortalTile = null;
+
+    const player = gameState.players.find(p => p.id === multiplayer.playerId);
+    if (!player) return;
+
+    const playerColor = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+    const meepleKey = `${x},${y},${position}`;
+
+    if (gameSync && !isHost) {
+        placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
+        if (meepleType === 'Abbot')       { player.hasAbbot = false; }
+        else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
+        else                              { if (player.meeples > 0) player.meeples--; }
+        const meepleDisplayUI = _deps.getMeepleDisplayUI();
+        if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
+        if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
+        const scorePanelUI = _deps.getScorePanelUI();
+        if (scorePanelUI) scorePanelUI.updateMobile();
+        eventBus.emit('score-updated');
+        const hostConn = gameSync?.multiplayer?.connections?.[0];
+        if (hostConn?.open) {
+            hostConn.send({ type: 'portal-meeple-request', x, y, position, meepleType, playerId: multiplayer.playerId });
+        }
+        hideAllCursors();
+        _deps.updateMobileButtons();
+        return;
+    }
+
+    const meeplePlacement = _deps.getMeeplePlacement();
+    const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
+    if (!success) return;
+
+    if (meepleType === 'Abbot')       { player.hasAbbot = false; }
+    else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
+
+    placedMeeples[meepleKey] = { type: meepleType, color: playerColor, playerId: multiplayer.playerId };
+    if (undoManager) undoManager.markMeeplePlaced(x, y, position, meepleKey);
+
+    if (gameSync) {
+        gameSync.multiplayer.broadcast({
+            type: 'portal-meeple-placed',
+            x, y, position, meepleType,
+            playerId: multiplayer.playerId,
+            color: playerColor
+        });
+    }
+
+    eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    hideAllCursors();
+    _deps.updateMobileButtons();
+}
