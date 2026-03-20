@@ -2240,7 +2240,7 @@ function _postStartSetup() {
                             existingByIdentity.kicked = false;
                             // Si c'est nous, corriger multiplayer.playerId immédiatement
                             if (!isHost && p.name === playerName && p.color === playerColor
-                                    && p.id !== multiplayer.playerId) {
+                                    && p.id !== multiplayer.playerId && !p.kicked) {
                                 console.log('🔧 [players-update] Correction playerId:', multiplayer.playerId, '→', p.id);
                                 multiplayer.playerId = p.id;
                                 if (turnManager) turnManager.updateTurnState();

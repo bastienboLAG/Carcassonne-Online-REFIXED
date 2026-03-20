@@ -392,12 +392,15 @@ export class ReconnectionManager {
         const playerName  = d.getPlayerName();
         const playerColor = d.getPlayerColor();
         if (!this._isHost && playerName) {
-            let meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor && p.color !== 'spectator');
-            if (!meInState) meInState = gameState.players.find(p => p.name === playerName && p.color !== 'spectator');
+            // Exclure les fantômes kicked — sinon le retour en spectateur corrompt multiplayer.playerId
+            let meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor && p.color !== 'spectator' && !p.kicked);
+            if (!meInState) meInState = gameState.players.find(p => p.name === playerName && p.color !== 'spectator' && !p.kicked);
+            // Cas retour en spectateur : chercher l'entrée spec
+            if (!meInState) meInState = gameState.players.find(p => p.name === playerName && p.color === 'spectator');
             if (meInState && meInState.id !== this.multiplayer.playerId) {
                 console.log('🔧 [SYNC] Correction playerId dans gameState:', meInState.id, '→', this.multiplayer.playerId);
                 meInState.id = this.multiplayer.playerId;
-                d.setPlayerColor(meInState.color);
+                d.setPlayerColor(meInState.color); // met à jour playerColor ('spectator' si applicable)
             }
         }
 
