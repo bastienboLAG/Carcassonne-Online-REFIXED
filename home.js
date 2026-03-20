@@ -3064,6 +3064,10 @@ function returnToLobby() {
     lobbyUI.setPlayers(players);
     updateLobbyUI();
 
+    // Synchroniser le sélecteur de couleur avec playerColor actuel
+    // (peut être 'spectator' si le joueur revenait en spec depuis la partie)
+    if (!isHost) lobbyUI.selectColor(playerColor);
+
     console.log('✅ Retour au lobby terminé');
 }
 

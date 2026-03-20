@@ -234,6 +234,19 @@ export class LobbyUI {
     }
 
     /**
+     * Sélectionner visuellement une couleur dans le sélecteur.
+     * Utilisé au retour lobby pour refléter la couleur actuelle du joueur.
+     */
+    selectColor(color) {
+        const opt = document.querySelector(`.color-option[data-color="${color}"]`);
+        if (!opt) return;
+        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        const input = opt.querySelector('input');
+        if (input) input.checked = true;
+    }
+
+    /**
      * Ajouter un joueur
      */
     addPlayer(player) {
