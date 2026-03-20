@@ -206,7 +206,7 @@ eventBus.on('tile-drawn', (data) => {
     const _guestWaiting = waitingToRedraw && !isHost && !data.fromYourTurn;
     const _hostWaiting  = waitingToRedraw && isHost && !data.fromYourTurn;
     const _otherPlayerTile = data.fromNetwork && !data.fromYourTurn && !data.fromUndo
-        && !isMyTurn && gameState?.currentTilePlaced;
+        && !isMyTurn && gameState?.currentTilePlaced && !_isSpectator();
     const _skipPreview = _guestWaiting || _hostWaiting || _otherPlayerTile;
     if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
     if (!_skipPreview) updateMobileTilePreview();
