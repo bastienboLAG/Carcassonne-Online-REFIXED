@@ -133,4 +133,151 @@ export class TilePlacement {
         this.firstTilePlaced = false;
         this.lastPlacedTile = null;
     }
+
+    /**
+     * Injecter les dépendances visuelles/contextuelles nécessaires à handlePlace/handlePlaceSync.
+     * Appelé une fois après instanciation depuis home.js.
+     */
+    initHandlers(deps) {
+        this._deps = deps;
+    }
+
+    /**
+     * Point d'entrée pour poser une tuile (hôte, invité, solo).
+     * Anciennement poserTuile() dans home.js.
+     */
+    handlePlace(x, y, tile, isFirst = false) {
+        console.log('🎯 poserTuile appelé:', { x, y, tile, isFirst });
+        const d = this._deps;
+
+        if (d.getGameSync() && !d.getIsHost()) {
+            // Invité purement réactif — envoie une request, attend le broadcast hôte
+            document.querySelectorAll('.slot').forEach(s => s.remove());
+            d.getTilePreviewUI()?.showBackside();
+            d.setTuileEnMain(null);
+            d.updateMobileTilePreview();
+            d.updateMobileButtons();
+            d.updateTurnDisplay();
+            d.getGameSync().syncTilePlacementRequest(x, y, tile);
+            return;
+        }
+
+        // Hôte ou solo : applique localement
+        const success = this.placeTile(x, y, tile, { isFirst });
+        if (!success) return;
+
+        d.setTuilePosee(true);
+        d.setFirstTilePlaced(true);
+        d.setLastPlacedTile({ x, y });
+        d.getGameState().currentTilePlaced = true;
+        d.setCurrentTileForPlayer(null);
+
+        d.getUnplaceableManager()?.resetSeenImplacable();
+
+        document.querySelectorAll('.slot').forEach(s => s.remove());
+        d.getTilePreviewUI()?.showBackside();
+        d.updateMobileButtons();
+        d.updateTurnDisplay();
+
+        if (d.getGameSync()) d.getGameSync().syncTilePlacement(x, y, tile, d.getZoneMerger());
+
+        const gameConfig  = d.getGameConfig();
+        const dragonRules = d.getDragonRules();
+        const gameState   = d.getGameState();
+        const zoneMerger  = d.getZoneMerger();
+
+        // Extension Dragon : détecter volcano et zone dragon
+        const _isVolcanoTile = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && d.tileHasVolcanoZone(tile));
+        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
+            if (_isVolcanoTile) {
+                gameState._pendingVolcanoPos = { x, y };
+            }
+            if (d.tileHasDragonZone(tile)) {
+                gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
+            }
+        }
+
+        // Extension Princesse
+        const _hasPrincessZone = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.princess
+            && tile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess')));
+        if (_hasPrincessZone && dragonRules && d.getIsMyTurn()) {
+            const targets = dragonRules.getPrincessTargets(x, y, tile, d.getMultiplayer().playerId, zoneMerger);
+            if (targets.length > 0) {
+                gameState._pendingPrincessTile = { x, y, targets };
+            }
+        }
+
+        // Extension Portail Magique
+        const _hasPortalZone = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.portal
+            && d.tileHasPortalZone(tile));
+        const undoManager = d.getUndoManager();
+        if (_hasPortalZone && dragonRules && d.getIsMyTurn() && !undoManager?.meeplePlacedThisTurn) {
+            const portalZoneIdx = tile.zones?.findIndex(z => z.type === 'portal');
+            if (portalZoneIdx !== -1) {
+                const rawPos = tile.zones[portalZoneIdx].meeplePosition;
+                if (rawPos != null) {
+                    const rotatedPos = zoneMerger ? zoneMerger._rotatePosition(rawPos, tile.rotation) : Number(rawPos);
+                    gameState._pendingPortalTile = { x, y, zoneIndex: portalZoneIdx, position: rotatedPos };
+                }
+            }
+        }
+
+        // Afficher curseurs meeple
+        const meepleCursorsUI = d.getMeepleCursorsUI();
+        if (d.getIsMyTurn() && d.getGameSync() && meepleCursorsUI && !undoManager?.abbeRecalledThisTurn) {
+            if (!_isVolcanoTile) {
+                meepleCursorsUI.showCursors(x, y, gameState, d.getPlacedMeeples(), d.afficherSelecteurMeeple);
+            }
+            d.showMeepleActionCursors();
+        }
+
+        if (undoManager && d.getIsMyTurn() && d.getIsHost()) {
+            undoManager.saveAfterTilePlaced(x, y, tile, d.getPlacedMeeples());
+        }
+
+        d.setTuileEnMain(null);
+        d.updateMobileTilePreview();
+        d.updateTurnDisplay();
+    }
+
+    /**
+     * Appliquer un placement reçu du réseau (broadcast hôte → invités).
+     * Anciennement poserTuileSync() dans home.js.
+     */
+    handlePlaceSync(x, y, tile, extraOptions = {}) {
+        console.log('🔄 poserTuileSync appelé:', { x, y, tile });
+        const d       = this._deps;
+        const isFirst = !d.getFirstTilePlaced();
+
+        d.setTuileEnMain(null);
+        d.updateMobileTilePreview();
+
+        this.placeTile(x, y, tile, { isFirst, skipSync: true, ...extraOptions });
+
+        if (!d.getFirstTilePlaced()) d.setFirstTilePlaced(true);
+        d.setTuilePosee(true);
+        d.setLastPlacedTile({ x, y });
+
+        const gameConfig  = d.getGameConfig();
+        const dragonRules = d.getDragonRules();
+        const gameState   = d.getGameState();
+        const zoneMerger  = d.getZoneMerger();
+
+        // Extension Dragon
+        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules) {
+            if (d.tileHasVolcanoZone(tile)) gameState._pendingVolcanoPos = { x, y };
+            if (d.tileHasDragonZone(tile))  gameState._pendingDragonTile = { x, y, playerIndex: gameState.currentPlayerIndex };
+        }
+        // Portail (même sans dragonRules actif, pour que le postUndoState soit correct)
+        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.portal && d.tileHasPortalZone(tile)) {
+            const portalZoneIdx = tile.zones?.findIndex(z => z.type === 'portal');
+            if (portalZoneIdx !== -1) {
+                const rawPos = tile.zones[portalZoneIdx].meeplePosition;
+                if (rawPos != null) {
+                    const rotatedPos = zoneMerger ? zoneMerger._rotatePosition(rawPos, tile.rotation) : Number(rawPos);
+                    gameState._pendingPortalTile = { x, y, zoneIndex: portalZoneIdx, position: rotatedPos };
+                }
+            }
+        }
+    }
 }
