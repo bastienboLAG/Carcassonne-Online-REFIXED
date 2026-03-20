@@ -351,7 +351,8 @@ export class ReconnectionManager {
         const boardEl = document.getElementById('board');
         if (boardEl) boardEl.querySelectorAll('.tile').forEach(el => el.remove());
 
-        plateau.placedTiles = {};
+        // Vider en place pour préserver les références externes (ex: DragonRules.plateau)
+        Object.keys(plateau.placedTiles).forEach(k => delete plateau.placedTiles[k]);
         for (const [key, tileData] of Object.entries(data.plateau)) {
             const [tx, ty] = key.split(',').map(Number);
             const srcData  = data.deck.tiles.find(t => t.id === tileData.id) || tileData;
