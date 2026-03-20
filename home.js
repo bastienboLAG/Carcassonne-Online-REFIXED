@@ -771,7 +771,7 @@ async function _doJoin(isSpectator = false) {
                 if (!turnManager) {
                     startGameForInvite(data);
                 } else {
-                    applyFullStateSync(data);
+                    reconnectionManager.applyFullStateSync(data);
                 }
             }
             if (data.type === 'rejoin-rejected') {
@@ -1152,7 +1152,7 @@ function attachGameSyncCallbacks() {
             if (reason === 'timeout') afficherToast('⏱ Partie reprise (joueur exclu).');
             else afficherToast('✅ Partie reprise !');
         };
-        gameSync.onFullStateSync = (data) => { applyFullStateSync(data); };
+        gameSync.onFullStateSync = (data) => { reconnectionManager.applyFullStateSync(data); };
 
         // Hôte : traitement d'une demande d'annulation d'un invité
         if (isHost) {
@@ -1701,165 +1701,6 @@ function _hostDrawAndSend() {
  * Indique si une tuile contient une zone dragon (déclencheur de phase dragon).
  */
 
-function sendFullStateTo(targetPeerId) {
-    if (!isHost || !gameSync) return;
-    const _cp = gameState.getCurrentPlayer();
-    const _isHostTurn = _cp?.id === multiplayer.playerId;
-    const _tuilePayload = _isHostTurn
-        ? (tuileEnMain ?? (gameState.currentTilePlaced ? null : currentTileForPlayer))
-        : (gameState.currentTilePlaced ? null : currentTileForPlayer);
-    console.log('📤 [SYNC] sendFullStateTo', targetPeerId, '— currentPlayer:', _cp?.name, '— tuileEnMain envoyée:', _tuilePayload?.id ?? null, '— currentTilePlaced:', gameState.currentTilePlaced);
-    gameSync.syncFullState(targetPeerId, {
-        gameState,
-        deck,
-        plateau,
-        zoneRegistry: zoneMerger.registry,
-        tileToZone:   zoneMerger.tileToZone,
-        placedMeeples,
-        tuileEnMain:  _tuilePayload,
-        tuilePosee:   gameState.currentTilePlaced,
-        gameConfig,
-        timerElapsed: getElapsedSeconds()
-    });
-}
-
-/**
- * Recevoir et appliquer un full-state-sync (côté invité/reconnecté)
- */
-function applyFullStateSync(data) {
-    // Réinitialiser l'état local avant d'appliquer le nouvel état
-    tuileEnMain = null;
-    tuilePosee  = false;
-
-    // Reconstruire gameState
-    gameState.deserialize(data.gameState);
-
-    // Reconstruire deck
-    deck.tiles        = data.deck.tiles;
-    deck.currentIndex = data.deck.currentIndex;
-    deck.totalTiles   = data.deck.totalTiles;
-
-    // Créer le slot central si pas encore fait (cas reconnexion)
-    if (slotsUI && Object.keys(data.plateau).length > 0) {
-        slotsUI.createCentralSlot();
-    }
-
-    // Vider le board visuellement avant de reconstruire (évite les doublons si reconnexion)
-    const boardEl = document.getElementById('board');
-    if (boardEl) {
-        boardEl.querySelectorAll('.tile').forEach(el => el.remove());
-    }
-
-    // Reconstruire plateau — données + affichage visuel uniquement
-    plateau.placedTiles = {};
-    for (const [key, tileData] of Object.entries(data.plateau)) {
-        const [tx, ty] = key.split(',').map(Number);
-        // Reconstruire depuis deck.tiles pour garantir l'imagePath
-        const srcData = data.deck.tiles.find(t => t.id === tileData.id) || tileData;
-        const tile = new Tile({ ...srcData, imagePath: srcData.imagePath || srcData.image });
-        tile.rotation = tileData.rotation || 0;
-        plateau.placedTiles[key] = tile;
-        if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
-    }
-    firstTilePlaced = Object.keys(data.plateau).length > 0;
-    if (slotsUI)       slotsUI.firstTilePlaced       = firstTilePlaced;
-    if (tilePlacement) tilePlacement.firstTilePlaced  = firstTilePlaced;
-
-    // Reconstruire zones
-    if (zoneMerger) {
-        zoneMerger.registry.deserialize(data.zoneRegistry);
-        zoneMerger.tileToZone = new Map(data.tileToZone);
-    }
-
-    // Reconstruire meeples — modifier en place pour préserver les références
-    Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
-    Object.assign(placedMeeples, data.placedMeeples || {});
-    for (const [key, meeple] of Object.entries(placedMeeples)) {
-        const [x, y, position] = key.split(',');
-        if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
-    }
-
-    // Reconstruire pion dragon et fée si extension active
-    if (gameConfig.tileGroups?.dragon) {
-        if (gameState.dragonPos) {
-            renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
-        }
-        if (gameState.fairyState?.meepleKey) {
-            renderFairyPiece(gameState.fairyState.meepleKey);
-        }
-    }
-
-    // Restaurer tuilePosee
-    tuilePosee = data.tuilePosee ?? false;
-    if (turnManager) turnManager.tilePlaced = tuilePosee;
-
-    // Masquer l'overlay de reconnexion si affiché
-    _hideReconnectOverlay();
-
-    // Corriger le playerId AVANT updateTurnState (sinon isMyTurn se base sur l'ancien id)
-    if (!isHost && playerName) {
-        // Si on revient après avoir été spec, playerColor peut être 'spectator' alors qu'on est joueur
-        // → chercher d'abord par nom+couleur exacte, sinon par nom seul (hors spectateur)
-        let meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor && p.color !== 'spectator');
-        if (!meInState) {
-            meInState = gameState.players.find(p => p.name === playerName && p.color !== 'spectator');
-        }
-        if (meInState && meInState.id !== multiplayer.playerId) {
-            // Le gameState reçu contient l'ancien peerId — on le met à jour avec le nouveau
-            // (et non l'inverse, sinon isMyTurn ne reconnaît pas notre nouveau peerId)
-            console.log('🔧 [SYNC] Correction playerId dans gameState:', meInState.id, '→', multiplayer.playerId);
-            meInState.id = multiplayer.playerId;
-            playerColor = meInState.color;
-        }
-    }
-
-    // Mettre à jour isMyTurn AVANT d'afficher la tuile ou le verso
-    if (turnManager) turnManager.updateTurnState();
-
-    // Tuile en main : reconstruire pour tout le monde (joueur courant, invité, spectateur)
-    console.log('📥 [SYNC] applyFullStateSync — data.tuileEnMain:', data.tuileEnMain, '— tuilePosee:', tuilePosee, '— deck prêt:', !!deck);
-    if (data.tuileEnMain && !tuilePosee) {
-        const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
-        if (td) {
-            tuileEnMain = new Tile(td);
-            tuileEnMain.rotation = data.tuileEnMain.rotation || 0;
-            eventBus.emit('tile-drawn', { tileData: tuileEnMain, fromNetwork: true });
-        }
-    }
-
-    // Afficher le preview après le prochain repaint pour garantir le rendu
-    const _tuilePosee  = tuilePosee;
-    const _isMyTurn    = turnManager?.isMyTurn;
-    const _tuileEnMain = tuileEnMain;
-    requestAnimationFrame(() => {
-        if (!tilePreviewUI) return;
-        if (_tuilePosee) {
-            tilePreviewUI.showBackside();
-        } else if (_tuileEnMain) {
-            tilePreviewUI.showTile(_tuileEnMain);
-        } else {
-            tilePreviewUI.showMessage('En attente...');
-        }
-    });
-
-    // slotsUI : pas de tuile disponible si tuile déjà posée
-    if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!tuileEnMain;
-
-    // ── Synchroniser multiplayer.playerId avec l'id présent dans le gameState reçu ──
-    // Synchroniser le timer
-    if (data.timerElapsed != null) startGameTimerFrom(data.timerElapsed);
-
-    // Mettre à jour l'affichage
-    eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
-    eventBus.emit('score-updated');
-    if (turnManager) {
-        eventBus.emit('turn-changed', {
-            isMyTurn: turnManager.isMyTurn,
-            currentPlayer: turnManager.getCurrentPlayer()
-        });
-    }
-    updateTurnDisplay();
-}
 
 async function startGame() {
     console.log('🎮 [HÔTE] Initialisation du jeu...');
@@ -1992,7 +1833,7 @@ async function startGameForInvite(fullStateData = null) {
 
     // Si on rejoint une partie en cours, appliquer l'état complet maintenant
     if (fullStateData) {
-        applyFullStateSync(fullStateData);
+        reconnectionManager.applyFullStateSync(fullStateData);
         afficherMessage('');
     } else {
         afficherMessage("En attente de l'hôte...");
@@ -2093,6 +1934,33 @@ function _postStartSetup() {
         buildPlayersForBroadcast,
         afficherToast,
         onGameSyncInit:          () => { if (gameSync) gameSync.init(); },
+    });
+    reconnectionManager.initStateHandlers({
+        getTileClass:            () => Tile,
+        getGameConfig:           () => gameConfig,
+        getDeck:                 () => deck,
+        getPlateau:              () => plateau,
+        getZoneMerger:           () => zoneMerger,
+        getPlacedMeeples:        () => placedMeeples,
+        getSlotsUI:              () => slotsUI,
+        getTilePlacement:        () => tilePlacement,
+        getMeepleDisplayUI:      () => meepleDisplayUI,
+        getTilePreviewUI:        () => tilePreviewUI,
+        getTurnManager:          () => turnManager,
+        getEventBus:             () => eventBus,
+        getPlayerName:           () => playerName,
+        getPlayerColor:          () => playerColor,
+        getTuileEnMain:          () => tuileEnMain,
+        getCurrentTileForPlayer: () => currentTileForPlayer,
+        getElapsedSeconds,
+        setTuileEnMain:          (v) => { tuileEnMain = v; },
+        setTuilePosee:           (v) => { tuilePosee = v; },
+        setFirstTilePlaced:      (v) => { firstTilePlaced = v; },
+        setPlayerColor:          (v) => { playerColor = v; },
+        renderDragonPiece,
+        renderFairyPiece,
+        startGameTimerFrom,
+        updateTurnDisplay,
     });
 
     ruleRegistry.register('base', BaseRules, gameConfig);
@@ -2258,7 +2126,7 @@ function _postStartSetup() {
                         if (gameConfig.extensions?.pig)             newP.hasPig         = true;
                     }
                     players.push({ id: from, name, color: assigned, isHost: false });
-                    sendFullStateTo(from);
+                    reconnectionManager.sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
                     eventBus.emit('score-updated');
                     if (scorePanelUI) scorePanelUI.updateMobile();
@@ -2274,7 +2142,7 @@ function _postStartSetup() {
                         heartbeatManager._connectedPeers = multiplayer._connectedPeers;
                         heartbeatManager._lastPong[from] = Date.now();
                     }
-                    sendFullStateTo(from);
+                    reconnectionManager.sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players });
                     eventBus.emit('score-updated');
                     if (scorePanelUI) scorePanelUI.updateMobile();
@@ -2311,7 +2179,7 @@ function _postStartSetup() {
                         heartbeatManager._timedOut.delete(oldPeerId);
                         delete heartbeatManager._lastPong[oldPeerId];
                     }
-                    sendFullStateTo(from);
+                    reconnectionManager.sendFullStateTo(from);
                     if (reconnectionManager?.gamePaused) resumeGame('reconnected');
                     afficherToast(`✅ ${name} s'est reconnecté !`);
                     multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
@@ -2335,7 +2203,7 @@ function _postStartSetup() {
                     if (ghostIdx !== -1) {
                         gameState.players[ghostIdx].kicked = true;
                     }
-                    sendFullStateTo(from);
+                    reconnectionManager.sendFullStateTo(from);
                     multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
                     eventBus.emit('score-updated');
                     if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }

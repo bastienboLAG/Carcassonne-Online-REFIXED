@@ -282,3 +282,159 @@ export class ReconnectionManager {
         this.hideReconnectOverlay();
     }
 }
+
+    // ── Full-state sync ──────────────────────────────────────────────────────
+
+    /**
+     * Injecter les dépendances nécessaires à sendFullStateTo / applyFullStateSync.
+     * Appelé une fois après instanciation depuis home.js.
+     */
+    initStateHandlers(deps) {
+        this._sd = deps;
+    }
+
+    /**
+     * Envoyer l'état complet de la partie à un pair (hôte → invité/reconnecté).
+     */
+    sendFullStateTo(targetPeerId) {
+        const d = this._sd;
+        if (!this._isHost || !this.gameSync) return;
+        const gameState = this._getGameState();
+        const _cp = gameState.getCurrentPlayer();
+        const _isHostTurn = _cp?.id === this.multiplayer.playerId;
+        const _tuilePayload = _isHostTurn
+            ? (d.getTuileEnMain() ?? (gameState.currentTilePlaced ? null : d.getCurrentTileForPlayer()))
+            : (gameState.currentTilePlaced ? null : d.getCurrentTileForPlayer());
+        console.log('📤 [SYNC] sendFullStateTo', targetPeerId, '— currentPlayer:', _cp?.name, '— tuileEnMain envoyée:', _tuilePayload?.id ?? null, '— currentTilePlaced:', gameState.currentTilePlaced);
+        this.gameSync.syncFullState(targetPeerId, {
+            gameState,
+            deck:          d.getDeck(),
+            plateau:       d.getPlateau(),
+            zoneRegistry:  d.getZoneMerger().registry,
+            tileToZone:    d.getZoneMerger().tileToZone,
+            placedMeeples: d.getPlacedMeeples(),
+            tuileEnMain:   _tuilePayload,
+            tuilePosee:    gameState.currentTilePlaced,
+            gameConfig:    d.getGameConfig(),
+            timerElapsed:  d.getElapsedSeconds()
+        });
+    }
+
+    /**
+     * Recevoir et appliquer un full-state-sync (côté invité/reconnecté).
+     */
+    applyFullStateSync(data) {
+        const d           = this._sd;
+        const gameState   = this._getGameState();
+        const Tile        = d.getTileClass();
+        const zoneMerger  = d.getZoneMerger();
+        const plateau     = d.getPlateau();
+        const deck        = d.getDeck();
+        const slotsUI     = d.getSlotsUI();
+        const tilePlacement   = d.getTilePlacement();
+        const meepleDisplayUI = d.getMeepleDisplayUI();
+        const tilePreviewUI   = d.getTilePreviewUI();
+        const turnManager     = d.getTurnManager();
+        const placedMeeples   = d.getPlacedMeeples();
+        const gameConfig      = d.getGameConfig();
+
+        d.setTuileEnMain(null);
+        d.setTuilePosee(false);
+
+        gameState.deserialize(data.gameState);
+
+        deck.tiles        = data.deck.tiles;
+        deck.currentIndex = data.deck.currentIndex;
+        deck.totalTiles   = data.deck.totalTiles;
+
+        if (slotsUI && Object.keys(data.plateau).length > 0) slotsUI.createCentralSlot();
+
+        const boardEl = document.getElementById('board');
+        if (boardEl) boardEl.querySelectorAll('.tile').forEach(el => el.remove());
+
+        plateau.placedTiles = {};
+        for (const [key, tileData] of Object.entries(data.plateau)) {
+            const [tx, ty] = key.split(',').map(Number);
+            const srcData  = data.deck.tiles.find(t => t.id === tileData.id) || tileData;
+            const tile     = new Tile({ ...srcData, imagePath: srcData.imagePath || srcData.image });
+            tile.rotation  = tileData.rotation || 0;
+            plateau.placedTiles[key] = tile;
+            if (tilePlacement) tilePlacement.displayTile(tx, ty, tile);
+        }
+        const firstTilePlaced = Object.keys(data.plateau).length > 0;
+        d.setFirstTilePlaced(firstTilePlaced);
+        if (slotsUI)       slotsUI.firstTilePlaced      = firstTilePlaced;
+        if (tilePlacement) tilePlacement.firstTilePlaced = firstTilePlaced;
+
+        if (zoneMerger) {
+            zoneMerger.registry.deserialize(data.zoneRegistry);
+            zoneMerger.tileToZone = new Map(data.tileToZone);
+        }
+
+        Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
+        Object.assign(placedMeeples, data.placedMeeples || {});
+        for (const [key, meeple] of Object.entries(placedMeeples)) {
+            const [x, y, position] = key.split(',');
+            if (meepleDisplayUI) meepleDisplayUI.showMeeple(Number(x), Number(y), position, meeple.type, meeple.color);
+        }
+
+        if (gameConfig.tileGroups?.dragon) {
+            if (gameState.dragonPos)             d.renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+            if (gameState.fairyState?.meepleKey) d.renderFairyPiece(gameState.fairyState.meepleKey);
+        }
+
+        const tuilePosee = data.tuilePosee ?? false;
+        d.setTuilePosee(tuilePosee);
+        if (turnManager) turnManager.tilePlaced = tuilePosee;
+
+        this.hideReconnectOverlay();
+
+        const playerName  = d.getPlayerName();
+        const playerColor = d.getPlayerColor();
+        if (!this._isHost && playerName) {
+            let meInState = gameState.players.find(p => p.name === playerName && p.color === playerColor && p.color !== 'spectator');
+            if (!meInState) meInState = gameState.players.find(p => p.name === playerName && p.color !== 'spectator');
+            if (meInState && meInState.id !== this.multiplayer.playerId) {
+                console.log('🔧 [SYNC] Correction playerId dans gameState:', meInState.id, '→', this.multiplayer.playerId);
+                meInState.id = this.multiplayer.playerId;
+                d.setPlayerColor(meInState.color);
+            }
+        }
+
+        if (turnManager) turnManager.updateTurnState();
+
+        console.log('📥 [SYNC] applyFullStateSync — data.tuileEnMain:', data.tuileEnMain, '— tuilePosee:', tuilePosee, '— deck prêt:', !!deck);
+        if (data.tuileEnMain && !tuilePosee) {
+            const td = deck.tiles.find(t => t.id === data.tuileEnMain.id);
+            if (td) {
+                const tuileEnMain = new Tile(td);
+                tuileEnMain.rotation = data.tuileEnMain.rotation || 0;
+                d.setTuileEnMain(tuileEnMain);
+                d.getEventBus().emit('tile-drawn', { tileData: tuileEnMain, fromNetwork: true });
+            }
+        }
+
+        const _tuilePosee  = tuilePosee;
+        const _tuileEnMain = d.getTuileEnMain();
+        requestAnimationFrame(() => {
+            if (!tilePreviewUI) return;
+            if (_tuilePosee)       tilePreviewUI.showBackside();
+            else if (_tuileEnMain) tilePreviewUI.showTile(_tuileEnMain);
+            else                   tilePreviewUI.showMessage('En attente...');
+        });
+
+        if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!d.getTuileEnMain();
+
+        if (data.timerElapsed != null) d.startGameTimerFrom(data.timerElapsed);
+
+        d.getEventBus().emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
+        d.getEventBus().emit('score-updated');
+        if (turnManager) {
+            d.getEventBus().emit('turn-changed', {
+                isMyTurn:      turnManager.isMyTurn,
+                currentPlayer: turnManager.getCurrentPlayer()
+            });
+        }
+        d.updateTurnDisplay();
+    }
+}
