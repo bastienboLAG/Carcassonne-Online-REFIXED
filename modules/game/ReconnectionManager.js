@@ -281,7 +281,6 @@ export class ReconnectionManager {
         this._hidePauseOverlay();
         this.hideReconnectOverlay();
     }
-}
 
     // ── Full-state sync ──────────────────────────────────────────────────────
 
