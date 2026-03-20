@@ -17,6 +17,7 @@ function _gs()            { return _deps.getGameState(); }
 function _mp()            { return _deps.getMultiplayer(); }
 function _pm()            { return _deps.getPlacedMeeples(); }
 function _plateau()       { return _deps.getPlateau(); }
+function _isMyTurn()      { return _deps.getIsMyTurn(); }
 
 // ── Curseurs d'action meeple ───────────────────────────────────────────────
 
@@ -337,7 +338,7 @@ export function handlePortalActivate() {
         const lastPlacedTile = _deps.getLastPlacedTile();
         if (lastPlacedTile && meepleCursorsUI) {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
-            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, _deps.afficherSelecteurMeeple);
+            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
         showMeepleActionCursors();
     };
@@ -372,7 +373,7 @@ export function handlePortalActivate() {
         const lastPlacedTile = _deps.getLastPlacedTile();
         if (lastPlacedTile && meepleCursorsUI) {
             const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
-            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, _deps.afficherSelecteurMeeple);
+            if (_undoTile) meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, afficherSelecteurMeeple);
         }
         showMeepleActionCursors();
     }
@@ -516,4 +517,139 @@ export function handlePrincessEject(meepleKey) {
 
     eventBus.emit('meeple-count-updated', {});
     eventBus.emit('score-updated');
+}
+
+// ── Sélecteur meeple & placement ───────────────────────────────────────────
+
+export function afficherSelecteurMeeple(x, y, position, zoneType, mouseX, mouseY) {
+    _deps.getMeepleSelectorUI().show(x, y, position, zoneType, mouseX, mouseY, placerMeeple);
+}
+
+export function placerMeeple(x, y, position, meepleType) {
+    const gameState   = _gs();
+    const multiplayer = _mp();
+    if (!gameState || !multiplayer) return;
+
+    const gameSync  = _deps.getGameSync();
+    const isHost    = _deps.getIsHost();
+
+    if (gameSync && !isHost) {
+        // ✅ Étape 3 : invité purement réactif — envoie request, attend echo hôte
+        hideAllCursors();
+        gameSync.syncMeeplePlacementRequest(x, y, position, meepleType);
+        return;
+    }
+
+    // Hôte ou solo : applique localement
+    const meeplePlacement = _deps.getMeeplePlacement();
+    const eventBus        = _deps.getEventBus();
+    const undoManager     = _deps.getUndoManager();
+
+    const success = meeplePlacement.placeMeeple(x, y, position, meepleType, multiplayer.playerId);
+    if (!success) return;
+
+    console.log('🎭 placerMeeple — type:', meepleType, '— zone:', x, y, position);
+
+    if (meepleType === 'Abbot') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasAbbot = false;
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    }
+    if (meepleType === 'Large' || meepleType === 'Large-Farmer') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasLargeMeeple = false;
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    }
+    if (meepleType === 'Builder') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasBuilder = false;
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    }
+    if (meepleType === 'Pig') {
+        const player = gameState.players.find(p => p.id === multiplayer.playerId);
+        if (player) player.hasPig = false;
+        eventBus.emit('meeple-count-updated', { playerId: multiplayer.playerId });
+    }
+
+    if (undoManager && (_isMyTurn() || isHost)) {
+        undoManager.markMeeplePlaced(x, y, position, `${x},${y},${position}`);
+    }
+    hideAllCursors();
+}
+
+// ── Listeners réseau (portail & princesse) ─────────────────────────────────
+
+export function initNetworkMeepleListeners(eventBus) {
+    // Portail Magique : réception d'un placement via portail
+    eventBus.on('network-portal-meeple-placed', (data) => {
+        // L'hôte a déjà appliqué le placement via portal-meeple-request — ignorer
+        if (_deps.getIsHost()) return;
+
+        const { x, y, position, meepleType, playerId, color } = data;
+        const key = `${x},${y},${position}`;
+        const placedMeeples = _pm();
+        placedMeeples[key] = { type: meepleType, color, playerId };
+
+        const player = _gs().players.find(p => p.id === playerId);
+        if (player) {
+            if (meepleType === 'Abbot')                                          { player.hasAbbot = false; }
+            else if (meepleType === 'Large' || meepleType === 'Large-Farmer')    { player.hasLargeMeeple = false; }
+            else                                                                  { if (player.meeples > 0) player.meeples--; }
+        }
+
+        // Rendu visuel via meeple-placed
+        eventBus.emit('meeple-placed', {
+            x, y, position, meepleType, playerColor: color, playerId,
+            key, fromNetwork: true, skipSync: true
+        });
+        eventBus.emit('meeple-count-updated', { playerId });
+    });
+
+    // Éjection princesse reçue du réseau
+    eventBus.on('network-princess-ejected', (data) => {
+        // L'hôte applique si c'est un invité qui a éjecté (pas lui-même)
+        // L'invité applique toujours (broadcast de l'hôte)
+        const isHost      = _deps.getIsHost();
+        const multiplayer = _mp();
+        if (isHost && data.playerId === multiplayer.playerId) return;
+
+        const { meepleKey, orphanKeys = [] } = data;
+        const placedMeeples = _pm();
+        const gameState     = _gs();
+        const undoManager   = _deps.getUndoManager();
+
+        // Retirer le meeple éjecté
+        document.querySelectorAll(`.meeple[data-key="${meepleKey}"]`).forEach(el => el.remove());
+        const meeple = placedMeeples[meepleKey];
+        if (meeple) {
+            const player = gameState.players.find(p => p.id === meeple.playerId);
+            if (player) {
+                if (meeple.type === 'Abbot')                                         player.hasAbbot = true;
+                else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') player.hasLargeMeeple = true;
+                else if (meeple.type === 'Builder')                                  player.hasBuilder = true;
+                else if (meeple.type === 'Pig')                                      player.hasPig = true;
+                else if (player.meeples < 7)                                         player.meeples++;
+            }
+            delete placedMeeples[meepleKey];
+        }
+
+        // Retirer les bâtisseurs orphelins
+        orphanKeys.forEach(key => {
+            const m = placedMeeples[key];
+            if (!m) return;
+            const p = gameState.players.find(pl => pl.id === m.playerId);
+            if (p) p.hasBuilder = true;
+            delete placedMeeples[key];
+            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+        });
+
+        // L'hôte met aussi à jour undoManager pour que l'undo fonctionne côté hôte
+        if (isHost && undoManager) {
+            undoManager.meeplePlacedThisTurn = true;
+            undoManager.lastMeeplePlaced     = null;
+        }
+
+        eventBus.emit('meeple-count-updated', {});
+        eventBus.emit('score-updated');
+    });
 }
