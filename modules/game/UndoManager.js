@@ -378,6 +378,267 @@ export class UndoManager {
     }
 
     /**
+     * Injecter les dépendances visuelles nécessaires à applyLocally / applyRemote.
+     * Appelé une fois après instanciation depuis home.js.
+     */
+    initVisualHandlers(deps) {
+        this._vdeps = deps;
+    }
+
+    /**
+     * Applique visuellement un undo localement (hôte ou invité).
+     * Appelé depuis le bouton undo (hôte), onUndoRequest (hôte pour invité), et applyRemote (invités).
+     */
+    applyLocally(undoneAction) {
+        const d             = this._vdeps;
+        const gameState     = this.gameState;
+        const placedMeeples = d.getPlacedMeeples();
+        const gameConfig    = d.getGameConfig();
+        const multiplayer   = d.getMultiplayer();
+        const plateau       = this.plateau;
+
+        // Cas dragon : annuler un déplacement dragon
+        if (undoneAction.type === 'dragon-move-undo') {
+            document.querySelectorAll('.meeple').forEach(el => el.remove());
+            Object.entries(placedMeeples).forEach(([key, meeple]) => {
+                const [mx, my, mp] = key.split(',').map(Number);
+                this.eventBus.emit('meeple-placed', {
+                    ...meeple, x: mx, y: my, key, position: mp,
+                    meepleType: meeple.type, playerColor: meeple.color,
+                    fromUndo: true, skipSync: true
+                });
+            });
+            if (gameState.dragonPos) {
+                d.renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+            }
+            if (gameConfig.extensions?.fairyProtection) {
+                const fs = gameState.fairyState;
+                if (fs?.meepleKey) d.renderFairyPiece(fs.meepleKey);
+                else d.removeFairyPiece();
+            }
+            d.updateDragonOverlay();
+            const dragonRules = d.getDragonRules();
+            if (dragonRules && gameState.dragonPhase.active) {
+                const mover = gameState.players[gameState.dragonPhase.moverIndex];
+                if (mover?.id === multiplayer.playerId) {
+                    d.showDragonMoveCursors(dragonRules.getValidDragonMoves());
+                }
+            }
+            this.eventBus.emit('score-updated');
+            d.updateTurnDisplay();
+            return;
+        }
+
+        if (undoneAction.type === 'abbe-recalled-undo') {
+            d.setPendingAbbePoints(null);
+            const { playerId } = undoneAction.abbe;
+            const player = gameState.players.find(p => p.id === playerId);
+            if (player) player.hasAbbot = false;
+            const abbeKey  = undoneAction.abbe.key;
+            const abbeData = placedMeeples[abbeKey];
+            if (abbeData) {
+                const [ax, ay] = abbeKey.split(',').map(Number);
+                this.eventBus.emit('meeple-placed', {
+                    ...abbeData, x: ax, y: ay, key: abbeKey,
+                    position: parseInt(abbeKey.split(',')[2]),
+                    meepleType: abbeData.type, playerColor: abbeData.color,
+                    fromUndo: true, skipSync: true
+                });
+            }
+            const gameSync = d.getGameSync();
+            if (gameSync) gameSync.syncAbbeRecallUndo(
+                undoneAction.abbe.x, undoneAction.abbe.y, abbeKey, playerId
+            );
+            const lastPlacedTile = d.getLastPlacedTile();
+            const meepleCursorsUI = d.getMeepleCursorsUI();
+            if (lastPlacedTile && meepleCursorsUI && d.getIsMyTurn()) {
+                const _lastTile  = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+                const _isVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && d.tileHasVolcanoZone(_lastTile));
+                if (!_isVolcano) {
+                    meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, d.afficherSelecteurMeeple);
+                }
+                d.showMeepleActionCursors();
+            }
+            this.eventBus.emit('score-updated');
+            d.updateTurnDisplay();
+            return;
+        }
+
+        if (undoneAction.type === 'meeple') {
+            if (undoneAction.meeple?.key) {
+                // Undo placement meeple normal : retirer le meeple DOM
+                document.querySelectorAll(`.meeple[data-key="${undoneAction.meeple.key}"]`).forEach(el => el.remove());
+            } else {
+                // Undo éjection princesse : re-rendre tous les meeples du snapshot
+                document.querySelectorAll('.meeple').forEach(el => el.remove());
+                Object.entries(placedMeeples).forEach(([key, meeple]) => {
+                    const [mx, my, mp] = key.split(',').map(Number);
+                    this.eventBus.emit('meeple-placed', {
+                        ...meeple, x: mx, y: my, key, position: mp,
+                        meepleType: meeple.type, playerColor: meeple.color,
+                        fromUndo: true, skipSync: true
+                    });
+                });
+                // Re-détecter les cibles princesse pour la tuile posée ce tour
+                const lastPlacedTile = d.getLastPlacedTile();
+                const dragonRules    = d.getDragonRules();
+                if (lastPlacedTile && gameConfig.extensions?.princess && dragonRules && this.zoneMerger) {
+                    const _undoTile = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+                    if (_undoTile) {
+                        const _hasPrincess = _undoTile.zones?.some(z => z.type === 'city' && z.features?.includes?.('princess'));
+                        if (_hasPrincess) {
+                            const targets = dragonRules.getPrincessTargets(lastPlacedTile.x, lastPlacedTile.y, _undoTile, multiplayer.playerId, this.zoneMerger);
+                            if (targets.length > 0) {
+                                gameState._pendingPrincessTile = { x: lastPlacedTile.x, y: lastPlacedTile.y, targets };
+                            }
+                        }
+                    }
+                }
+            }
+            // Restaurer _pendingPortalTile depuis le snapshot afterTilePlaced si disponible
+            if (this.afterTilePlacedSnapshot?.pendingPortalTile !== undefined) {
+                gameState._pendingPortalTile = this.afterTilePlacedSnapshot.pendingPortalTile;
+            }
+            // Restaurer le rendu de la fée
+            if (gameConfig.extensions?.fairyProtection || gameConfig.extensions?.fairyScoreTurn || gameConfig.extensions?.fairyScoreZone) {
+                const fs = gameState.fairyState;
+                if (fs?.meepleKey) d.renderFairyPiece(fs.meepleKey);
+                else d.removeFairyPiece();
+            }
+            const lastPlacedTile  = d.getLastPlacedTile();
+            const meepleCursorsUI = d.getMeepleCursorsUI();
+            if (lastPlacedTile && meepleCursorsUI && d.getIsMyTurn()) {
+                const _undoTile      = plateau.placedTiles[`${lastPlacedTile.x},${lastPlacedTile.y}`];
+                const _undoIsVolcano = !!(gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && d.tileHasVolcanoZone(_undoTile));
+                if (!_undoIsVolcano) {
+                    meepleCursorsUI.showCursors(lastPlacedTile.x, lastPlacedTile.y, gameState, placedMeeples, d.afficherSelecteurMeeple);
+                }
+                d.showMeepleActionCursors();
+            }
+
+        } else if (undoneAction.type === 'tile') {
+            d.setLastPlacedTile(undoneAction.restoredLastPlacedTile ?? null);
+            const { x, y } = undoneAction.tile;
+            let tileEl = document.querySelector(`.tile[data-pos="${x},${y}"]`);
+            if (!tileEl) {
+                tileEl = Array.from(document.querySelectorAll('.tile'))
+                    .find(el => el.style.gridColumn == x && el.style.gridRow == y);
+            }
+            if (tileEl) tileEl.remove();
+
+            d.setTuileEnMain(undoneAction.tile.tile);
+            d.setTuilePosee(false);
+
+            const slotsUI      = d.getSlotsUI();
+            const tilePlacement = d.getTilePlacement();
+            if (x === 50 && y === 50) {
+                d.setFirstTilePlaced(false);
+                if (slotsUI)        { slotsUI.firstTilePlaced = false; slotsUI.currentTile = null; }
+                if (tilePlacement)  tilePlacement.firstTilePlaced = false;
+            }
+
+            const tilePreviewUI = d.getTilePreviewUI();
+            if (tilePreviewUI) tilePreviewUI.showTile(undoneAction.tile.tile);
+            if (slotsUI) slotsUI.tileAvailable = true;
+
+            this.eventBus.emit('tile-drawn', {
+                tileData: { ...undoneAction.tile.tile, rotation: undoneAction.tile.tile.rotation },
+                fromUndo: true
+            });
+
+            if (x === 50 && y === 50) {
+                document.querySelectorAll('.slot-central').forEach(s => s.remove());
+                if (slotsUI) slotsUI.createCentralSlot();
+            }
+
+            if (slotsUI && d.getFirstTilePlaced()) slotsUI.refreshAllSlots();
+            d.hideAllCursors();
+        }
+    }
+
+    /**
+     * Applique un undo reçu du réseau (côté invité).
+     */
+    applyRemote(undoneAction) {
+        console.log('⏪ [REMOTE] Application annulation distante:', undoneAction.type);
+        const d         = this._vdeps;
+        const gameState = this.gameState;
+        const plateau   = this.plateau;
+
+        // Restaurer l'état post-undo envoyé par l'hôte
+        const s = undoneAction.postUndoState;
+        if (s) {
+            // Plateau : retirer les tuiles non présentes dans le snapshot
+            Object.keys(plateau.placedTiles).forEach(key => {
+                if (!s.placedTileKeys.includes(key)) delete plateau.placedTiles[key];
+            });
+            // Zones
+            this.zoneMerger.registry.deserialize(s.zones);
+            this.zoneMerger.tileToZone = new Map(s.tileToZone);
+            // Meeples placés
+            const placedMeeples = d.getPlacedMeeples();
+            Object.keys(placedMeeples).forEach(k => delete placedMeeples[k]);
+            Object.assign(placedMeeples, JSON.parse(JSON.stringify(s.placedMeeples)));
+            // Compteurs joueurs
+            s.playerMeeples.forEach(saved => {
+                const player = gameState.players.find(p => p.id === saved.id);
+                if (player) {
+                    player.meeples        = saved.meeples;
+                    player.hasAbbot       = saved.hasAbbot;
+                    player.hasLargeMeeple = saved.hasLargeMeeple;
+                    player.hasBuilder     = saved.hasBuilder;
+                    player.hasPig         = saved.hasPig;
+                }
+            });
+            // Restaurer et afficher la fée
+            if (s.fairyState !== undefined && gameState.fairyState) {
+                gameState.fairyState.ownerId   = s.fairyState.ownerId;
+                gameState.fairyState.meepleKey = s.fairyState.meepleKey;
+                gameState.players.forEach(p => { p.hasFairy = false; });
+                const fairyOwner = gameState.players.find(p => p.id === s.fairyState.ownerId);
+                if (fairyOwner) fairyOwner.hasFairy = true;
+                if (s.fairyState.meepleKey) d.renderFairyPiece(s.fairyState.meepleKey);
+                else d.removeFairyPiece();
+            }
+            if (s.dragonPos !== undefined) {
+                gameState.dragonPos   = s.dragonPos;
+                gameState.dragonPhase = { ...gameState.dragonPhase, ...s.dragonPhase };
+                if (gameState.dragonPos) d.renderDragonPiece(gameState.dragonPos.x, gameState.dragonPos.y);
+            }
+            if ('pendingPortalTile' in s) {
+                gameState._pendingPortalTile = s.pendingPortalTile;
+            }
+        }
+
+        // Synchroniser les flags de l'UndoManager local (côté invité)
+        const isMyTurn = d.getIsMyTurn();
+        if (undoneAction.type === 'meeple' && isMyTurn) {
+            this.meeplePlacedThisTurn = false;
+            this.lastMeeplePlaced     = null;
+        } else if (undoneAction.type === 'tile' && isMyTurn) {
+            this.tilePlacedThisTurn      = false;
+            this.meeplePlacedThisTurn    = false;
+            this.abbeRecalledThisTurn    = false;
+            this.lastTilePlaced          = null;
+            this.lastMeeplePlaced        = null;
+            this.afterTilePlacedSnapshot = null;
+        } else if (undoneAction.type === 'abbe-recalled-undo' && isMyTurn) {
+            this.abbeRecalledThisTurn = false;
+            this.lastAbbeRecalled     = null;
+        } else if (undoneAction.type === 'dragon-move-undo') {
+            this.dragonMovePlacedThisTurn = false;
+            this.dragonMoveSnapshot       = null;
+        }
+
+        // Appliquer visuellement
+        this.applyLocally(undoneAction);
+
+        gameState.players.forEach(p => this.eventBus.emit('meeple-count-updated', { playerId: p.id }));
+        this.eventBus.emit('score-updated');
+        d.updateTurnDisplay();
+    }
+
+    /**
      * Détruire le module
      */
     destroy() {
