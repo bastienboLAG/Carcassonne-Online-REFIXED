@@ -378,4 +378,24 @@ export class UnplaceableTileManager {
         // Cas normal : retourner les infos pour que l'appelant gère l'affichage
         return { tileId, playerName, action: displayAction, isRiver };
     }
+
+    /**
+     * Abonner les listeners réseau liés aux tuiles implaçables/dragon prématuré.
+     * Appelé une fois après instanciation depuis home.js.
+     */
+    initNetworkListeners(eventBus, getIsHost, getMultiplayer) {
+        // Invités : modale dragon prématuré
+        // - joueur actif : badge + modale 1 pour confirmer le remélange
+        // - autres invités : modale info seulement
+        eventBus.on('network-dragon-premature', (data) => {
+            if (getIsHost()) return;
+            const isActivePlayer = data.playerId === getMultiplayer().playerId;
+            console.log('🐉 [INVITÉ] network-dragon-premature — data.playerId:', data.playerId, '| isActivePlayer:', isActivePlayer);
+            if (isActivePlayer) {
+                this.showUnplaceableBadgeDragon(data.tileId);
+            } else {
+                this.showTileDestroyedModal(data.tileId, data.playerName, false, 'dragon-reshuffle', false);
+            }
+        });
+    }
 }

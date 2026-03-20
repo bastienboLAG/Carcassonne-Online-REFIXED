@@ -989,6 +989,7 @@ function initializeGameModules() {
             }
         }
     });
+    unplaceableManager.initNetworkListeners(eventBus, () => isHost, () => multiplayer);
 
     finalScoresManager = new FinalScoresManager({
         gameState, scoring, zoneMerger, gameSync, eventBus, updateTurnDisplay, gameConfig
@@ -2749,21 +2750,6 @@ function poserTuileSync(x, y, tile, extraOptions = {}) {
 // ── Dragon prématuré : modales 1 et 2 ────────────────────────────────
 
 // Invités : modale dragon prématuré
-// - joueur actif : badge + modale 1 pour confirmer le remélange (via handleConfirm)
-// - autres invités : modale info seulement
-eventBus.on('network-dragon-premature', (data) => {
-    if (isHost) return;
-    const isActivePlayer = data.playerId === multiplayer.playerId;
-    console.log('🐉 [INVITÉ] network-dragon-premature — data.playerId:', data.playerId, '| multiplayer.playerId:', multiplayer.playerId, '| isActivePlayer:', isActivePlayer);
-    if (isActivePlayer) {
-        unplaceableManager?.showUnplaceableBadgeDragon(data.tileId);
-    } else {
-        unplaceableManager?.showTileDestroyedModal(data.tileId, data.playerName, false, 'dragon-reshuffle', false);
-    }
-});
-
-// ── Fée : affichage des cibles et placement ───────────────────────────
-
 function incrementPlayerMeeples(playerId) {
     const player = gameState.players.find(p => p.id === playerId);
     if (player && player.meeples < 7) {
