@@ -384,7 +384,8 @@ eventBus.on('turn-changed', () => {
 });
 
 eventBus.on('meeple-count-updated', (data) => {
-    if (gameSync && data.playerId === multiplayer.playerId) {
+    // ✅ Seul l'hôte broadcast son propre compte — l'invité le reçoit via meeple-count-update de l'hôte
+    if (gameSync && isHost && data.playerId === multiplayer.playerId) {
         // Toujours lire depuis gameState pour éviter de broadcaster null
         const player = gameState?.players.find(p => p.id === data.playerId);
         gameSync.multiplayer.broadcast({
