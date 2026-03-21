@@ -968,11 +968,13 @@ eventBus.on('network-dragon-state-update', (data) => {
             // L'hôte vient de confirmer notre déplacement → marquer "a déplacé" et attendre clic
             if (undoManager) undoManager.dragonMovePlacedThisTurn = true;
             clearDragonCursors();
+            showDragonVisitedTiles(gameState.dragonPhase.visitedTiles, gameState.dragonPos);
             updateDragonOverlay();
             updateTurnDisplay();
         } else if (dragonMoved && !isMyDragonTurn) {
             // Un autre joueur a déplacé → on attend que ce joueur clique Terminer
             clearDragonCursors();
+            showDragonVisitedTiles(gameState.dragonPhase.visitedTiles, gameState.dragonPos);
             updateDragonOverlay();
             updateTurnDisplay();
         } else if (!dragonMoved) {

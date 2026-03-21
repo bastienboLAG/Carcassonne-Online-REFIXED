@@ -292,6 +292,7 @@ export function executeDragonMoveHost(x, y) {
         onDragonPhaseEnded();
     } else {
         clearDragonCursors();
+        showDragonVisitedTiles(gs().dragonPhase.visitedTiles, gs().dragonPos);
         updateDragonOverlay();
         _deps.onUpdateTurnDisplay();
     }
