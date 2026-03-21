@@ -192,7 +192,6 @@ export class GameStarter {
 
         if (fullStateData) {
             d.getReconnectionManager().applyFullStateSync(fullStateData);
-            d.afficherMessage('');
         } else {
             d.afficherMessage("En attente de l'hôte...");
         }

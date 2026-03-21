@@ -2139,6 +2139,7 @@ function returnToInitialLobby(message = null) {
     }
 
     _stopAutoReconnect();
+    window._isAutoReconnecting = false; // forcer le reset même si reconnectionManager est déjà null
     stopGameTimer();
 
     // Réinitialiser l'état
