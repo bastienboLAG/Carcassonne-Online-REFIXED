@@ -152,7 +152,8 @@ let finalScoresManager = null;
 
 // ── Reconnexion / Pause ──────────────────────────────────────────────────────
 const PAUSE_TIMEOUT_MS = 60_000;  // 1 min (tests) → 3 min (prod)
-let reconnectionManager = null;   // instancié dans _postStartSetup
+let reconnectionManager = null;
+let gameSyncCallbacks   = null;   // instance GameSyncCallbacks, expose hostDrawAndSend()
 const _voluntaryLeaves = new Set(); // peerIds ayant quitté volontairement (leave-game)
 
 function _isSpectator() {
@@ -1006,7 +1007,7 @@ function initializeGameModules() {
 
 // ═══════════════════════════════════════════════════════
 function attachGameSyncCallbacks() {
-    new GameSyncCallbacks({
+    gameSyncCallbacks = new GameSyncCallbacks({
         gameSync, gameState, deck, turnManager, tilePreviewUI, meepleDisplayUI,
         undoManager, unplaceableManager, scoring, zoneMerger, slotsUI, eventBus,
         plateau, gameConfig, ruleRegistry, scorePanelUI, tilePlacement, dragonRules,
@@ -1078,13 +1079,19 @@ function attachGameSyncCallbacks() {
         releaseFairyIfDetached,
         broadcastDragonState,
         startDragonTurnUI,
-        hostDrawAndSend:       _hostDrawAndSend,
         executeDragonMoveHost,
         advanceDragonTurnHost,
         handlePrincessEject,
+        tileHasDragonZone,
+        tileHasVolcanoZone,
+        setTuileEnMain:          (v) => { tuileEnMain = v; },
+        setCurrentTileForPlayer: (v) => { currentTileForPlayer = v; },
         isHost,
-    }).attach(isHost);
+    });
+    gameSyncCallbacks.attach(isHost);
 }
+
+function _hostDrawAndSend() { return gameSyncCallbacks?.hostDrawAndSend() ?? null; }
 
 // Invités : écouter dragon-state-update et dragon-phase-started
 eventBus.on('network-dragon-state-update', (data) => {
@@ -1211,78 +1218,6 @@ function _showPauseOverlay(name)                  { reconnectionManager?._showPa
 function _hidePauseOverlay()                      { reconnectionManager?._hidePauseOverlay(); }
 function _showReconnectOverlay()                  { reconnectionManager?._showReconnectOverlay(); }
 function _hideReconnectOverlay()                  { reconnectionManager?.hideReconnectOverlay(); }
-
-
-/**
- * Construire et envoyer l'état complet à un joueur qui (re)joint
- */
-/**
- * L'hôte pioche la prochaine tuile et la retourne.
- * Broadcaste aussi tile-drawn pour sync le compteur deck côté invités.
- */
-function _hostDrawAndSend() {
-    if (!deck || !gameSync) return null;
-    let tileData = deck.draw();
-    if (!tileData) {
-        console.log('⚠️ Pioche vide !');
-        eventBus.emit('deck-empty');
-        return null;
-    }
-
-    // ── Extension Dragon : tuile dragon piochée sans volcan ──────────────
-    // La tuile n'est PAS implaçable — elle est juste prématurée (pas de volcan).
-    // Flow en 2 modales :
-    //   Modale 1 (unplaceable-modal) : info "dragon sans volcan" + bouton Confirmer
-    //   → clic Confirmer → remélange Fisher-Yates + syncDeck
-    //   Modale 2 (tile-destroyed-modal) : "remélangée, cliquez Repiocher"
-    if (tileHasDragonZone(tileData)) {
-        const volcanoOnBoard = Object.values(plateau.placedTiles ?? {}).some(t => tileHasVolcanoZone(t));
-        console.log('🐉 [DIAG] tuile dragon détectée:', tileData.id,
-            '| tileGroups.dragon:', gameConfig.tileGroups?.dragon,
-            '| extensions.dragon:', gameConfig.extensions?.dragon,
-            '| volcanoOnBoard:', volcanoOnBoard,
-            '| placedTiles count:', Object.keys(plateau.placedTiles ?? {}).length);
-    }
-    if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon &&
-        tileHasDragonZone(tileData) &&
-        !Object.values(plateau.placedTiles ?? {}).some(t => tileHasVolcanoZone(t))) {
-        console.log('🐉 [HÔTE] Tuile dragon sans volcan — badge implaçable:', tileData.id);
-
-        tuileEnMain = tileData;
-        currentTileForPlayer = tileData;
-
-        const _cp          = gameState.getCurrentPlayer();
-        const _cpId        = _cp?.id   ?? null;
-        const _cpName      = _cp?.name ?? '?';
-        const isHostPlayer = _cpId === multiplayer.playerId;
-
-        if (isHostPlayer) {
-            // Tour de l'hôte : afficher tuile + badge comme pour une tuile implaçable normale
-            if (tilePreviewUI) tilePreviewUI.showTile(tileData);
-            gameSync.syncTileDraw(tileData.id, 0);
-            unplaceableManager?.showUnplaceableBadgeDragon(tileData.id);
-        } else {
-            // Tour d'un invité : envoyer la tuile à l'invité + broadcaster dragon-premature
-            if (tilePreviewUI) tilePreviewUI.showBackside();
-            gameSync.syncTileDraw(tileData.id, 0);
-            // L'invité actif recevra dragon-premature-tile → showUnplaceableBadgeDragon
-            gameSync.multiplayer.broadcast({
-                type:       'dragon-premature-tile',
-                tileId:     tileData.id,
-                playerName: _cpName,
-                playerId:   _cpId,
-            });
-        }
-
-        return tileData;
-    }
-
-    console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', gameState.getCurrentPlayer()?.name);
-    currentTileForPlayer = tileData; // Mémoriser pour reconnexion
-    gameSync.syncTileDraw(tileData.id, 0);
-    return tileData;
-}
-
 /**
  * Indique si une tuile contient une zone dragon (déclencheur de phase dragon).
  */

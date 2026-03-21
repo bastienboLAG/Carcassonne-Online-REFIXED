@@ -16,6 +16,8 @@ export class GameSyncCallbacks {
         onUpdateMobileTilePreview = null, updateMobileButtons = null,
         releaseFairyIfDetached, broadcastDragonState, startDragonTurnUI,
         hostDrawAndSend, executeDragonMoveHost, advanceDragonTurnHost, handlePrincessEject,
+        tileHasDragonZone, tileHasVolcanoZone,
+        setTuileEnMain, setCurrentTileForPlayer,
         isHost = false,
     }) {
         Object.assign(this, {
@@ -35,6 +37,8 @@ export class GameSyncCallbacks {
             onUpdateMobileTilePreview, updateMobileButtons,
             releaseFairyIfDetached, broadcastDragonState, startDragonTurnUI,
             hostDrawAndSend, executeDragonMoveHost, advanceDragonTurnHost, handlePrincessEject,
+            tileHasDragonZone, tileHasVolcanoZone,
+            setTuileEnMain, setCurrentTileForPlayer,
             isHost,
         });
     }
@@ -198,6 +202,49 @@ export class GameSyncCallbacks {
         };
 
         if (isHost) this._attachHostCallbacks(gs);
+    }
+
+    hostDrawAndSend() {
+        if (!this.deck || !this.gameSync) return null;
+        const tileData = this.deck.draw();
+        if (!tileData) {
+            console.log('⚠️ Pioche vide !');
+            this.eventBus.emit('deck-empty');
+            return null;
+        }
+
+        // Extension Dragon : tuile dragon piochée sans volcan (prématurée)
+        if (this.gameConfig.tileGroups?.dragon && this.gameConfig.extensions?.dragon &&
+            this.tileHasDragonZone(tileData) &&
+            !Object.values(this.plateau.placedTiles ?? {}).some(t => this.tileHasVolcanoZone(t))) {
+            console.log('🐉 [HÔTE] Tuile dragon sans volcan — badge implaçable:', tileData.id);
+            this.setTuileEnMain(tileData);
+            this.setCurrentTileForPlayer(tileData);
+
+            const _cp          = this.gameState.getCurrentPlayer();
+            const _cpId        = _cp?.id   ?? null;
+            const _cpName      = _cp?.name ?? '?';
+            const isHostPlayer = _cpId === this.gameSync.multiplayer.playerId;
+
+            if (isHostPlayer) {
+                if (this.tilePreviewUI) this.tilePreviewUI.showTile(tileData);
+                this.gameSync.syncTileDraw(tileData.id, 0);
+                this.unplaceableManager?.showUnplaceableBadgeDragon(tileData.id);
+            } else {
+                if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
+                this.gameSync.syncTileDraw(tileData.id, 0);
+                this.gameSync.multiplayer.broadcast({
+                    type: 'dragon-premature-tile', tileId: tileData.id,
+                    playerName: _cpName, playerId: _cpId,
+                });
+            }
+            return tileData;
+        }
+
+        console.log('🎲 [HÔTE] Pioche:', tileData.id, '→', this.gameState.getCurrentPlayer()?.name);
+        this.setCurrentTileForPlayer(tileData);
+        this.gameSync.syncTileDraw(tileData.id, 0);
+        return tileData;
     }
 
     _attachHostCallbacks(gs) {
