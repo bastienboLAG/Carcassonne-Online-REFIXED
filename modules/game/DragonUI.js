@@ -202,7 +202,6 @@ export function startDragonTurnUI() {
     _deps.onUpdateTurnDisplay();
 
     // Afficher les tuiles déjà visitées (overlay rouge + 🐾)
-    const phase = gs().dragonPhase;
     showDragonVisitedTiles(phase.visitedTiles, gs().dragonPos);
 
     const dragonRules = _deps.getDragonRules();
