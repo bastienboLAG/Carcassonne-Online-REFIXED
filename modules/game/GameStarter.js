@@ -77,8 +77,7 @@ export class GameStarter {
     postStartSetup() {
         const d = this._d;
 
-        // ── Bloc A : init UI modules ─────────────────────────────────────────
-        initTurnUI(d.getTurnUIDeps());
+        // ── Bloc A : init UI modules (TurnUI déjà initialisé avant _initTurnManager) ──
         initDragonUI(d.getDragonUIDeps());
         initMeepleActionsUI(d.getMeepleActionsUIDeps());
         initNetworkMeepleListeners(d.getEventBus());
@@ -144,12 +143,13 @@ export class GameStarter {
 
         const gameState = this._initGameState(d.getPlayers());
         const gameSync  = this._initSync(gameState, null);
+        initTurnUI(d.getTurnUIDeps());   // avant _initTurnManager (qui émet turn-changed)
         this._initTurnManager(gameState, true);
 
         d.initializeGameModules();
         this._postModuleSetup();
         d.attachGameSyncCallbacks();
-        d.postStartSetup();
+        this.postStartSetup();
         d.setupEventListeners();
         d.setupNavigation();
 
@@ -180,6 +180,7 @@ export class GameStarter {
 
         const gameState = this._initGameState(d.getPlayers(), fullStateData);
         this._initSync(gameState, d.getOriginalLobbyHandler());
+        initTurnUI(d.getTurnUIDeps());   // avant _initTurnManager (qui émet turn-changed)
         this._initTurnManager(gameState, false);
 
         d.initializeGameModules();
@@ -187,7 +188,7 @@ export class GameStarter {
         d.attachGameSyncCallbacks();
         d.setupEventListeners();
         d.setupNavigation();
-        d.postStartSetup();
+        this.postStartSetup();
 
         if (fullStateData) {
             d.getReconnectionManager().applyFullStateSync(fullStateData);
