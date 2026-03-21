@@ -91,6 +91,50 @@ export function updateDragonOverlay() {
 
 export function clearDragonCursors() {
     document.querySelectorAll('.dragon-move-cursor, .dragon-move-cursor-overlay').forEach(el => el.remove());
+    clearDragonVisitedOverlays();
+}
+
+export function clearDragonVisitedOverlays() {
+    document.querySelectorAll('.dragon-visited-overlay').forEach(el => el.remove());
+}
+
+/**
+ * Affiche un overlay rouge + 🐾 sur chaque tuile déjà visitée par le dragon
+ * (sauf la position actuelle du dragon — il peut encore la quitter).
+ */
+export function showDragonVisitedTiles(visitedTiles, currentPos) {
+    clearDragonVisitedOverlays();
+    const boardEl = document.getElementById('board');
+    if (!boardEl || !visitedTiles?.length) return;
+
+    // Toutes les tuiles visitées sauf la position actuelle du dragon
+    const overlays = visitedTiles.filter(([vx, vy]) =>
+        !(currentPos && vx === currentPos.x && vy === currentPos.y)
+    );
+
+    overlays.forEach(([x, y]) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'dragon-visited-overlay';
+        overlay.style.cssText = [
+            'position:relative',
+            'pointer-events:none',
+            'z-index:90',
+            `grid-column:${x}`,
+            `grid-row:${y}`,
+            'width:208px',
+            'height:208px',
+            'background:rgba(180,0,0,0.45)',
+            'display:flex',
+            'align-items:center',
+            'justify-content:center',
+        ].join(';');
+
+        const paw = document.createElement('span');
+        paw.textContent = '🐾';
+        paw.style.cssText = 'font-size:120px;line-height:1;pointer-events:none;';
+        overlay.appendChild(paw);
+        boardEl.appendChild(overlay);
+    });
 }
 
 export function showDragonMoveCursors(validMoves) {
@@ -156,6 +200,10 @@ export function startDragonTurnUI() {
 
     updateDragonOverlay();
     _deps.onUpdateTurnDisplay();
+
+    // Afficher les tuiles déjà visitées (overlay rouge + 🐾)
+    const phase = gs().dragonPhase;
+    showDragonVisitedTiles(phase.visitedTiles, gs().dragonPos);
 
     const dragonRules = _deps.getDragonRules();
     if (isMyDragonTurn && dragonRules) {
