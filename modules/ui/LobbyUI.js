@@ -307,4 +307,50 @@ export class LobbyUI {
     getPlayers() {
         return this.players;
     }
+
+    /**
+     * Ouvre/ferme le menu popover de jeu, positionné au-dessus du bouton.
+     */
+    openCloseMenu(btnEl) {
+        const popover = document.getElementById('game-menu-popover');
+        if (!popover) return;
+        if (popover.style.display !== 'none') { popover.style.display = 'none'; return; }
+        if (popover.parentElement !== document.body) document.body.appendChild(popover);
+        const rect = btnEl.getBoundingClientRect();
+        popover.style.visibility = 'hidden';
+        popover.style.display    = 'block';
+        const pw = popover.offsetWidth;
+        const ph = popover.offsetHeight;
+        popover.style.left       = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8)) + 'px';
+        popover.style.top        = Math.max(8, rect.top - ph - 8) + 'px';
+        popover.style.bottom     = '';
+        popover.style.visibility = '';
+    }
+
+    /**
+     * Affiche la modale de choix joueur/spectateur et appelle callback(isSpectator).
+     */
+    showRoleChoiceModal(callback) {
+        const modal = document.getElementById('join-role-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        const cleanup = () => {
+            document.getElementById('join-as-player-btn').removeEventListener('click', onPlayer);
+            document.getElementById('join-as-spectator-btn').removeEventListener('click', onSpectator);
+        };
+        const onPlayer    = () => { modal.style.display = 'none'; cleanup(); callback(false); };
+        const onSpectator = () => { modal.style.display = 'none'; cleanup(); callback(true);  };
+        document.getElementById('join-as-player-btn').addEventListener('click', onPlayer);
+        document.getElementById('join-as-spectator-btn').addEventListener('click', onSpectator);
+    }
+
+    /**
+     * Affiche un message d'erreur dans la modale de connexion.
+     */
+    showJoinError(message) {
+        const el = document.getElementById('join-error');
+        if (!el) return;
+        el.textContent   = message;
+        el.style.display = 'block';
+    }
 }

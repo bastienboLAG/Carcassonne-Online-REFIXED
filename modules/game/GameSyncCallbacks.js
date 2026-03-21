@@ -436,4 +436,18 @@ export class GameSyncCallbacks {
             if (prev) prev(data, from);
         })(gs.multiplayer.onDataReceived);
     }
+
+    incrementPlayerMeeples(playerId) {
+        const player = this.gameState.players.find(p => p.id === playerId);
+        if (player && player.meeples < 7) {
+            player.meeples++;
+            console.log(`🎭 ${player.name} récupère un meeple (${player.meeples}/7)`);
+            this.eventBus.emit('score-updated');
+            if (this.gameSync) {
+                this.gameSync.multiplayer.broadcast({
+                    type: 'meeple-count-update', playerId, meeples: player.meeples
+                });
+            }
+        }
+    }
 }

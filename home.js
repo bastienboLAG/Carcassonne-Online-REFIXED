@@ -435,20 +435,6 @@ document.getElementById('pseudo-input').addEventListener('input', (e) => {
     playerName = e.target.value.trim();
 });
 
-function getAvailableColor() {
-    return allColors.find(c => !takenColors.includes(c)) || 'blue';
-}
-
-function updateAvailableColors() {
-    document.querySelectorAll('.color-option').forEach(option => {
-        const color = option.dataset.color;
-        const input = option.querySelector('input');
-        const taken = takenColors.includes(color) && color !== playerColor;
-        option.classList.toggle('disabled', taken);
-        input.disabled = taken;
-    });
-}
-
 // Lobby options — géré par modules/LobbyOptions.js
 // updateColorPickerVisibility, updateOptionsAccess, updateLobbyUI,
 // applyPreset, saveLobbyOptions, syncAllOptions, loadPresets
@@ -707,30 +693,7 @@ async function _doJoin(isSpectator = false) {
 
 
 // ── Menu bouton (global) ────────────────────────────────────────────────────
-function _openCloseMenu(btnEl) {
-    const popover = document.getElementById('game-menu-popover');
-    if (!popover) return;
-    const isOpen = popover.style.display !== 'none';
-    if (isOpen) {
-        popover.style.display = 'none';
-        return;
-    }
-    // Déplacer dans body si pas déjà fait (parent display:none empêche le rendu sur mobile)
-    if (popover.parentElement !== document.body) {
-        document.body.appendChild(popover);
-    }
-    const rect = btnEl.getBoundingClientRect();
-    popover.style.visibility = 'hidden';
-    popover.style.display    = 'block';
-    const pw = popover.offsetWidth;
-    const ph = popover.offsetHeight;
-    let left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8));
-    let top  = Math.max(8, rect.top - ph - 8);
-    popover.style.left       = left + 'px';
-    popover.style.top        = top + 'px';
-    popover.style.bottom     = '';
-    popover.style.visibility = '';
-}
+function _openCloseMenu(btnEl) { lobbyUI.openCloseMenu(btnEl); }
 
 document.getElementById('menu-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -747,35 +710,9 @@ document.getElementById('join-cancel-btn').addEventListener('click', () => {
     document.getElementById('join-modal').style.display = 'none';
 });
 
-function _showRoleChoiceModal(callback) {
-    const modal = document.getElementById('join-role-modal');
-    if (!modal) return;
-    modal.style.display = 'flex';
+function _showRoleChoiceModal(cb) { lobbyUI.showRoleChoiceModal(cb); }
 
-    const onPlayer = () => {
-        modal.style.display = 'none';
-        cleanup();
-        callback(false);
-    };
-    const onSpectator = () => {
-        modal.style.display = 'none';
-        cleanup();
-        callback(true);
-    };
-    const cleanup = () => {
-        document.getElementById('join-as-player-btn').removeEventListener('click', onPlayer);
-        document.getElementById('join-as-spectator-btn').removeEventListener('click', onSpectator);
-    };
-
-    document.getElementById('join-as-player-btn').addEventListener('click', onPlayer);
-    document.getElementById('join-as-spectator-btn').addEventListener('click', onSpectator);
-}
-
-function showJoinError(message) {
-    const el       = document.getElementById('join-error');
-    el.textContent = message;
-    el.style.display = 'block';
-}
+function showJoinError(msg) { lobbyUI.showJoinError(msg); }
 
 // ═══════════════════════════════════════════════════════
 // LOBBY — démarrer la partie
@@ -1331,20 +1268,6 @@ async function startGameForInvite(fullStateData = null) {
 // ── Dragon prématuré : modales 1 et 2 ────────────────────────────────
 
 // Invités : modale dragon prématuré
-function incrementPlayerMeeples(playerId) {
-    const player = gameState.players.find(p => p.id === playerId);
-    if (player && player.meeples < 7) {
-        player.meeples++;
-        console.log(`🎭 ${player.name} récupère un meeple (${player.meeples}/7)`);
-        eventBus.emit('score-updated');
-        if (gameSync) {
-            gameSync.multiplayer.broadcast({
-                type: 'meeple-count-update', playerId, meeples: player.meeples
-            });
-        }
-    }
-}
-
 // ═══════════════════════════════════════════════════════
 // EVENT LISTENERS DU JEU
 // ═══════════════════════════════════════════════════════
@@ -1395,7 +1318,7 @@ function setupEventListeners() {
         startDragonTurnUI,
         advanceDragonTurnHost,
         releaseFairyIfDetached,
-        incrementPlayerMeeples,
+        incrementPlayerMeeples:  (id) => gameSyncCallbacks?.incrementPlayerMeeples(id),
         openCloseMenu:           _openCloseMenu,
         stopAutoReconnect:       () => _stopAutoReconnect(),
         hideReconnectOverlay:    () => _hideReconnectOverlay(),
