@@ -62,6 +62,7 @@ import { initGameMenu }           from './modules/ui/GameMenuUI.js';
 import { LobbyNavigator }         from './modules/ui/LobbyNavigator.js';
 import { LobbyJoin }              from './modules/ui/LobbyJoin.js';
 import { GameModuleInitializer }  from './modules/game/GameModuleInitializer.js';
+import { GameEventSetup }         from './modules/game/GameEventSetup.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
 import { HeartbeatManager }       from './modules/HeartbeatManager.js';
 import { FinalScoresManager }     from './modules/game/FinalScoresManager.js';
@@ -1347,549 +1348,66 @@ function incrementPlayerMeeples(playerId) {
 // ═══════════════════════════════════════════════════════
 // EVENT LISTENERS DU JEU
 // ═══════════════════════════════════════════════════════
+let _gameEventSetup = null;
+
 function setupEventListeners() {
-    if (eventListenersInstalled) {
-        console.log('⚠️ Event listeners déjà installés, skip');
-        return;
-    }
-
-    // Rotation de la tuile au clic sur la preview
-    document.getElementById('tile-preview').addEventListener('click', () => {
-        if (!isMyTurn && gameSync) { console.log('⚠️ Pas votre tour !'); return; }
-        if (!tuileEnMain || tuilePosee) return;
-
-        const currentImg = document.getElementById('current-tile-img');
-        const nextRotation = (tuileEnMain.rotation + 90) % 360;
-        if (gameSync && !isHost) {
-            // ✅ Étape 1 : invité purement réactif — envoie seulement, applique à la réception du broadcast
-            gameSync.syncTileRotation(nextRotation);
-        } else {
-            // Hôte ou solo : applique immédiatement + broadcast
-            tuileEnMain.rotation = nextRotation;
-            const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
-            currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
-            eventBus.emit('tile-rotated', { rotation: nextRotation });
-            if (gameSync) gameSync.syncTileRotation(nextRotation);
-        }
+    if (!_gameEventSetup) _gameEventSetup = new GameEventSetup();
+    _gameEventSetup.install({
+        getGameState:            () => gameState,
+        getGameConfig:           () => gameConfig,
+        getGameCode:             () => gameCode,
+        getMultiplayer:          () => multiplayer,
+        getEventBus:             () => eventBus,
+        getDeck:                 () => deck,
+        getPlayers:              () => players,
+        getPlacedMeeples:        () => placedMeeples,
+        getPlateau:              () => plateau,
+        getZoneMerger:           () => zoneMerger,
+        getScoring:              () => scoring,
+        getRuleRegistry:         () => ruleRegistry,
+        getGameSync:             () => gameSync,
+        getTurnManager:          () => turnManager,
+        getUndoManager:          () => undoManager,
+        getDragonRules:          () => dragonRules,
+        getFinalScoresManager:   () => finalScoresManager,
+        getScorePanelUI:         () => scorePanelUI,
+        getTilePreviewUI:        () => tilePreviewUI,
+        getUnplaceableManager:   () => unplaceableManager,
+        getModalUI:              () => modalUI,
+        getNavigationManager:    () => navigationManager,
+        getTilePlacement:        () => tilePlacement,
+        getIsHost:               () => isHost,
+        getIsMyTurn:             () => isMyTurn,
+        getTuileEnMain:          () => tuileEnMain,
+        getTuilePosee:           () => tuilePosee,
+        getWaitingToRedraw:      () => waitingToRedraw,
+        getPendingAbbePoints:    () => pendingAbbePoints,
+        getLastPlacedTile:       () => lastPlacedTile,
+        setTuileEnMain:          (v) => { tuileEnMain = v; },
+        setTuileEnMainRotation:  (v) => { if (tuileEnMain) tuileEnMain.rotation = v; },
+        setWaitingToRedraw:      (v) => { waitingToRedraw = v; },
+        setPendingAbbePoints:    (v) => { pendingAbbePoints = v; },
+        isMobile,
+        hostDrawAndSend:         _hostDrawAndSend,
+        hideAllCursors,
+        clearDragonCursors,
+        broadcastDragonState,
+        startDragonTurnUI,
+        advanceDragonTurnHost,
+        releaseFairyIfDetached,
+        incrementPlayerMeeples,
+        openCloseMenu:           _openCloseMenu,
+        stopAutoReconnect:       () => _stopAutoReconnect(),
+        hideReconnectOverlay:    () => _hideReconnectOverlay(),
+        returnToLobby,
+        returnToInitialLobby,
+        updateTurnDisplay,
+        updateMobileButtons,
+        updateMobileTilePreview,
+        afficherToast,
     });
-
-    // Bouton "Terminer mon tour" / "Repiocher" / "Détails des scores"
-    // Bouton "Terminer mon tour" / "Repiocher" / "Détails des scores"
-    document.getElementById('end-turn-btn').onclick = () => {
-        if (finalScoresManager?.gameEnded) {
-            finalScoresManager.showModal(finalScoresManager.finalScoresData);
-            return;
-        }
-
-        if (waitingToRedraw && isMyTurn) {
-            document.getElementById('tile-destroyed-modal').style.display = 'none';
-            if (isHost) {
-                const _t = _hostDrawAndSend();
-                if (_t) turnManager.receiveYourTurn(_t.id);
-                waitingToRedraw = false; // hôte : reset immédiat car il reçoit sa tuile localement
-            } else {
-                if (gameSync) gameSync.syncUnplaceableRedraw();
-                // invité : waitingToRedraw reste true jusqu'à réception de tile-drawn fromYourTurn
-            }
-            updateTurnDisplay();
-            return;
-        }
-
-        // ── Phase dragon : "Terminer mon tour" = passer la main au joueur suivant ──
-        const isDragonPhase = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-        if (isDragonPhase) {
-            const mover = gameState.players[gameState.dragonPhase.moverIndex];
-            const isMyDragonTurn = mover?.id === multiplayer.playerId;
-            if (!isMyDragonTurn) return; // pas notre tour dragon
-            if (!undoManager?.dragonMovePlacedThisTurn) return; // n'a pas encore déplacé
-
-            clearDragonCursors();
-
-            if (isHost) {
-                advanceDragonTurnHost();
-            } else {
-                // Invité → envoie dragon-end-turn-request à l'hôte
-                const hostConn = gameSync?.multiplayer?.connections?.[0];
-                if (hostConn?.open) {
-                    hostConn.send({ type: 'dragon-end-turn-request', playerId: multiplayer.playerId });
-                }
-            }
-            return;
-        }
-
-        if (!isMyTurn && gameSync) { alert("Ce n'est pas votre tour !"); return; }
-        if (!tuilePosee && !gameState.currentTilePlaced) { alert('Vous devez poser la tuile avant de terminer votre tour !'); return; }
-
-        // ✅ Étape 4 : invité purement réactif — envoie la request, attend turn-ended de l'hôte
-        if (gameSync && !isHost) {
-            hideAllCursors();
-            // Transmettre les points Abbé en attente à l'hôte via la request
-            const _pendingAbbe = pendingAbbePoints ? { ...pendingAbbePoints } : null;
-            pendingAbbePoints = null;
-            const hostConn = gameSync.multiplayer.connections[0];
-            if (hostConn && hostConn.open) {
-                hostConn.send({
-                    type: 'turn-end-request',
-                    playerId: multiplayer.playerId,
-                    isBonusTurn: turnManager?.isBonusTurn ?? false,
-                    pendingAbbePoints: _pendingAbbe
-                });
-            }
-            return;
-        }
-
-        console.log('⏭️ Fin de tour - calcul des scores et passage au joueur suivant');
-        gameState.currentTilePlaced = false;
-
-        // ── Extension Dragon : migration volcano en fin de tour ──────────
-        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingVolcanoPos) {
-            const { x: vx, y: vy } = gameState._pendingVolcanoPos;
-            dragonRules.onVolcanoPlaced(vx, vy);
-            gameState._pendingVolcanoPos = null;
-            broadcastDragonState();
-        }
-
-        // ⭐ Vérifier le bonus bâtisseur AVANT le scoring
-        // (après scoring le bâtisseur peut être retiré de placedMeeples si zone fermée)
-        let builderBonusTriggered = false;
-        if (gameConfig.extensions?.tradersBuilders && lastPlacedTile) {
-            const builderRulesInst = ruleRegistry.rules?.get('builders');
-            if (builderRulesInst) {
-                builderBonusTriggered = builderRulesInst.checkBonusTrigger(multiplayer.playerId);
-            }
-        }
-
-        // Appliquer les points Abbé en attente
-        if (pendingAbbePoints) {
-            const player = gameState.players.find(p => p.id === pendingAbbePoints.playerId);
-            if (player) {
-                player.score += pendingAbbePoints.points;
-                player.scoreDetail = player.scoreDetail || {};
-                player.scoreDetail.monasteries = (player.scoreDetail.monasteries || 0) + pendingAbbePoints.points;
-            }
-            pendingAbbePoints = null;
-        }
-
-        // Calcul des scores des zones fermées
-        if (scoring && zoneMerger) {
-            const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
-            const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, multiplayer.playerId, gameState, newlyClosed);
-            // Snapshot fée AVANT que _releaseFairyIfDetached vide fairyState
-            const fairyMeepleKeySnapshot = gameState.fairyState?.meepleKey ?? null;
-            const fairyOwnerIdSnapshot   = gameState.fairyState?.ownerId   ?? null;
-
-            if (scoringResults.length > 0 || goodsResults.length > 0) {
-                scoringResults.forEach(({ playerId, points, zoneType }) => {
-                    const player = gameState.players.find(p => p.id === playerId);
-                    if (player) {
-                        player.score += points;
-                        if (zoneType === 'city')         player.scoreDetail.cities      += points;
-                        else if (zoneType === 'road')    player.scoreDetail.roads       += points;
-                        else if (zoneType === 'abbey' || zoneType === 'garden') player.scoreDetail.monasteries += points;
-                    }
-                });
-
-                meeplesToReturn.forEach(key => {
-                    const meeple = placedMeeples[key];
-                    if (meeple) {
-                        // Retourner le meeple selon son type
-                        if (meeple.type === 'Abbot') {
-                            const player = gameState.players.find(p => p.id === meeple.playerId);
-                            if (player) {
-                                player.hasAbbot = true;
-                                eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
-                            }
-                        } else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') {
-                            const player = gameState.players.find(p => p.id === meeple.playerId);
-                            if (player) {
-                                player.hasLargeMeeple = true;
-                                eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
-                            }
-                        } else if (meeple.type === 'Builder') {
-                            const player = gameState.players.find(p => p.id === meeple.playerId);
-                            if (player) {
-                                player.hasBuilder = true;
-                                eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
-                            }
-                        } else {
-                            incrementPlayerMeeples(meeple.playerId);
-                        }
-                        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-                        delete placedMeeples[key];
-                        releaseFairyIfDetached(key);
-                    }
-                });
-
-                if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
-                updateTurnDisplay();
-
-                // Si la fée s'est retrouvée seule après la fermeture, réafficher les curseurs
-                if (gameConfig.extensions?.fairyProtection
-                    && fairyMeepleKeySnapshot && !gameState.fairyState?.meepleKey) {
-                    eventBus.emit('fairy-detached-show-targets');
-                }
-
-                // Fix 2 — Fée : +3 points si le meeple porteur de la fée est dans une zone fermée
-                if (gameConfig.extensions?.fairyScoreZone && fairyMeepleKeySnapshot
-                    && meeplesToReturn.includes(fairyMeepleKeySnapshot)) {
-                    const fp = gameState.players.find(p => p.id === fairyOwnerIdSnapshot);
-                    if (fp) {
-                        fp.score += 3;
-                        fp.scoreDetail = fp.scoreDetail || {};
-                        fp.scoreDetail.fairy = (fp.scoreDetail.fairy || 0) + 3;
-                        console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
-                        if (gameSync) gameSync.syncScoreUpdate(
-                            [{ playerId: fairyOwnerIdSnapshot, points: 3, zoneType: 'fairy' }],
-                            [], [], zoneMerger
-                        );
-                        eventBus.emit('score-updated');
-                    }
-                }
-            }
-        }
-
-        // Nettoyer les curseurs et overlays abbé
-        hideAllCursors();
-        document.querySelectorAll('.meeple-cursors-container').forEach(c => c.remove());
-
-        // ✅ reset() avant nextPlayer() : on efface les snapshots du tour écoulé
-        // AVANT que drawTile() en sauvegarde un nouveau via saveTurnStart()
-        gameState._pendingPrincessTile = null;
-        gameState._pendingPortalTile = null;
-        if (undoManager) undoManager.reset();
-
-        // ── Extension Dragon : démarrer la phase dragon si tuile dragon posée ──
-        if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingDragonTile) {
-            const { playerIndex } = gameState._pendingDragonTile;
-            gameState._pendingDragonTile = null;
-            const started = dragonRules.onDragonTilePlaced(playerIndex);
-            if (started) {
-                broadcastDragonState();
-                startDragonTurnUI();
-                return; // on ne passe pas au joueur suivant — la phase dragon prend le relais
-            }
-        }
-
-        // ✅ Vérifier fin de partie AVANT nextPlayer() :
-        // nextPlayer() appelle drawTile() qui consomme une tuile.
-        // Si la pioche est vide maintenant, plus rien à piocher → fin de partie.
-        if (deck.remaining() <= 0) {
-            if (gameSync) gameSync.syncTurnEnd();
-            finalScoresManager.computeAndApply(placedMeeples);
-            return;
-        }
-
-        // endTurn() gère le tour bonus (bâtisseur) puis passe au joueur suivant si pas de bonus
-        if (turnManager) {
-            const result = turnManager.endTurn(builderBonusTriggered);
-            if (result?.bonusTurnStarted) {
-                // Tour bonus : l'hôte pioche pour le même joueur
-                if (isHost) {
-                    const _bonusTile = _hostDrawAndSend();
-                    if (_bonusTile) turnManager.receiveYourTurn(_bonusTile.id);
-                    if (gameSync) gameSync.syncTurnEnd(true, _bonusTile?.id ?? null);
-                } else {
-                    if (gameSync) gameSync.syncTurnEndRequest(true);
-                }
-                ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
-                updateTurnDisplay();
-                afficherToast('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
-                const _bonusToast = document.getElementById('disconnect-toast');
-                if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
-                return;
-            }
-        }
-
-        if (gameSync) {
-            if (isHost) {
-                const _nextTile = _hostDrawAndSend();
-                if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
-                gameSync.syncTurnEnd(false, _nextTile?.id ?? null);
-            } else {
-                gameSync.syncTurnEndRequest(false);
-            }
-        }
-
-        updateTurnDisplay();
-    };
-
-    // Recentrer
-    document.getElementById('recenter-btn').onclick = () => {
-        const container      = document.getElementById('board-container');
-        container.scrollLeft = 10400 - container.clientWidth  / 2;
-        container.scrollTop  = 10400 - container.clientHeight / 2;
-    };
-
-    // Highlight + centrage de la dernière tuile posée
-    document.getElementById('highlight-tile-btn').onclick = () => {
-        if (!lastPlacedTile) return;
-        const { x, y } = lastPlacedTile;
-
-        const container  = document.getElementById('board-container');
-        const CELL        = 208;
-        const level       = navigationManager ? navigationManager.zoomLevel : 1;
-        const boardCenter = 10400; // 50 * 208
-        // Avec transform-origin: center, la tuile est décalée depuis le centre du board
-        const tileCX = (x - 1) * CELL + CELL / 2; // centre tuile en px non-zoomés
-        const tileCY = (y - 1) * CELL + CELL / 2;
-        container.scrollLeft = boardCenter + (tileCX - boardCenter) * level - container.clientWidth  / 2;
-        container.scrollTop  = boardCenter + (tileCY - boardCenter) * level - container.clientHeight / 2;
-
-        // Flash visuel
-        const el = document.querySelector(`.tile[data-pos="${x},${y}"]`);
-        if (!el) return;
-        el.classList.add('tile-highlight');
-        setTimeout(() => el.classList.remove('tile-highlight'), 3000);
-    };
-
-    // ── Menu bouton ────────────────────────────────────────────────────────
-    function _closeMenu() {
-        const popover = document.getElementById('game-menu-popover');
-        if (popover) popover.style.display = 'none';
-    }
-
-    // Fermer au clic extérieur
-    document.addEventListener('click', (e) => {
-        const popover = document.getElementById('game-menu-popover');
-        const menuBtn = document.getElementById('menu-btn');
-        if (popover && popover.style.display !== 'none' && !popover.contains(e.target) && e.target !== menuBtn) {
-            popover.style.display = 'none';
-        }
-    });
-
-    // Copier le code depuis le menu
-    document.getElementById('menu-copy-code-btn').addEventListener('click', () => {
-        if (!gameCode) return;
-        navigator.clipboard.writeText(gameCode).then(() => {
-            const btn = document.getElementById('menu-copy-code-btn');
-            btn.textContent = '✅ Copié !';
-            setTimeout(() => { btn.textContent = '📋 Copier'; }, 2000);
-        });
-    });
-
-    // Retour au lobby (dans le menu)
-    document.getElementById('back-to-lobby-btn').onclick = () => {
-        _closeMenu();
-        if (confirm('Retourner au lobby ? (La partie sera terminée mais les joueurs resteront connectés)')) {
-            returnToLobby();
-        }
-    };
-
-    // Quitter la partie (invité uniquement)
-    const _menuLeaveBtn = document.getElementById('menu-leave-btn');
-    if (_menuLeaveBtn) _menuLeaveBtn.onclick = () => {
-        _closeMenu();
-        if (confirm('Voulez-vous vraiment quitter la partie ?')) {
-            // Neutraliser tous les handlers de déconnexion AVANT de couper
-            multiplayer.onHostDisconnected = null;
-            multiplayer.onPlayerLeft = null;
-            _stopAutoReconnect();
-            _hideReconnectOverlay();
-            const hostId = players.find(p => p.isHost)?.id;
-            if (hostId) multiplayer.sendTo(hostId, { type: 'leave-game' });
-            returnToInitialLobby();
-        }
-    };
-
-    // Fermer modale scores finaux
-    document.getElementById('close-final-scores-btn').onclick = () => {
-        document.getElementById('final-scores-modal').style.display = 'none';
-    };
-
-    // Confirmer tuile implaçable
-    document.getElementById('unplaceable-confirm-btn').onclick = () => {
-        if (!unplaceableManager || !tuileEnMain) return;
-
-        if (isHost) {
-            // Hôte : gère le deck + affichage local + broadcast
-            const result = unplaceableManager.handleConfirm(tuileEnMain, gameSync);
-            if (tilePreviewUI) tilePreviewUI.showBackside(); // toujours afficher verso
-            if (!result) {
-                // Cas chain-destroy (toutes rivières implaçables) : setRedrawMode déjà appelé
-                // dans _checkRiverAllImplacable, mais waitingToRedraw doit être set ici aussi
-                waitingToRedraw = true;
-                updateTurnDisplay();
-                return;
-            }
-            if (!result.special) {
-                // Cas normal : afficher modale active + setRedrawMode
-                unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, true, result.action, result.isRiver);
-                gameSync.syncTileDestroyed(result.tileId, result.playerName, result.action, 1, multiplayer.playerId);
-                waitingToRedraw = true;
-                updateTurnDisplay();
-            } else {
-                // Cas special (river-12 détruite) : aussi besoin de repiocher
-                waitingToRedraw = true;
-                updateTurnDisplay();
-            }
-        } else {
-            // Invité : délègue à l'hôte
-            const _tileId = tuileEnMain.id;
-            unplaceableManager.hideUnplaceableBadge();
-            if (tilePreviewUI) tilePreviewUI.showBackside();
-            tuileEnMain = null;
-            waitingToRedraw = true;
-            updateTurnDisplay();
-            if (gameSync) gameSync.syncUnplaceableConfirm(_tileId);
-        }
-    };
-
-    // Examiner le plateau (ferme la modale implaçable)
-    document.getElementById('unplaceable-examine-btn').onclick = () => {
-        document.getElementById('unplaceable-modal').style.display = 'none';
-    };
-
-    // OK modale info destruction
-    document.getElementById('tile-destroyed-ok-btn').onclick = () => {
-        document.getElementById('tile-destroyed-modal').style.display = 'none';
-        updateTurnDisplay(); // rafraîchit le bouton → "Repiocher" si waitingToRedraw && isMyTurn
-    };
-
-    // Bouton debug
-    document.getElementById('test-modal-btn').onclick = () => {
-        if (finalScoresManager) finalScoresManager.showDebugModal();
-    };
-
-    // Annuler le coup
-    document.getElementById('undo-btn').addEventListener('click', () => {
-        // Pendant la phase dragon : l'invité peut annuler son propre déplacement
-        // même si isMyTurn === false (ce n'est pas son tour de jeu normal)
-        const isDragonPhase = !!(gameConfig?.extensions?.dragon && gameState?.dragonPhase?.active);
-        const dragonMover   = isDragonPhase ? gameState.players[gameState.dragonPhase.moverIndex] : null;
-        const isMyDragonUndo = isDragonPhase && dragonMover?.id === multiplayer.playerId
-                               && !!undoManager?.dragonMovePlacedThisTurn;
-
-        if (!isMyTurn && !isMyDragonUndo) return;
-
-        // Invité : déléguer à l'hôte
-        if (!isHost) {
-            if (gameSync) gameSync.syncUndoRequest();
-            return;
-        }
-        if (!undoManager || !undoManager.canUndo()) { alert('Rien à annuler'); return; }
-
-        const undoneAction = undoManager.undo(placedMeeples);
-        if (!undoneAction) return;
-
-        // Si l'undo annule un meeple portail, restaurer _pendingPortalTile dans gameState
-        // AVANT de construire postUndoState (sinon il serait null dans le payload invité)
-        if (undoneAction.type === 'meeple' && undoManager.afterTilePlacedSnapshot?.pendingPortalTile !== undefined) {
-            gameState._pendingPortalTile = undoManager.afterTilePlacedSnapshot.pendingPortalTile;
-        }
-
-        // Enrichir avec l'état post-undo pour que les invités puissent reconstruire
-        undoneAction.postUndoState = {
-            placedTileKeys:    Object.keys(plateau.placedTiles),
-            zones:             zoneMerger.registry.serialize(),
-            tileToZone:        Array.from(zoneMerger.tileToZone.entries()),
-            placedMeeples:     JSON.parse(JSON.stringify(placedMeeples)),
-            playerMeeples:     gameState.players.map(p => ({
-                id: p.id, meeples: p.meeples,
-                hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
-                hasBuilder: p.hasBuilder, hasPig: p.hasPig
-            })),
-            fairyState:        JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
-            dragonPos:         JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
-            dragonPhase:       JSON.parse(JSON.stringify(gameState.dragonPhase ?? {})),
-            pendingPortalTile: gameState._pendingPortalTile
-                ? JSON.parse(JSON.stringify(gameState._pendingPortalTile))
-                : null
-        };
-
-        undoManager.applyLocally(undoneAction);
-
-        if (gameSync) gameSync.syncUndo(undoneAction);
-        gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
-        eventBus.emit('score-updated');
-        updateTurnDisplay();
-        updateMobileTilePreview();
-        scorePanelUI?.updateMobile();
-        updateMobileButtons();
-    });
-
-    // Tuiles restantes
-    document.getElementById('menu-remaining-btn').addEventListener('click', () => {
-        _closeMenu();
-        if (!deck) { alert('Aucune partie en cours'); return; }
-        modalUI.showRemainingTiles(deck.getRemainingTilesByType(), deck.remaining());
-    });
-
-    // Règles de la partie
-    document.getElementById('menu-rules-btn').addEventListener('click', () => {
-        _closeMenu();
-        if (!gameConfig) { alert('Aucune partie en cours'); return; }
-        modalUI.showGameRules(gameConfig);
-    });
-
-    // ── Boutons MOBILE ─────────────────────────────────────────────────────
-
-    if (isMobile()) {
-        // Rotation tuile mobile (tap sur la preview)
-        document.getElementById('mobile-tile-preview').addEventListener('touchend', (e) => {
-            e.preventDefault();
-            if (!isMyTurn) return;
-            if (!tuileEnMain || tuilePosee) return;
-            const nextRot = (tuileEnMain.rotation + 90) % 360;
-            if (gameSync && !isHost) {
-                // ✅ Étape 1 : invité purement réactif
-                gameSync.syncTileRotation(nextRot);
-            } else {
-                tuileEnMain.rotation = nextRot;
-                updateMobileTilePreview();
-                eventBus.emit('tile-rotated', { rotation: nextRot });
-                if (gameSync) gameSync.syncTileRotation(nextRot);
-            }
-        }, { passive: false });
-
-        // ✅ Sur mobile, utiliser touchend au lieu de click
-        // car touchend est parfois consommé par le board-container et ne génère pas de click
-        const mobileBtn = (id, fn) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            // touchstart vide nécessaire pour que :active CSS fonctionne sur iOS
-            el.addEventListener('touchstart', () => {}, { passive: true });
-            el.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                fn();
-                // Forcer le retrait de l'état actif après l'action
-                el.blur();
-            }, { passive: false });
-        };
-
-        mobileBtn('mobile-end-turn-btn', () => {
-            const btn = document.getElementById('end-turn-btn');
-            if (btn?.onclick) btn.onclick();
-        });
-        mobileBtn('mobile-undo-btn', () => {
-            document.getElementById('undo-btn').dispatchEvent(new MouseEvent('click'));
-        });
-        mobileBtn('mobile-recenter-btn', () => {
-            document.getElementById('recenter-btn').click();
-        });
-        mobileBtn('mobile-highlight-btn', () => {
-            document.getElementById('highlight-tile-btn').click();
-        });
-
-
-        // Rotation tuile : déjà sur touchend via click — garder tel quel
-
-    }
-
-    // Bouton menu mobile (···)
-    const _mobileMenuEl = document.getElementById('mobile-menu-btn');
-    if (_mobileMenuEl) {
-        _mobileMenuEl.addEventListener('touchstart', () => {}, { passive: true });
-        _mobileMenuEl.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            _openCloseMenu(_mobileMenuEl);
-        }, { passive: false });
-    }
-
-    eventListenersInstalled = true;
-    console.log('✅ Event listeners installés');
 }
+
 
 // ═══════════════════════════════════════════════════════
 // RETOUR AU LOBBY
