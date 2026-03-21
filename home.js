@@ -60,6 +60,7 @@ import { GameSyncCallbacks }      from './modules/game/GameSyncCallbacks.js';
 import { GameStarter }            from './modules/game/GameStarter.js';
 import { initGameMenu }           from './modules/ui/GameMenuUI.js';
 import { LobbyNavigator }         from './modules/ui/LobbyNavigator.js';
+import { LobbyJoin }              from './modules/ui/LobbyJoin.js';
 import { GameModuleInitializer }  from './modules/game/GameModuleInitializer.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
 import { HeartbeatManager }       from './modules/HeartbeatManager.js';
@@ -670,152 +671,39 @@ document.getElementById('join-game-btn').addEventListener('click', () => {
     document.getElementById('join-code-input').focus();
 });
 
-async function _doJoin(isSpectator = false) {
-    const code = document.getElementById('join-code-input').value.trim();
-    if (!code) { showJoinError('Veuillez entrer un code !'); return; }
-
-    try {
-        const lobbyHandler = (data, from) => {
-            console.log('📨 [INVITÉ] Reçu:', data);
-
-            if (data.type === 'welcome') {
-                console.log('🎉', data.message);
-                gameCode = code;
-                document.getElementById('game-code-container').style.display = 'block';
-                document.getElementById('game-code-text').textContent = `Code: ${code}`;
-                _startHeartbeat((peerId) => {
-                    returnToInitialLobby("L'hote ne repond plus.");
-                });
-            }
-            if (data.type === 'game-in-progress') {
-                clearTimeout(window._pendingPlayerInfoTimer);
-                if (window._isAutoReconnecting) {
-                    // Auto-reconnexion : on sait qu'on est joueur, pas besoin de choisir
-                    window._isAutoReconnecting = false;
-                    multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: false });
-                } else {
-                    // Connexion manuelle : demander joueur ou spectateur
-                    window._waitingForRoleChoice = true;
-                    _showRoleChoiceModal((chosenIsSpectator) => {
-                        window._waitingForRoleChoice = false;
-                        multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator: chosenIsSpectator });
-                    });
-                }
-            }
-            if (data.type === 'players-update') {
-                // Si le jeu est déjà initialisé (rejoindre en cours de partie),
-                // ignorer ce message — il sera traité par le handler de jeu
-                if (turnManager) return;
-                players = data.players;
-                lobbyUI.setPlayers(players);
-                const me = players.find(p => p.id === multiplayer.playerId);
-                if (me && me.color !== playerColor) {
-                    playerColor = me.color;
-                    const opt = document.querySelector(`.color-option[data-color="${playerColor}"]`);
-                    if (opt) {
-                        colorOptions.forEach(o => o.classList.remove('selected'));
-                        opt.classList.add('selected');
-                        opt.querySelector('input').checked = true;
-                    }
-                }
-            }
-            if (data.type === 'color-change') {
-                const player = players.find(p => p.id === data.playerId);
-                if (player) { player.color = data.color; lobbyUI.updatePlayersList(); }
-            }
-            if (data.type === 'player-order-update') {
-                players = data.players; lobbyUI.setPlayers(players);
-            }
-            if (data.type === 'return-to-lobby') {
-                // Mettre à jour players avec la liste propre de l'hôte avant retour au lobby
-                if (data.players) players = data.players;
-                returnToLobby();
-            }
-            if (data.type === 'option-change') {
-                if (data.option === 'unplaceable' || data.option === 'start') {
-                    const radio = document.querySelector(`input[name="${data.option}"][value="${data.value}"]`);
-                    if (radio) radio.checked = true;
-                } else {
-                    const checkbox = document.getElementById(data.option);
-                    if (checkbox) checkbox.checked = data.value;
-                }
-                // Mettre à jour disponibilités, accès invité, puis coches maîtres
-                updateAllAvailability();
-                updateOptionsAccess();
-                updateMasterCheckboxes();
-            }
-            if (data.type === 'options-sync') {
-                // ✅ Réception de l'état complet des options
-                const opts = data.options;
-                ['base-fields', 'list-remaining', 'use-test-deck', 'enable-debug', 'ext-abbot', 'tiles-abbot', 'ext-large-meeple', 'ext-cathedrals', 'ext-inns', 'tiles-inns-cathedrals', 'tiles-traders-builders', 'ext-builder', 'ext-merchants', 'ext-pig', 'tiles-dragon', 'ext-dragon', 'ext-princess', 'ext-portal', 'ext-fairy-protection', 'ext-fairy-score-turn', 'ext-fairy-score-zone'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el && opts[id] !== undefined) el.checked = opts[id];
-                });
-                if (opts['unplaceable']) {
-                    const radio = document.querySelector(`input[name="unplaceable"][value="${opts['unplaceable']}"]`);
-                    if (radio) radio.checked = true;
-                }
-                if (opts['start']) {
-                    const radio = document.querySelector(`input[name="start"][value="${opts['start']}"]`);
-                    if (radio) radio.checked = true;
-                }
-                updateAllAvailability();
-                updateOptionsAccess();
-                updateMasterCheckboxes();
-            }
-            if (data.type === 'game-starting') {
-                console.log("🎮 [INVITÉ] L'hôte démarre la partie !");
-                if (data.config) { gameConfig = data.config; }
-                startGameForInvite();
-            }
-            if (data.type === 'full-state-sync') {
-                // Rejoindre ou se reconnecter à une partie déjà en cours
-                console.log('🔄 [INVITÉ] Réception état complet de la partie en cours...');
-                if (data.gameConfig) gameConfig = data.gameConfig;
-                // Initialiser les structures de base si pas encore fait
-                if (!turnManager) {
-                    startGameForInvite(data);
-                } else {
-                    reconnectionManager.applyFullStateSync(data);
-                }
-            }
-            if (data.type === 'rejoin-rejected') {
-                returnToInitialLobby(data.reason || 'Impossible de rejoindre la partie.');
-            }
-            if (data.type === 'you-are-kicked') {
-                returnToInitialLobby('Vous avez été retiré du salon.');
-            }
-        };
-
-        // Invité : quitter volontairement
-        lobbyUI.onLeaveGame = () => {
-            multiplayer.broadcast({ type: 'player-left' });
-            returnToInitialLobby();
-        };
-
-        originalLobbyHandler          = lobbyHandler;
-        multiplayer.onDataReceived     = lobbyHandler;
-
-        await multiplayer.joinGame(code);
-        document.getElementById('join-modal').style.display = 'none';
-        inLobby = true; isHost = false;
-        updateLobbyUI();
-
-        // player-info sera envoyé soit après 500ms (lobby normal),
-        // soit après choix dans la modale (partie en cours — game-in-progress)
-        window._pendingPlayerInfoTimer = setTimeout(() => {
-            if (!window._waitingForRoleChoice) {
-                multiplayer.broadcast({ type: 'player-info', name: playerName, color: playerColor, isSpectator });
-            }
-        }, 500);
-
-    } catch (error) {
-        console.error('❌ Erreur de connexion:', error);
-        // Rouvrir la modale de saisie du code pour afficher l'erreur
-        document.getElementById('join-modal').style.display = 'flex';
-        showJoinError("Impossible de rejoindre: " + error.message);
-    }
+function _makeJoiner() {
+    return new LobbyJoin({
+        getMultiplayer:          () => multiplayer,
+        getLobbyUI:              () => lobbyUI,
+        getPlayers:              () => players,
+        setPlayers:              (v) => { players = v; },
+        getPlayerName:           () => playerName,
+        getPlayerColor:          () => playerColor,
+        setPlayerColor:          (v) => { playerColor = v; },
+        getTurnManager:          () => turnManager,
+        getReconnectionManager:  () => reconnectionManager,
+        setGameCode:             (v) => { gameCode = v; },
+        setGameConfig:           (v) => { gameConfig = v; },
+        setInLobby:              (v) => { inLobby = v; },
+        setIsHost:               (v) => { isHost = v; },
+        setOriginalLobbyHandler: (v) => { originalLobbyHandler = v; },
+        startHeartbeat:          (cb) => _startHeartbeat(cb),
+        showJoinError,
+        showRoleChoiceModal:     _showRoleChoiceModal,
+        returnToLobby,
+        returnToInitialLobby,
+        startGameForInvite,
+        updateLobbyUI,
+        updateAllAvailability,
+        updateOptionsAccess,
+        updateMasterCheckboxes,
+    });
 }
+
+async function _doJoin(isSpectator = false) {
+    await _makeJoiner().join(isSpectator);
+}
+
 
 // ── Menu bouton (global) ────────────────────────────────────────────────────
 function _openCloseMenu(btnEl) {
