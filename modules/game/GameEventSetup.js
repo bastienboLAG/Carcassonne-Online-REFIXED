@@ -20,7 +20,7 @@ export class GameEventSetup {
         this._installMenu(d);
         this._installUndo(d);
         this._installModals(d);
-        if (d.isMobile()) this._installMobile(d);
+        this._installMobile(d);
         this._installMobileMenu(d);
 
         this._installed = true;
