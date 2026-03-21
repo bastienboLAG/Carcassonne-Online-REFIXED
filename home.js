@@ -57,6 +57,7 @@ import { UndoManager }            from './modules/game/UndoManager.js';
 import { TilePlacement }          from './modules/game/TilePlacement.js';
 import { MeeplePlacement }        from './modules/game/MeeplePlacement.js';
 import { GameSyncCallbacks }      from './modules/game/GameSyncCallbacks.js';
+import { GameStarter }            from './modules/game/GameStarter.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
 import { HeartbeatManager }       from './modules/HeartbeatManager.js';
 import { FinalScoresManager }     from './modules/game/FinalScoresManager.js';
@@ -1345,144 +1346,50 @@ function _hostDrawAndSend() {
  */
 
 
+function _makeStarter() {
+    return new GameStarter({
+        getGameConfig:           () => gameConfig,
+        getPlayers:              () => players,
+        getMultiplayer:          () => multiplayer,
+        getEventBus:             () => eventBus,
+        getDeck:                 () => deck,
+        getTurnManager:          () => turnManager,
+        getMeepleSelectorUI:     () => meepleSelectorUI,
+        getMeepleCursorsUI:      () => meepleCursorsUI,
+        getScorePanelUI:         () => scorePanelUI,
+        getSlotsUI:              () => slotsUI,
+        getLobbyUI:              () => lobbyUI,
+        getReconnectionManager:  () => reconnectionManager,
+        getOriginalLobbyHandler: () => originalLobbyHandler,
+        setGameState:            (v) => { gameState = v; },
+        setGameSync:             (v) => { gameSync  = v; },
+        setTurnManager:          (v) => { turnManager = v; },
+        startGameTimer,
+        hostDrawAndSend:         _hostDrawAndSend,
+        initializeGameModules,
+        attachGameSyncCallbacks,
+        postStartSetup:          _postStartSetup,
+        setupEventListeners,
+        setupNavigation:         () => setupNavigation(document.getElementById('board-container'), document.getElementById('board')),
+        updateTurnDisplay,
+        afficherMessage:         (msg) => afficherToast(msg),
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+// DÉMARRAGE — HÔTE
+// ═══════════════════════════════════════════════════════
 async function startGame() {
-    console.log('🎮 [HÔTE] Initialisation du jeu...');
-    startGameTimer();
-
-    document.getElementById('lobby-page').style.display = 'none';
-    document.getElementById('game-page').style.display  = 'flex';
-    history.pushState({ inGame: true }, '');
-
-    gameState = new GameState();
-    players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
-    // S'assurer que currentPlayerIndex ne démarre pas sur un spectateur
-    { let a = 0;
-      while (gameState.players[gameState.currentPlayerIndex]?.color === 'spectator' && a++ < gameState.players.length)
-          gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length; }
-    // Initialiser le flag Abbé pour chaque joueur
-    console.log('🔧 startGame — gameConfig.extensions:', JSON.stringify(gameConfig.extensions));
-    if (gameConfig.extensions?.abbot) {
-        gameState.players.forEach(p => { p.hasAbbot = true; });
-        console.log('✅ [HOST] hasAbbot initialisé:', gameState.players.map(p => p.id + '=' + p.hasAbbot));
-    } else {
-        console.log('ℹ️ [HOST] abbot désactivé');
-    }
-    if (gameConfig.extensions?.largeMeeple) {
-        gameState.players.forEach(p => { p.hasLargeMeeple = true; });
-        console.log('✅ [HOST] hasLargeMeeple initialisé');
-    }
-    if (gameConfig.extensions?.tradersBuilders) {
-        gameState.players.forEach(p => { p.hasBuilder = true; });
-        console.log('✅ [HOST] hasBuilder initialisé');
-    }
-    if (gameConfig.extensions?.pig) {
-        gameState.players.forEach(p => { p.hasPig = true; });
-        console.log('✅ [HOST] hasPig initialisé');
-    }
-    // Extension Dragon : pas de flag joueur à init (le dragon n'appartient à personne)
-    // Extension Fairy : la fée n'est pas encore distribuée, sera posée en cours de partie
-
-    gameSync = new GameSync(multiplayer, gameState, null);
-    gameSync.init();
-    gameSync.eventBus = eventBus; // pour dragon-state-update et autres events réseau
-
-    turnManager = new TurnManager(eventBus, gameState, deck, multiplayer, isHost);
-    turnManager.init();
-
-    initializeGameModules();
-    // ✅ Mettre à jour la config sur les modules APRÈS que gameConfig est finalisé
-    if (meepleSelectorUI) meepleSelectorUI.config = gameConfig;
-    if (meepleCursorsUI)  meepleCursorsUI.config  = gameConfig;
-    if (scorePanelUI)     scorePanelUI.config      = gameConfig;
-    attachGameSyncCallbacks();
-
-    _postStartSetup();
-
-    setupEventListeners();
-    setupNavigation(document.getElementById('board-container'), document.getElementById('board'));
-
-    // L'hôte charge et envoie la pioche
-    await deck.loadAllTiles(gameConfig.testDeck ?? false, gameConfig.tileGroups ?? {}, gameConfig.startType ?? 'unique');
-    gameSync.startGame(deck);
-    const _startTile = _hostDrawAndSend();
-    if (_startTile) turnManager.receiveYourTurn(_startTile.id);
-    gameSync.syncTurnEnd(false, _startTile?.id ?? null);
-    eventBus.emit('deck-updated', { remaining: deck.remaining(), total: deck.total() });
-    updateTurnDisplay();
-    slotsUI.createCentralSlot();
-
-    console.log('✅ Initialisation hôte terminée');
+    await _makeStarter().startHost();
 }
 
 // ═══════════════════════════════════════════════════════
 // DÉMARRAGE — INVITÉ
 // ═══════════════════════════════════════════════════════
 async function startGameForInvite(fullStateData = null) {
-    console.log('🎮 [INVITÉ] Initialisation du jeu...');
-    startGameTimer();
-    lobbyUI.hide();
-    history.pushState({ inGame: true }, '');
-
-    gameState = new GameState();
-    // Si on a un état complet, on le désérialisera après init des modules
-    if (!fullStateData) {
-        players.forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
-    } else {
-        // Pré-peupler depuis fullStateData pour que les modules s'initialisent correctement
-        const gs = fullStateData.gameState;
-        (gs.players || []).forEach(p => gameState.addPlayer(p.id, p.name, p.color, p.isHost));
-    }
-    // S'assurer que currentPlayerIndex ne démarre pas sur un spectateur
-    { let a = 0;
-      while (gameState.players[gameState.currentPlayerIndex]?.color === 'spectator' && a++ < gameState.players.length)
-          gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length; }
-    if (gameConfig.extensions?.abbot) {
-        gameState.players.forEach(p => { p.hasAbbot = true; });
-        console.log('✅ [INVITÉ] hasAbbot initialisé pour', gameState.players.map(p => p.id));
-    } else {
-        console.log('ℹ️ [INVITÉ] extension abbot désactivée — gameConfig:', JSON.stringify(gameConfig.extensions));
-    }
-    if (gameConfig.extensions?.largeMeeple) {
-        gameState.players.forEach(p => { p.hasLargeMeeple = true; });
-        console.log('✅ [INVITÉ] hasLargeMeeple initialisé');
-    }
-    if (gameConfig.extensions?.tradersBuilders) {
-        gameState.players.forEach(p => { p.hasBuilder = true; });
-        console.log('✅ [INVITÉ] hasBuilder initialisé');
-    }
-    if (gameConfig.extensions?.pig) {
-        gameState.players.forEach(p => { p.hasPig = true; });
-        console.log('✅ [INVITÉ] hasPig initialisé');
-    }
-
-    gameSync = new GameSync(multiplayer, gameState, originalLobbyHandler);
-    gameSync.init();
-    gameSync.eventBus = eventBus;
-
-    turnManager = new TurnManager(eventBus, gameState, deck, multiplayer);
-    turnManager.init();
-
-    initializeGameModules();
-    // ✅ Mettre à jour la config sur les modules APRÈS que gameConfig est finalisé
-    if (meepleSelectorUI) meepleSelectorUI.config = gameConfig;
-    if (meepleCursorsUI)  meepleCursorsUI.config  = gameConfig;
-    if (scorePanelUI)     scorePanelUI.config      = gameConfig;
-    attachGameSyncCallbacks();
-
-    setupEventListeners();
-    setupNavigation(document.getElementById('board-container'), document.getElementById('board'));
-
-    _postStartSetup();
-
-    // Si on rejoint une partie en cours, appliquer l'état complet maintenant
-    if (fullStateData) {
-        reconnectionManager.applyFullStateSync(fullStateData);
-        afficherMessage('');
-    } else {
-        afficherMessage("En attente de l'hôte...");
-    }
-    console.log('✅ Initialisation invité terminée');
+    await _makeStarter().startGuest(fullStateData);
 }
+
 
 /**
  * Configuration commune post-démarrage
