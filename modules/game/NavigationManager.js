@@ -103,46 +103,29 @@ export class NavigationManager {
         let lastTouchX = null;
         let lastTouchY = null;
 
-        // RAF throttle — un seul scroll update par frame
-        let _rafPending    = false;
-        let _pendingDx     = 0;
-        let _pendingDy     = 0;
-
         c.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 lastTouchX = e.touches[0].clientX;
                 lastTouchY = e.touches[0].clientY;
-                _pendingDx = 0;
-                _pendingDy = 0;
             }
         }, { passive: true });
 
         c.addEventListener('touchmove', (e) => {
             if (e.touches.length !== 1 || lastTouchX === null) return;
+            // non-passive + preventDefault : empêche le scroll natif du navigateur
+            // de conflicier avec notre scroll manuel (cause principale du saccad)
+            e.preventDefault();
 
             const dx = e.touches[0].clientX - lastTouchX;
             const dy = e.touches[0].clientY - lastTouchY;
-
-            // Mettre à jour le point de référence à chaque event (delta incrémental)
             lastTouchX = e.touches[0].clientX;
             lastTouchY = e.touches[0].clientY;
 
-            // Accumuler — le multiplicateur 1/zoomLevel donne un suivi 1:1 visuel
+            // Appliquer immédiatement — sans RAF pour éviter la latence d'une frame
             const zoom = this.zoomManager?.zoomLevel ?? 1;
-            _pendingDx -= dx / zoom;
-            _pendingDy -= dy / zoom;
-
-            if (!_rafPending) {
-                _rafPending = true;
-                requestAnimationFrame(() => {
-                    c.scrollLeft += _pendingDx;
-                    c.scrollTop  += _pendingDy;
-                    _pendingDx   = 0;
-                    _pendingDy   = 0;
-                    _rafPending  = false;
-                });
-            }
-        }, { passive: true });
+            c.scrollLeft -= dx / zoom;
+            c.scrollTop  -= dy / zoom;
+        }, { passive: false });
 
         c.addEventListener('touchend', () => {
             lastTouchX = null;

@@ -91,8 +91,12 @@ export class ZoomManager {
     _onWheel(e) {
         e.preventDefault();
 
-        // Accumuler le sens (pas la magnitude — on normalise à ±stepWheel)
         this._pendingDelta += e.deltaY > 0 ? -this.stepWheel : this.stepWheel;
+        // Mémoriser la position souris pour centrer le zoom dessus
+        if (!this._rafPending) {
+            this._mouseX = e.clientX;
+            this._mouseY = e.clientY;
+        }
 
         if (!this._rafPending) {
             this._rafPending = true;
@@ -101,7 +105,7 @@ export class ZoomManager {
                 this.level = Math.max(this.min, Math.min(this.max, this.level + this._pendingDelta));
                 this._pendingDelta = 0;
                 this._rafPending   = false;
-                this._apply(prevLevel);
+                this._applyAtPoint(prevLevel, this._mouseX, this._mouseY);
             });
         }
     }
@@ -152,33 +156,49 @@ export class ZoomManager {
     // ─────────────────────────────────────────────────────────────
 
     _apply(prevLevel) {
-        // Si on a un niveau précédent, compenser le déplacement dû au scale(center center)
-        // transform-origin: center signifie que le board scale depuis son centre (10400, 10400)
-        // Le scroll doit être ajusté pour que le point visuel central reste fixe
         if (prevLevel && prevLevel !== this.level) {
-            // Centre du board en px CSS (fixe, indépendant du zoom)
             const boardCenter = 10400;
-
-            // Position actuelle du centre du viewport en px CSS
             const viewCX = this.container.scrollLeft + this.container.clientWidth  / 2;
             const viewCY = this.container.scrollTop  + this.container.clientHeight / 2;
-
-            // Distance du centre du viewport au centre du board, avant zoom
             const dxBefore = viewCX - boardCenter;
             const dyBefore = viewCY - boardCenter;
-
-            // Après zoom, cette distance est multipliée par (newLevel / prevLevel)
-            const ratio = this.level / prevLevel;
-            const dxAfter = dxBefore * ratio;
-            const dyAfter = dyBefore * ratio;
-
+            const ratio    = this.level / prevLevel;
             this.board.style.transform = `scale(${this.level})`;
-
-            // Repositionner pour que le centre visuel reste au même endroit
-            this.container.scrollLeft = boardCenter + dxAfter - this.container.clientWidth  / 2;
-            this.container.scrollTop  = boardCenter + dyAfter - this.container.clientHeight / 2;
+            this.container.scrollLeft  = boardCenter + dxBefore * ratio - this.container.clientWidth  / 2;
+            this.container.scrollTop   = boardCenter + dyBefore * ratio - this.container.clientHeight / 2;
         } else {
             this.board.style.transform = `scale(${this.level})`;
         }
+    }
+
+    /**
+     * Applique le zoom en gardant le point sous (clientX, clientY) immobile.
+     */
+    _applyAtPoint(prevLevel, clientX, clientY) {
+        if (!prevLevel || prevLevel === this.level) {
+            this.board.style.transform = `scale(${this.level})`;
+            return;
+        }
+
+        const boardCenter = 10400;
+        const rect        = this.container.getBoundingClientRect();
+
+        // Position du pointeur dans le repère CSS du board (avant zoom)
+        const pointerInContainer = {
+            x: clientX - rect.left + this.container.scrollLeft,
+            y: clientY - rect.top  + this.container.scrollTop,
+        };
+        // Distance du pointeur au centre du board
+        const dxBoard = pointerInContainer.x - boardCenter;
+        const dyBoard = pointerInContainer.y - boardCenter;
+
+        const ratio = this.level / prevLevel;
+
+        this.board.style.transform = `scale(${this.level})`;
+
+        // Après zoom, le pointeur doit rester au même pixel écran
+        // → ajuster le scroll pour que boardCenter + dxBoard*ratio - scrollLeft = pointerInContainer.x
+        this.container.scrollLeft = boardCenter + dxBoard * ratio - (clientX - rect.left);
+        this.container.scrollTop  = boardCenter + dyBoard * ratio - (clientY - rect.top);
     }
 }
