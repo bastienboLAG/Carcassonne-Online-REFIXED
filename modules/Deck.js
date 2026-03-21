@@ -15,91 +15,41 @@ export class Deck {
         const riverTiles = [];
         const normalTiles = [];
 
+        // ── Chargement parallèle d'un groupe de tuiles ─────────────────
+        const _loadGroup = async (folder, ids) => {
+            const results = await Promise.allSettled(
+                ids.map(id => fetch(`./data/${folder}/${id}.json`).then(r => r.json()))
+            );
+            return results
+                .filter(r => r.status === 'fulfilled')
+                .map(r => r.value);
+        };
+
         // ── Groupe River (chargé en premier si activé) ─────────────────
         if (startType === 'river') {
-            const riverIds = ['01','02','03','04','05','06','07','08','09','10','11','12'];
-            for (const id of riverIds) {
-                try {
-                    const res  = await fetch(`./data/River/${id}.json`);
-                    const data = await res.json();
-                    riverTiles.push(data);
-                } catch (e) {
-                    console.error(`Erreur tuile River/${id}:`, e);
-                }
-            }
+            const ids = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+            riverTiles.push(...await _loadGroup('River', ids));
         }
 
         // ── Groupe Base ─────────────────────────────────────────────────
         const baseIds = testMode
             ? ['23', '24', '03', '01', '02', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14']
             : Array.from({ length: 24 }, (_, i) => String(i + 1).padStart(2, '0'));
+        normalTiles.push(...await _loadGroup('Base', baseIds));
 
-        for (const id of baseIds) {
-            try {
-                const res  = await fetch(`./data/Base/${id}.json`);
-                const data = await res.json();
-                normalTiles.push(data);
-            } catch (e) {
-                console.error(`Erreur tuile Base/${id}:`, e);
-            }
-        }
+        // ── Groupes optionnels — tous lancés en parallèle ───────────────
+        const optionalFetches = [];
+        if (tileGroups.abbot)
+            optionalFetches.push(_loadGroup('Abbot', ['01','02','03','04','05','06','07','08']));
+        if (tileGroups.inns_cathedrals)
+            optionalFetches.push(_loadGroup('Inns_Cathedrals', ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18']));
+        if (tileGroups.traders_builders)
+            optionalFetches.push(_loadGroup('Traders_Builders', ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24']));
+        if (tileGroups.dragon)
+            optionalFetches.push(_loadGroup('Dragon', ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29']));
 
-        // ── Groupe Abbot (optionnel) ────────────────────────────────────
-        if (tileGroups.abbot) {
-            const abbotIds = ['01','02','03','04','05','06','07','08'];
-            for (const id of abbotIds) {
-                try {
-                    const res  = await fetch(`./data/Abbot/${id}.json`);
-                    const data = await res.json();
-                    normalTiles.push(data);
-                } catch (e) {
-                    console.error(`Erreur tuile Abbot/${id}:`, e);
-                }
-            }
-        }
-
-        // ── Groupe Inns & Cathedrals (optionnel) ────────────────────────
-        if (tileGroups.inns_cathedrals) {
-            const innIds = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18'];
-            for (const id of innIds) {
-                try {
-                    const res  = await fetch(`./data/Inns_Cathedrals/${id}.json`);
-                    const data = await res.json();
-                    normalTiles.push(data);
-                } catch (e) {
-                    console.error(`Erreur tuile Inns_Cathedrals/${id}:`, e);
-                }
-            }
-        }
-
-        if (tileGroups.traders_builders) {
-            const traderIds = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24'];
-            for (const id of traderIds) {
-                try {
-                    const res  = await fetch(`./data/Traders_Builders/${id}.json`);
-                    const data = await res.json();
-                    normalTiles.push(data);
-                } catch (e) {
-                    console.error(`Erreur tuile Traders_Builders/${id}:`, e);
-                }
-            }
-        }
-
-        // ── Groupe Dragon (optionnel) ────────────────────────────────────
-        if (tileGroups.dragon) {
-            const dragonIds = ['01','02','03','04','05','06','07','08','09','10',
-                               '11','12','13','14','15','16','17','18','19','20',
-                               '21','22','23','24','25','26','27','28','29'];
-            for (const id of dragonIds) {
-                try {
-                    const res  = await fetch(`./data/Dragon/${id}.json`);
-                    const data = await res.json();
-                    normalTiles.push(data);
-                } catch (e) {
-                    console.error(`Erreur tuile Dragon/${id}:`, e);
-                }
-            }
-        }
+        const optionalResults = await Promise.all(optionalFetches);
+        optionalResults.forEach(group => normalTiles.push(...group));
 
         // ── Calcul du total ─────────────────────────────────────────────
         const allTileData = [...riverTiles, ...normalTiles];
