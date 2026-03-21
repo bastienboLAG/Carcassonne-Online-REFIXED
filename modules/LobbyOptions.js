@@ -421,6 +421,10 @@ export function initLobbyOptions({ getIsHost, getInLobby, multiplayer }) {
     _getInLobby  = getInLobby;
     _multiplayer = multiplayer;
 
+    // Charger les options sauvegardées EN PREMIER — avant les _updateAvailability
+    // qui appellent saveLobbyOptions() et écraseraient sinon le localStorage
+    loadLobbyOptions();
+
     // Disponibilité des options (listeners + état initial)
     _id('base-fields')?.addEventListener('change', _updatePigAvailability);
     _updatePigAvailability();
@@ -467,7 +471,6 @@ export function initLobbyOptions({ getIsHost, getInLobby, multiplayer }) {
         .forEach(el => el.addEventListener('change', _updateTileCount));
     _updateTileCount();
 
-    // Chargement initial
-    loadLobbyOptions();
+    // Chargement des presets (JSON)
     loadPresets();
 }
