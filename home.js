@@ -21,7 +21,7 @@ import {
     initDragonUI,
     tileHasDragonZone, tileHasVolcanoZone, tileHasPortalZone,
     broadcastDragonState,
-    updateDragonOverlay, clearDragonCursors, showDragonMoveCursors,
+    updateDragonOverlay, clearDragonCursors, showDragonMoveCursors, showDragonVisitedTiles,
     startDragonTurnUI, onDragonMoveConfirm, executeDragonMoveHost,
     onDragonPhaseEnded, advanceDragonTurnHost,
     renderDragonPiece, renderFairyPiece, removeFairyPiece, releaseFairyIfDetached,
