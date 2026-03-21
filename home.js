@@ -1,11 +1,11 @@
-import { Multiplayer }            from './modules/Multiplayer.js';
+import { Multiplayer }            from './modules/core/Multiplayer.js';
 import { Tile }                   from './modules/Tile.js';
 import { Board }                  from './modules/Board.js';
 import { Deck }                   from './modules/Deck.js';
 import { GameState }              from './modules/GameState.js';
-import { GameSync }               from './modules/GameSync.js';
-import { ZoneMerger }             from './modules/ZoneMerger.js';
-import { Scoring }                from './modules/Scoring.js';
+import { GameSync }               from './modules/core/GameSync.js';
+import { ZoneMerger }             from './modules/game/ZoneMerger.js';
+import { Scoring }                from './modules/game/Scoring.js';
 
 import { EventBus }               from './modules/core/EventBus.js';
 import { RuleRegistry }           from './modules/core/RuleRegistry.js';
@@ -64,15 +64,15 @@ import { LobbyJoin }              from './modules/ui/LobbyJoin.js';
 import { GameModuleInitializer }  from './modules/game/GameModuleInitializer.js';
 import { GameEventSetup }         from './modules/game/GameEventSetup.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
-import { HeartbeatManager }       from './modules/HeartbeatManager.js';
+import { HeartbeatManager }       from './modules/core/HeartbeatManager.js';
 import { FinalScoresManager }     from './modules/game/FinalScoresManager.js';
 
-import { ScorePanelUI }    from './modules/ScorePanelUI.js';
-import { SlotsUI }         from './modules/SlotsUI.js';
-import { TilePreviewUI }   from './modules/TilePreviewUI.js';
-import { MeepleCursorsUI } from './modules/MeepleCursorsUI.js';
-import { MeepleSelectorUI }from './modules/MeepleSelectorUI.js';
-import { MeepleDisplayUI } from './modules/MeepleDisplayUI.js';
+import { ScorePanelUI }    from './modules/ui/ScorePanelUI.js';
+import { SlotsUI }         from './modules/ui/SlotsUI.js';
+import { TilePreviewUI }   from './modules/ui/TilePreviewUI.js';
+import { MeepleCursorsUI } from './modules/ui/MeepleCursorsUI.js';
+import { MeepleSelectorUI }from './modules/ui/MeepleSelectorUI.js';
+import { MeepleDisplayUI } from './modules/ui/MeepleDisplayUI.js';
 import { LobbyUI }         from './modules/ui/LobbyUI.js';
 import { DragonRules }      from './modules/rules/DragonRules.js';
 import { getMeepleSize }    from './modules/MeepleConfig.js';
