@@ -259,8 +259,8 @@ export class GameEventSetup {
     _installNavigation(d) {
         document.getElementById('recenter-btn').onclick = () => {
             const container      = document.getElementById('board-container');
-            container.scrollLeft = 10400 - container.clientWidth  / 2;
-            container.scrollTop  = 10400 - container.clientHeight / 2;
+            container.scrollLeft = 10296 - container.clientWidth  / 2;
+            container.scrollTop  = 10296 - container.clientHeight / 2;
         };
 
         document.getElementById('highlight-tile-btn').onclick = () => {

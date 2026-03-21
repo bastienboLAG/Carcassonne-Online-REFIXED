@@ -61,8 +61,10 @@ export class NavigationManager {
      * Recentre le plateau sur le centre de la grille (50,50).
      */
     _centerBoard() {
-        this.container.scrollLeft = 10400 - this.container.clientWidth  / 2;
-        this.container.scrollTop  = 10400 - this.container.clientHeight / 2;
+        // Centre de la tuile (50,50) : (50-1)*208 + 104 = 10296
+        const tileCenter = 10296;
+        this.container.scrollLeft = tileCenter - this.container.clientWidth  / 2;
+        this.container.scrollTop  = tileCenter - this.container.clientHeight / 2;
     }
 
     /**
