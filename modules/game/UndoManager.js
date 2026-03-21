@@ -423,6 +423,7 @@ export class UndoManager {
                 if (mover?.id === multiplayer.playerId) {
                     d.showDragonMoveCursors(dragonRules.getValidDragonMoves());
                 }
+                d.showDragonVisitedTiles(gameState.dragonPhase.visitedTiles, gameState.dragonPos);
             }
             this.eventBus.emit('score-updated');
             d.updateTurnDisplay();

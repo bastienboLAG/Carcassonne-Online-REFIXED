@@ -827,6 +827,7 @@ function initializeGameModules() {
         removeFairyPiece,
         updateDragonOverlay,
         showDragonMoveCursors,
+        showDragonVisitedTiles,
         hideAllCursors,
     }).init();
 }
