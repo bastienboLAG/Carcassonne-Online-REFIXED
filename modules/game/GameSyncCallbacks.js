@@ -1,201 +1,108 @@
 import { Tile } from '../Tile.js';
 
 /**
- * GameSyncCallbacks - Factorise les callbacks réseau communs à l'hôte et aux invités
- * Évite la duplication entre startGame() et startGameForInvite()
+ * GameSyncCallbacks - Factorise tous les callbacks réseau (hôte et invités)
  */
 export class GameSyncCallbacks {
     constructor({
-        gameSync,
-        gameState,
-        deck,
-        turnManager,
-        tilePreviewUI,
-        meepleDisplayUI,
-        undoManager,
-        unplaceableManager,
-        scoring,
-        zoneMerger,
-        slotsUI,
-        eventBus,
-        getPlacedMeeples,
-        onRemoteUndo,
-        onFinalScores,
-        onTileDestroyed,
-        onDeckReshuffled,
-        onAbbeRecalled,
-        onAbbeRecalledUndo,
-        onBonusTurnStarted,
-        onUnplaceableHandled,
-        updateTurnDisplay,
-        poserTuileSync,
-        afficherMessage,
-        onUpdateMobileTilePreview = null,
+        gameSync, gameState, deck, turnManager, tilePreviewUI, meepleDisplayUI,
+        undoManager, unplaceableManager, scoring, zoneMerger, slotsUI, eventBus,
+        plateau, gameConfig, ruleRegistry, scorePanelUI, tilePlacement, dragonRules,
+        finalScoresManager, getPlacedMeeples, getWaitingToRedraw, setWaitingToRedraw,
+        onRemoteUndo, onFinalScores, onTileDestroyed, onDeckReshuffled,
+        onAbbeRecalled, onAbbeRecalledUndo, onBonusTurnStarted, onUnplaceableHandled,
+        onGamePaused, onGameResumed, onFullStateSync,
+        updateTurnDisplay, poserTuileSync, afficherMessage,
+        onUpdateMobileTilePreview = null, updateMobileButtons = null,
+        releaseFairyIfDetached, broadcastDragonState, startDragonTurnUI,
+        hostDrawAndSend, executeDragonMoveHost, advanceDragonTurnHost, handlePrincessEject,
         isHost = false,
     }) {
-        this.gameSync        = gameSync;
-        this.gameState       = gameState;
-        this.deck            = deck;
-        this.turnManager     = turnManager;
-        this.tilePreviewUI   = tilePreviewUI;
-        this.meepleDisplayUI     = meepleDisplayUI;
-        this.undoManager         = undoManager;
-        this.unplaceableManager  = unplaceableManager ?? null;
-        this.scoring         = scoring;
-        this.zoneMerger      = zoneMerger;
-        this.slotsUI         = slotsUI;
-        this.eventBus        = eventBus;
-
-        // Accesseurs / callbacks vers home.js
-        this.getPlacedMeeples  = getPlacedMeeples;   // () => placedMeeples
-        this.onRemoteUndo      = onRemoteUndo;        // (action) => void
-        this.onFinalScores     = onFinalScores;       // (scores) => void
-        this.onTileDestroyed   = onTileDestroyed;     // (id, name, action) => void
-        this.onDeckReshuffled  = onDeckReshuffled;    // (tiles, idx) => void
-        this.onAbbeRecalled    = onAbbeRecalled;      // (x, y, key, playerId, points) => void
-        this.onAbbeRecalledUndo  = onAbbeRecalledUndo;  // (x, y, key, playerId) => void
-        this.onBonusTurnStarted  = onBonusTurnStarted ?? null; // (playerId) => void
-        this.onUnplaceableHandled = onUnplaceableHandled ?? null; // (tileId, name, action, isRiver, isActivePlayer) => void
-        this.updateTurnDisplay = updateTurnDisplay;   // () => void
-        this.poserTuileSync    = poserTuileSync;      // (x, y, tile) => void
-        this.afficherMessage   = afficherMessage;     // (msg) => void
-        this.onUpdateMobileTilePreview = onUpdateMobileTilePreview; // () => void — preview mobile
-        this.isHost            = isHost;
-        this.onGamePaused      = null; // (name) => void
-        this.onGameResumed     = null; // (reason) => void
-        this.onFullStateSync   = null; // (data) => void
+        Object.assign(this, {
+            gameSync, gameState, deck, turnManager, tilePreviewUI, meepleDisplayUI,
+            undoManager, unplaceableManager: unplaceableManager ?? null, scoring,
+            zoneMerger, slotsUI, eventBus, plateau, gameConfig, ruleRegistry,
+            scorePanelUI, tilePlacement, dragonRules, finalScoresManager,
+            getPlacedMeeples, getWaitingToRedraw, setWaitingToRedraw,
+            onRemoteUndo, onFinalScores, onTileDestroyed, onDeckReshuffled,
+            onAbbeRecalled, onAbbeRecalledUndo,
+            onBonusTurnStarted: onBonusTurnStarted ?? null,
+            onUnplaceableHandled: onUnplaceableHandled ?? null,
+            _onGamePaused:    onGamePaused  ?? null,
+            _onGameResumed:   onGameResumed ?? null,
+            _onFullStateSync: onFullStateSync ?? null,
+            updateTurnDisplay, poserTuileSync, afficherMessage,
+            onUpdateMobileTilePreview, updateMobileButtons,
+            releaseFairyIfDetached, broadcastDragonState, startDragonTurnUI,
+            hostDrawAndSend, executeDragonMoveHost, advanceDragonTurnHost, handlePrincessEject,
+            isHost,
+        });
     }
 
-    /**
-     * Attacher tous les callbacks sur gameSync
-     * @param {boolean} isHost
-     */
     attach(isHost) {
         const gs = this.gameSync;
 
-        // ── Réception du deck (invité seulement) ──────────────────────────────
         gs.onGameStarted = (deckData, gameStateData) => {
-            console.log('🎮 [INVITÉ] Pioche reçue !');
-            this.deck.tiles        = deckData.tiles;
-            this.deck.currentIndex = deckData.currentIndex;
-            this.deck.totalTiles   = deckData.totalTiles;
+            this.deck.tiles = deckData.tiles; this.deck.currentIndex = deckData.currentIndex; this.deck.totalTiles = deckData.totalTiles;
             this.gameState.deserialize(gameStateData);
-            this.eventBus.emit('deck-updated', {
-                remaining: this.deck.remaining(),
-                total:     this.deck.total()
-            });
+            this.eventBus.emit('deck-updated', { remaining: this.deck.remaining(), total: this.deck.total() });
             this.updateTurnDisplay();
             this.slotsUI.createCentralSlot();
         };
 
-        // ── Rotation d'une tuile ──────────────────────────────────────────────
         gs.onTileRotated = (rotation) => {
-            // Accumule le CSS +90 pour éviter l'animation à rebours (270°→0° via CSS absolu)
-            const currentImg = document.getElementById('current-tile-img');
-            if (currentImg) {
-                const currentDeg = parseInt(currentImg.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0');
-                currentImg.style.transform = `rotate(${currentDeg + 90}deg)`;
-            }
+            const img = document.getElementById('current-tile-img');
+            if (img) { const d = parseInt(img.style.transform.match(/rotate\((\d+)deg\)/)?.[1] || '0'); img.style.transform = `rotate(${d + 90}deg)`; }
             this.eventBus.emit('tile-rotated', { rotation });
         };
 
-        // ── Demande de placement d'une tuile (invité → hôte, étape 2) ──────────
         gs.onTilePlacedRequest = (x, y, tileId, rotation, fromPlayerId) => {
             console.log('📍 [HÔTE] tile-placed-request de:', fromPlayerId, x, y, tileId);
-            const tileData = this.deck.tiles.find(t => t.id === tileId);
-            if (!tileData) return;
-            const tile = new Tile(tileData);
-            tile.rotation = rotation;
-
-            // Appliquer côté hôte
+            const tileData = this.deck.tiles.find(t => t.id === tileId); if (!tileData) return;
+            const tile = new Tile(tileData); tile.rotation = rotation;
             this.poserTuileSync(x, y, tile, { skipValidation: false });
             this.undoManager?.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
-
-            // Marquer la tuile comme posée côté hôte (sinon full-state-sync enverrait tuilePosee:false)
             this.gameState.currentTilePlaced = true;
-
-            // Broadcast tile-placed à tous (y compris l'émetteur)
-            gs.multiplayer.broadcast({
-                type: 'tile-placed',
-                x, y,
-                tileId: tile.id,
-                rotation: tile.rotation,
-                playerId: fromPlayerId,
-                zoneRegistry: this.zoneMerger.registry.serialize(),
-                tileToZone:   Array.from(this.zoneMerger.tileToZone.entries())
-            });
+            gs.multiplayer.broadcast({ type: 'tile-placed', x, y, tileId: tile.id, rotation: tile.rotation, playerId: fromPlayerId,
+                zoneRegistry: this.zoneMerger.registry.serialize(), tileToZone: Array.from(this.zoneMerger.tileToZone.entries()) });
         };
 
-        // ── Placement d'une tuile (broadcast reçu) ───────────────────────────
         gs.onTilePlaced = (x, y, tileId, rotation, zoneRegistryData, tileToZoneData) => {
             console.log('📍 [SYNC] Placement reçu:', x, y, tileId, rotation);
             this.gameState.currentTilePlaced = true;
-            const tileData = this.deck.tiles.find(t => t.id === tileId);
-            if (!tileData) return;
-
-            const tile = new Tile(tileData);
-            tile.rotation = rotation;
-
-            this.poserTuileSync(x, y, tile, {
-                skipValidation: true,
-                ...(zoneRegistryData ? { skipZoneMerger: true } : {})
-            });
-
+            const tileData = this.deck.tiles.find(t => t.id === tileId); if (!tileData) return;
+            const tile = new Tile(tileData); tile.rotation = rotation;
+            this.poserTuileSync(x, y, tile, { skipValidation: true, ...(zoneRegistryData ? { skipZoneMerger: true } : {}) });
             if (zoneRegistryData && tileToZoneData) {
                 this.zoneMerger.registry.deserialize(zoneRegistryData);
                 this.zoneMerger.tileToZone = new Map(tileToZoneData);
                 console.log('✅ [SYNC] ZoneRegistry appliqué depuis hôte');
             }
-
-            if (this.undoManager && this.isHost) {
-                this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
-            }
-
-            // ✅ Émettre tile-placed-own APRÈS la désérialisation du zoneRegistry
-            // pour que la détection princesse/fée ait accès aux zones fusionnées.
+            if (this.undoManager && this.isHost) this.undoManager.saveAfterTilePlaced(x, y, tile, this.getPlacedMeeples());
             if (!this.isHost && this.turnManager?.isMyTurn) {
                 console.log('📍 [INVITÉ] Echo reçu — affichage curseurs meeple');
                 this.eventBus.emit('tile-placed-own', { x, y, tile });
             }
         };
 
-        // ── Fin de tour ───────────────────────────────────────────────────────
         gs.onTurnEnded = (nextPlayerIndex, gameStateData, isBonusTurn = false, nextTileId = null) => {
             this.gameState.currentTilePlaced = false;
             this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn, nextTileId);
-            // Si tour bonus : afficher le toast ici — plus besoin du message bonus-turn-started séparé
-            if (isBonusTurn && this.onBonusTurnStarted) {
-                const currentPlayer = this.gameState.getCurrentPlayer();
-                this.onBonusTurnStarted(currentPlayer?.id);
-            }
+            if (isBonusTurn && this.onBonusTurnStarted) this.onBonusTurnStarted(this.gameState.getCurrentPlayer()?.id);
         };
 
-        // ── Pioche d'une tuile ────────────────────────────────────────────────
-        gs.onTileDrawn = (tileId, rotation) => {
-            this.turnManager.receiveTileDrawn(tileId, rotation);
-        };
+        gs.onTileDrawn = (tileId, rotation) => { this.turnManager.receiveTileDrawn(tileId, rotation); };
 
-        // ── Placement d'un meeple (broadcast reçu) ───────────────────────────
         gs.onMeeplePlaced = (x, y, position, meepleType, color, playerId) => {
             console.log('🎭 [SYNC] Meeple placé reçu');
-            const placedMeeples = this.getPlacedMeeples();
-            const key = `${x},${y},${position}`;
-            placedMeeples[key] = { type: meepleType, color, playerId };
+            const key = `${x},${y},${position}`; const pm = this.getPlacedMeeples();
+            pm[key] = { type: meepleType, color, playerId };
             this.meepleDisplayUI.showMeeple(x, y, position, meepleType, color);
-
-            // ✅ Étape 3 : si c'est notre propre echo, mettre à jour état local + cacher curseurs
-            if (!this.isHost && playerId === gs.multiplayer.playerId) {
-                const player = this.gameState.players.find(p => p.id === playerId);
-                if (player) {
-                    // Le meeple-count-update arrivera juste après et mettra à jour les compteurs
-                }
+            if (!this.isHost && playerId === gs.multiplayer.playerId)
                 this.eventBus.emit('meeple-placed-own', { x, y, position, meepleType });
-            }
         };
 
-        // ── Mise à jour du compteur de meeples ───────────────────────────────
         gs.onMeepleCountUpdate = (playerId, meeples, hasAbbot, hasLargeMeeple, hasBuilder, hasPig) => {
-            console.log('🎭 [SYNC] Mise à jour compteur reçue:', playerId, meeples, 'hasAbbot:', hasAbbot, 'hasLarge:', hasLargeMeeple, 'hasBuilder:', hasBuilder, 'hasPig:', hasPig);
             const player = this.gameState.players.find(p => p.id === playerId);
             if (player) {
                 player.meeples = meeples;
@@ -207,154 +114,279 @@ export class GameSyncCallbacks {
             }
         };
 
-        // ── Mise à jour des scores ────────────────────────────────────────────
         gs.onScoreUpdate = (scoringResults, meeplesToReturn, goodsResults = [], zoneRegistryData = null, tileToZoneData = null) => {
             console.log('💰 [SYNC] Mise à jour des scores reçue');
-            const placedMeeples = this.getPlacedMeeples();
-
+            const pm = this.getPlacedMeeples();
             scoringResults.forEach(({ playerId, points, zoneType }) => {
-                const player = this.gameState.players.find(p => p.id === playerId);
-                if (player) {
-                    player.score += points;
-                    player.scoreDetail = player.scoreDetail || {};
-                    if (zoneType === 'city')             player.scoreDetail.cities      = (player.scoreDetail.cities      || 0) + points;
-                    else if (zoneType === 'road')        player.scoreDetail.roads       = (player.scoreDetail.roads       || 0) + points;
-                    else if (zoneType === 'abbey')       player.scoreDetail.monasteries = (player.scoreDetail.monasteries || 0) + points;
-                    else if (zoneType === 'fairy-turn'
-                          || zoneType === 'fairy')      player.scoreDetail.fairy        = (player.scoreDetail.fairy        || 0) + points;
-                }
+                const p = this.gameState.players.find(pl => pl.id === playerId); if (!p) return;
+                p.score += points; p.scoreDetail = p.scoreDetail || {};
+                if (zoneType === 'city')              p.scoreDetail.cities      = (p.scoreDetail.cities      || 0) + points;
+                else if (zoneType === 'road')         p.scoreDetail.roads       = (p.scoreDetail.roads       || 0) + points;
+                else if (zoneType === 'abbey')        p.scoreDetail.monasteries = (p.scoreDetail.monasteries || 0) + points;
+                else if (zoneType === 'fairy-turn' || zoneType === 'fairy') p.scoreDetail.fairy = (p.scoreDetail.fairy || 0) + points;
             });
-
-            // Appliquer les jetons de marchandises
             goodsResults.forEach(({ playerId, cloth, wheat, wine }) => {
-                const player = this.gameState.players.find(p => p.id === playerId);
-                if (player) {
-                    player.goods = player.goods || { cloth: 0, wheat: 0, wine: 0 };
-                    player.goods.cloth += cloth;
-                    player.goods.wheat += wheat;
-                    player.goods.wine  += wine;
-                }
+                const p = this.gameState.players.find(pl => pl.id === playerId); if (!p) return;
+                p.goods = p.goods || { cloth: 0, wheat: 0, wine: 0 };
+                p.goods.cloth += cloth; p.goods.wheat += wheat; p.goods.wine += wine;
             });
-
-            // Appliquer le zoneRegistry post-scoring (goods vidés) envoyé par l'hôte
             if (zoneRegistryData) {
                 this.zoneMerger.registry.deserialize(zoneRegistryData);
-                if (tileToZoneData) {
-                    this.zoneMerger.tileToZone = new Map(tileToZoneData);
-                }
-                console.log('✅ [SYNC] ZoneRegistry post-scoring appliqué (goods mis à jour)');
+                if (tileToZoneData) this.zoneMerger.tileToZone = new Map(tileToZoneData);
+                console.log('✅ [SYNC] ZoneRegistry post-scoring appliqué');
             }
-
             meeplesToReturn.forEach(key => {
                 document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-                const meeple = placedMeeples[key];
-                if (meeple) {
-                    const player = this.gameState.players.find(p => p.id === meeple.playerId);
-                    if (player) {
-                        if (meeple.type === 'Abbot') {
-                            player.hasAbbot = true;
-                        } else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') {
-                            player.hasLargeMeeple = true;
-                        } else if (meeple.type === 'Builder') {
-                            player.hasBuilder = true;
-                        } else if (meeple.type === 'Pig') {
-                            player.hasPig = true;
-                        } else {
-                            if (player.meeples < 7) player.meeples++;
-                        }
-                        this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
-                    }
-                }
-                delete placedMeeples[key];
+                const meeple = pm[key]; if (!meeple) return;
+                const p = this.gameState.players.find(pl => pl.id === meeple.playerId); if (!p) return;
+                if (meeple.type === 'Abbot')                                         p.hasAbbot       = true;
+                else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') p.hasLargeMeeple = true;
+                else if (meeple.type === 'Builder')                                  p.hasBuilder     = true;
+                else if (meeple.type === 'Pig')                                      p.hasPig         = true;
+                else if (p.meeples < 7)                                              p.meeples++;
+                this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
+                delete pm[key];
             });
-
             this.updateTurnDisplay();
-
-            // Si la fée est maintenant seule sur le plateau (son meeple vient d'être rendu),
-            // réafficher les curseurs de la fée pour que le joueur puisse la réassigner.
-            if (this.gameState.fairyState?.meepleKey === null
-                && this.gameState.fairyState?.ownerId === null) {
-                // La fée vient d'être détachée — réafficher les cibles si c'est notre tour
+            if (this.gameState.fairyState?.meepleKey === null && this.gameState.fairyState?.ownerId === null)
                 this.eventBus.emit('fairy-detached-show-targets');
-            }
         };
 
-        // ── Annulation distante ───────────────────────────────────────────────
-        gs.onTurnUndo = (undoneAction) => {
-            console.log('⏪ [SYNC] Annulation distante reçue');
-            this.onRemoteUndo(undoneAction);
-        };
+        gs.onTurnUndo = (undoneAction) => { console.log('⏪ [SYNC] Annulation distante reçue'); this.onRemoteUndo(undoneAction); };
 
-        // ── Fin de partie ─────────────────────────────────────────────────────
         gs.onPlayerDisconnected = (peerId, playerName, nextPlayerIndex) => {
             console.log('👋 [SYNC] Joueur déconnecté:', playerName);
-            // Marquer déconnecté (sans supprimer) côté invité
-            if (this.gameState) {
-                this.gameState.markDisconnected(peerId);
-                this.gameState.currentPlayerIndex = nextPlayerIndex;
-            }
+            if (this.gameState) { this.gameState.markDisconnected(peerId); this.gameState.currentPlayerIndex = nextPlayerIndex; }
             if (this.afficherMessage) this.afficherMessage(`💔 ${playerName} s'est déconnecté.`);
-            if (this.onGamePaused) this.onGamePaused(playerName, null);
-            // Mettre à jour le tour
+            if (this._onGamePaused) this._onGamePaused(playerName);
             if (this.turnManager) {
                 this.turnManager.updateTurnState();
-                this.turnManager.eventBus.emit('turn-changed', {
-                    isMyTurn: this.turnManager.isMyTurn,
-                    currentPlayer: this.turnManager.getCurrentPlayer()
-                });
+                this.turnManager.eventBus.emit('turn-changed', { isMyTurn: this.turnManager.isMyTurn, currentPlayer: this.turnManager.getCurrentPlayer() });
             }
         };
 
-        gs.onGamePaused  = (name) => { if (this.onGamePaused)  this.onGamePaused(name); };
-        gs.onGameResumed = (reason)   => { if (this.onGameResumed) this.onGameResumed(reason); };
-        gs.onFullStateSync = (data)   => { if (this.onFullStateSync) this.onFullStateSync(data); };
+        gs.onGamePaused    = (name)   => { if (this._onGamePaused)   this._onGamePaused(name); };
+        gs.onGameResumed   = (reason) => { if (this._onGameResumed)  this._onGameResumed(reason); };
+        gs.onFullStateSync = (data)   => { if (this._onFullStateSync) this._onFullStateSync(data); };
+        gs.onGameEnded     = (scores, destroyedCount = 0) => { console.log('🏁 [SYNC] Fin de partie reçue'); this.onFinalScores(scores, destroyedCount); };
 
-        gs.onGameEnded = (detailedScores, destroyedTilesCount = 0) => {
-            console.log('🏁 [SYNC] Fin de partie reçue');
-            this.onFinalScores(detailedScores, destroyedTilesCount);
-        };
-
-        // ── Tuile détruite ────────────────────────────────────────────────────
         gs.onTileDestroyed = (tileId, playerName, action, count, playerId) => {
-            console.log('🗑️ [SYNC] Tuile détruite:', tileId, 'par', playerName);
+            console.log('🗑️ [SYNC] Tuile détruite:', tileId);
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
             if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
             this.onTileDestroyed(tileId, playerName, action, count, playerId);
         };
 
-        // ── Tuile donnée directement par l'hôte (après implaçable) ─────────
-        gs.onYourTurn = (tileId) => {
-            console.log('🎲 [INVITÉ] your-turn reçu:', tileId);
-            this.turnManager.receiveYourTurn(tileId);
-        };
+        gs.onYourTurn = (tileId) => { console.log('🎲 [INVITÉ] your-turn reçu:', tileId); this.turnManager.receiveYourTurn(tileId); };
 
-        // ── Tuile implaçable traitée par l'hôte ───────────────────────────────
         gs.onUnplaceableHandled = (tileId, playerName, action, isRiver, activePeerId) => {
             console.log('🚫 [SYNC] Tuile implaçable traitée:', tileId);
-            // Fermer la modale implaçable (badge + modale confirmer)
             if (this.unplaceableManager) this.unplaceableManager.hideUnplaceableBadge();
-            // Afficher le verso dans la preview
             if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
             if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
-            // Si c'est notre tour (invité actif) → modale avec repiocher, sinon info
-            const isActivePlayer = activePeerId === this.gameSync?.multiplayer?.playerId;
+            const isActivePlayer = activePeerId === gs?.multiplayer?.playerId;
             if (this.onUnplaceableHandled) this.onUnplaceableHandled(tileId, playerName, action, isRiver, isActivePlayer);
         };
 
-        // ── Deck remélangé ────────────────────────────────────────────────────
-        gs.onAbbeRecalled = (x, y, key, playerId, points) => {
-            if (this.onAbbeRecalled) this.onAbbeRecalled(x, y, key, playerId, points);
-        };
-
-        gs.onAbbeRecalledUndo = (x, y, key, playerId) => {
-            if (this.onAbbeRecalledUndo) this.onAbbeRecalledUndo(x, y, key, playerId);
-        };
+        gs.onAbbeRecalled    = (x, y, key, playerId, points) => { if (this.onAbbeRecalled)    this.onAbbeRecalled(x, y, key, playerId, points); };
+        gs.onAbbeRecalledUndo = (x, y, key, playerId)        => { if (this.onAbbeRecalledUndo) this.onAbbeRecalledUndo(x, y, key, playerId); };
 
         gs.onDeckReshuffled = (tiles, currentIndex) => {
-            console.log('🔀 [SYNC] Réception deck remélangé, currentIndex:', currentIndex);
-            this.deck.tiles        = tiles;
-            this.deck.currentIndex = currentIndex;
+            console.log('🔀 [SYNC] Deck remélangé, currentIndex:', currentIndex);
+            this.deck.tiles = tiles; this.deck.currentIndex = currentIndex;
             this.onDeckReshuffled(tiles, currentIndex);
         };
+
+        if (isHost) this._attachHostCallbacks(gs);
+    }
+
+    _attachHostCallbacks(gs) {
+
+        gs.onUndoRequest = (playerId) => {
+            console.log('⏪ [HÔTE] Undo-request de:', playerId);
+            const um = this.undoManager;
+            if (!um || !um.canUndo()) { console.log('⏪ [HÔTE] Rien à annuler'); return; }
+            const undoneAction = um.undo(this.getPlacedMeeples());
+            if (!undoneAction) return;
+            if (undoneAction.type === 'meeple' && um.afterTilePlacedSnapshot?.pendingPortalTile !== undefined)
+                this.gameState._pendingPortalTile = um.afterTilePlacedSnapshot.pendingPortalTile;
+            const pm = this.getPlacedMeeples();
+            undoneAction.postUndoState = {
+                placedTileKeys: Object.keys(this.plateau.placedTiles),
+                zones:          this.zoneMerger.registry.serialize(),
+                tileToZone:     Array.from(this.zoneMerger.tileToZone.entries()),
+                placedMeeples:  JSON.parse(JSON.stringify(pm)),
+                playerMeeples:  this.gameState.players.map(p => ({ id: p.id, meeples: p.meeples, hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple, hasBuilder: p.hasBuilder, hasPig: p.hasPig })),
+                fairyState:     JSON.parse(JSON.stringify(this.gameState.fairyState ?? { ownerId: null, meepleKey: null })),
+                dragonPos:      JSON.parse(JSON.stringify(this.gameState.dragonPos ?? null)),
+                dragonPhase:    JSON.parse(JSON.stringify(this.gameState.dragonPhase ?? {})),
+                pendingPortalTile: this.gameState._pendingPortalTile ? JSON.parse(JSON.stringify(this.gameState._pendingPortalTile)) : null
+            };
+            um.applyLocally(undoneAction);
+            if (this.gameSync) this.gameSync.syncUndo(undoneAction);
+            this.gameState.players.forEach(p => this.eventBus.emit('meeple-count-updated', { playerId: p.id }));
+            this.eventBus.emit('score-updated');
+            this.updateTurnDisplay();
+            if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
+            if (this.scorePanelUI) this.scorePanelUI.updateMobile();
+            if (this.updateMobileButtons) this.updateMobileButtons();
+        };
+
+        gs.onMeeplePlacedRequest = (x, y, position, meepleType, fromPlayerId) => {
+            console.log('🎭 [HÔTE] meeple-placed-request de:', fromPlayerId, x, y, position, meepleType);
+            const player = this.gameState.players.find(p => p.id === fromPlayerId); if (!player) return;
+            const playerColor = player.color.charAt(0).toUpperCase() + player.color.slice(1);
+            const key = `${x},${y},${position}`; const pm = this.getPlacedMeeples();
+            pm[key] = { type: meepleType, color: playerColor, playerId: fromPlayerId };
+            if (!['Abbot','Large','Large-Farmer','Builder','Pig'].includes(meepleType)) { if (player.meeples > 0) player.meeples--; }
+            else if (meepleType === 'Abbot')                                          { player.hasAbbot       = false; }
+            else if (meepleType === 'Large' || meepleType === 'Large-Farmer')         { player.hasLargeMeeple = false; }
+            else if (meepleType === 'Builder')                                         { player.hasBuilder     = false; }
+            else if (meepleType === 'Pig')                                             { player.hasPig         = false; }
+            if (this.undoManager) this.undoManager.markMeeplePlaced(x, y, position, key);
+            this.eventBus.emit('meeple-count-updated', { playerId: fromPlayerId });
+            if (this.meepleDisplayUI) this.meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
+            gs.multiplayer.broadcast({ type: 'meeple-placed', x, y, position, meepleType, color: playerColor, playerId: fromPlayerId });
+            gs.multiplayer.broadcast({ type: 'meeple-count-update', playerId: fromPlayerId, meeples: player.meeples, hasAbbot: player.hasAbbot, hasLargeMeeple: player.hasLargeMeeple, hasBuilder: player.hasBuilder, hasPig: player.hasPig });
+        };
+
+        gs.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurnRequest, pendingAbbeData = null) => {
+            console.log('⏭️ [HÔTE] turn-end-request de:', playerId);
+            this.setWaitingToRedraw(false); gs._pendingUnplaceableRedraw = null;
+            const currentPlayer = this.gameState.getCurrentPlayer();
+            if (!currentPlayer || currentPlayer.id !== playerId) { console.warn('⚠️ [HÔTE] rejeté: pas le tour de', playerId); return; }
+            if (!this.gameState.currentTilePlaced) { console.warn('⚠️ [HÔTE] rejeté: tuile non posée pour', playerId); return; }
+            if (pendingAbbeData) {
+                const p = this.gameState.players.find(pl => pl.id === pendingAbbeData.playerId);
+                if (p) { p.score += pendingAbbeData.points; p.scoreDetail = p.scoreDetail || {}; p.scoreDetail.monasteries = (p.scoreDetail.monasteries || 0) + pendingAbbeData.points; }
+            }
+            let isBonusTurn = false;
+            if (this.gameConfig.extensions?.tradersBuilders && !isBonusTurnRequest) {
+                const builderRulesInst = this.ruleRegistry.rules?.get('builders');
+                if (builderRulesInst?.checkBonusTrigger(playerId)) isBonusTurn = true;
+            }
+            if (this.scoring && this.zoneMerger) {
+                const newlyClosed = this.tilePlacement?.newlyClosedZones ?? null;
+                const { scoringResults, meeplesToReturn, goodsResults } = this.scoring.scoreClosedZones(this.getPlacedMeeples(), playerId, this.gameState, newlyClosed);
+                const fairyKeySnap    = this.gameState.fairyState?.meepleKey ?? null;
+                const fairyOwnerSnap  = this.gameState.fairyState?.ownerId   ?? null;
+                if (scoringResults.length > 0 || goodsResults.length > 0) {
+                    const pm = this.getPlacedMeeples();
+                    scoringResults.forEach(({ playerId: pid, points, zoneType }) => {
+                        const p = this.gameState.players.find(pl => pl.id === pid); if (!p) return;
+                        p.score += points;
+                        if (zoneType === 'city')                               p.scoreDetail.cities      += points;
+                        else if (zoneType === 'road')                          p.scoreDetail.roads       += points;
+                        else if (zoneType === 'abbey' || zoneType === 'garden') p.scoreDetail.monasteries += points;
+                    });
+                    meeplesToReturn.forEach(key => {
+                        const meeple = pm[key]; if (!meeple) return;
+                        const p = this.gameState.players.find(pl => pl.id === meeple.playerId); if (!p) return;
+                        if (meeple.type === 'Abbot')                                         p.hasAbbot       = true;
+                        else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') p.hasLargeMeeple = true;
+                        else if (meeple.type === 'Builder')                                  p.hasBuilder     = true;
+                        else if (meeple.type === 'Pig')                                      p.hasPig         = true;
+                        else if (p.meeples < 7)                                              p.meeples++;
+                        document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
+                        delete pm[key];
+                        this.releaseFairyIfDetached(key);
+                        this.eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
+                    });
+                    if (this.gameSync) this.gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, this.zoneMerger);
+                    if (this.gameConfig.extensions?.fairyProtection && fairyKeySnap && !this.gameState.fairyState?.meepleKey)
+                        this.eventBus.emit('fairy-detached-show-targets');
+                    if (this.gameConfig.extensions?.fairyScoreZone && fairyKeySnap && meeplesToReturn.includes(fairyKeySnap)) {
+                        const fp = this.gameState.players.find(p => p.id === fairyOwnerSnap);
+                        if (fp) {
+                            fp.score += 3; fp.scoreDetail = fp.scoreDetail || {}; fp.scoreDetail.fairy = (fp.scoreDetail.fairy || 0) + 3;
+                            console.log(`🧚 [Fée] +3 points fermeture zone pour ${fp.name}`);
+                            if (this.gameSync) this.gameSync.syncScoreUpdate([{ playerId: fairyOwnerSnap, points: 3, zoneType: 'fairy' }], [], [], this.zoneMerger);
+                            this.eventBus.emit('score-updated');
+                        }
+                    }
+                }
+            }
+            this.gameState.currentTilePlaced = false;
+            if (this.gameConfig.tileGroups?.dragon && this.gameConfig.extensions?.dragon && this.dragonRules && this.gameState._pendingVolcanoPos) {
+                const { x: vx, y: vy } = this.gameState._pendingVolcanoPos;
+                this.dragonRules.onVolcanoPlaced(vx, vy); this.gameState._pendingVolcanoPos = null;
+                this.broadcastDragonState();
+            }
+            if (this.gameConfig.tileGroups?.dragon && this.gameConfig.extensions?.dragon && this.dragonRules && this.gameState._pendingDragonTile) {
+                const { playerIndex } = this.gameState._pendingDragonTile;
+                this.gameState._pendingDragonTile = null; this.gameState._pendingPrincessTile = null; this.gameState._pendingPortalTile = null;
+                if (this.undoManager) this.undoManager.reset();
+                const started = this.dragonRules.onDragonTilePlaced(playerIndex);
+                if (started) {
+                    this.broadcastDragonState(); this.gameSync.syncDragonPhaseStarted(this.gameState.dragonPhase);
+                    this.startDragonTurnUI(); return;
+                }
+            }
+            this.gameState._pendingPrincessTile = null; this.gameState._pendingPortalTile = null;
+            if (this.undoManager) this.undoManager.reset();
+            if (this.turnManager) this.turnManager.endTurnRemote(isBonusTurn);
+            if (isBonusTurn) this.ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
+            if (this.deck.remaining() <= 0) { this.gameSync.syncTurnEnd(false, null); this.finalScoresManager.computeAndApply(this.getPlacedMeeples()); return; }
+            const _nextTile = this.hostDrawAndSend();
+            if (_nextTile) this.turnManager.receiveYourTurn(_nextTile.id);
+            this.gameSync.syncTurnEnd(isBonusTurn, _nextTile?.id ?? null);
+        };
+
+        gs.onUnplaceableConfirm = (playerId, tileId) => {
+            console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
+            if (!this.unplaceableManager) return;
+            const guestTile = this.deck.tiles.find(t => t.id === tileId) ?? { id: tileId };
+            const result    = this.unplaceableManager.handleConfirm(guestTile, this.gameSync, playerId);
+            if (this.tilePreviewUI) this.tilePreviewUI.showBackside();
+            if (!result) { gs._pendingUnplaceableRedraw = playerId; return; }
+            this.gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);
+            if (!result.special) this.unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, false, result.action, result.isRiver);
+            gs._pendingUnplaceableRedraw = playerId;
+        };
+
+        gs.onUnplaceableRedraw = (playerId) => {
+            console.log('🔄 [HÔTE] Repiocher après implaçable pour:', playerId);
+            const _nextTile = this.hostDrawAndSend();
+            if (_nextTile) {
+                const isHostPlayer = playerId === gs.multiplayer.playerId || playerId === gs.multiplayer.peerId;
+                if (isHostPlayer) { this.turnManager.receiveYourTurn(_nextTile.id); }
+                else {
+                    const conn = gs.multiplayer.connections.find(c => c.peer === playerId);
+                    if (conn?.open) conn.send({ type: 'your-turn', tileId: _nextTile.id });
+                    if (this.tilePreviewUI) this.tilePreviewUI.showTile(_nextTile);
+                }
+            }
+            gs._pendingUnplaceableRedraw = null;
+        };
+
+        gs.multiplayer.onDataReceived = ((prev) => (data, from) => {
+            if (data.type === 'dragon-move-request') {
+                const mover = this.gameState.players[this.gameState.dragonPhase.moverIndex];
+                if (!this.gameState.dragonPhase.active || mover?.id !== from) { console.warn('⚠️ dragon-move-request rejeté de', from); return; }
+                this.executeDragonMoveHost(data.x, data.y); return;
+            }
+            if (data.type === 'dragon-end-turn-request') {
+                const mover = this.gameState.players[this.gameState.dragonPhase.moverIndex];
+                if (!this.gameState.dragonPhase.active || mover?.id !== from) { console.warn('⚠️ dragon-end-turn-request rejeté de', from); return; }
+                this.advanceDragonTurnHost(); return;
+            }
+            if (data.type === 'princess-eject-request') { this.handlePrincessEject(data.meepleKey); return; }
+            if (data.type === 'portal-meeple-request') {
+                const { x, y, position, meepleType, playerId: fromId } = data;
+                const pPlayer = this.gameState.players.find(p => p.id === fromId); if (!pPlayer) return;
+                const pColor = pPlayer.color.charAt(0).toUpperCase() + pPlayer.color.slice(1);
+                const pKey   = `${x},${y},${position}`; const pm = this.getPlacedMeeples();
+                pm[pKey] = { type: meepleType, color: pColor, playerId: fromId };
+                if (meepleType === 'Abbot')                                          pPlayer.hasAbbot       = false;
+                else if (meepleType === 'Large' || meepleType === 'Large-Farmer')   pPlayer.hasLargeMeeple = false;
+                else if (pPlayer.meeples > 0)                                        pPlayer.meeples--;
+                if (this.undoManager) this.undoManager.markMeeplePlaced(x, y, position, pKey);
+                this.gameState._pendingPortalTile = null;
+                if (this.meepleDisplayUI) this.meepleDisplayUI.showMeeple(x, y, position, meepleType, pColor);
+                gs.multiplayer.broadcast({ type: 'portal-meeple-placed', x, y, position, meepleType, playerId: fromId, color: pColor });
+                this.eventBus.emit('meeple-count-updated', { playerId: fromId }); return;
+            }
+            if (prev) prev(data, from);
+        })(gs.multiplayer.onDataReceived);
     }
 }

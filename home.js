@@ -1064,25 +1064,17 @@ function initializeGameModules() {
 // ═══════════════════════════════════════════════════════
 function attachGameSyncCallbacks() {
     new GameSyncCallbacks({
-        gameSync,
-        gameState,
-        deck,
-        turnManager,
-        tilePreviewUI,
-        meepleDisplayUI,
-        undoManager,
-        unplaceableManager,
-        scoring,
-        zoneMerger,
-        slotsUI,
-        eventBus,
-        getPlacedMeeples: () => placedMeeples,
+        gameSync, gameState, deck, turnManager, tilePreviewUI, meepleDisplayUI,
+        undoManager, unplaceableManager, scoring, zoneMerger, slotsUI, eventBus,
+        plateau, gameConfig, ruleRegistry, scorePanelUI, tilePlacement, dragonRules,
+        finalScoresManager,
+        getPlacedMeeples:  () => placedMeeples,
+        getWaitingToRedraw: () => waitingToRedraw,
+        setWaitingToRedraw: (v) => { waitingToRedraw = v; updateTurnDisplay(); },
         onRemoteUndo:     (action) => undoManager.applyRemote(action),
         onFinalScores:    (scores, destroyedTilesCount = 0) => finalScoresManager.receiveFromNetwork(scores, destroyedTilesCount),
         onTileDestroyed:  (tileId, pName, action, count = 1, playerId = null) => {
-            // N'incrémenter que si la tuile est détruite, pas remélangée
             if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + count;
-            // Si c'est notre tuile qui est remélangée (invité actif), mettre en attente de repioche
             const currentPlayer = gameState?.getCurrentPlayer();
             const isMyTileDestroyed = !isHost && action === 'dragon-reshuffle'
                 && (playerId === multiplayer.playerId || currentPlayer?.id === multiplayer.playerId);
@@ -1096,15 +1088,12 @@ function attachGameSyncCallbacks() {
         },
         onDeckReshuffled: (tiles, idx) => { deck.tiles = tiles; deck.currentIndex = idx; },
         onAbbeRecalled: (x, y, key, playerId, points) => {
-            // Retirer visuellement l'Abbé
             document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
             delete placedMeeples[key];
             releaseFairyIfDetached(key);
             const player = gameState.players.find(p => p.id === playerId);
             if (player) player.hasAbbot = true;
-            // Hôte marque le rappel abbé pour undo centralisé
             if (isHost && undoManager) undoManager.markAbbeRecalled(x, y, key, playerId, points);
-            // ✅ PAS de pendingAbbePoints côté invité — les points seront reçus via score-update en fin de tour
             eventBus.emit('meeple-count-updated', { playerId });
             eventBus.emit('score-updated');
             updateTurnDisplay();
@@ -1113,18 +1102,15 @@ function attachGameSyncCallbacks() {
             pendingAbbePoints = null;
             const player = gameState.players.find(p => p.id === playerId);
             if (player) player.hasAbbot = false;
-            // Le meeple est déjà dans placedMeeples grâce à la synchro du snapshot
             eventBus.emit('score-updated');
             updateTurnDisplay();
         },
         onBonusTurnStarted: (playerId) => {
-            // Un autre joueur démarre son tour bonus — flaguer localement pour le UI
             if (turnManager) turnManager.isBonusTurn = true;
             updateTurnDisplay();
             const player = gameState.players.find(p => p.id === playerId);
             if (player) {
                 afficherToast(`⭐ Tour bonus pour ${player.name} !`, 'bonus');
-                // Marquer le toast pour fermeture automatique à la fin du tour bonus
                 const _bonusToast = document.getElementById('disconnect-toast');
                 if (_bonusToast) _bonusToast.dataset.isBonusToast = 'true';
             }
@@ -1132,372 +1118,29 @@ function attachGameSyncCallbacks() {
         onUnplaceableHandled: (tileId, pName, action, isRiver, isActivePlayer) => {
             if (action === 'destroy' && gameState) gameState.destroyedTilesCount = (gameState.destroyedTilesCount || 0) + 1;
             unplaceableManager.showTileDestroyedModal(tileId, pName, isActivePlayer, action, isRiver);
-            if (isActivePlayer) {
-                waitingToRedraw = true;
-                updateTurnDisplay();
-            }
+            if (isActivePlayer) { waitingToRedraw = true; updateTurnDisplay(); }
         },
-        updateTurnDisplay,
-        poserTuileSync: (x, y, tile, opts) => tilePlacement.handlePlaceSync(x, y, tile, opts),
-        afficherMessage: (msg) => { afficherToast(msg); },
-        onUpdateMobileTilePreview: updateMobileTilePreview,
-        isHost,
-    }).attach(isHost);
-
-    // Callbacks reconnexion (définis après attach car gameSync callbacks obj créé)
-    if (gameSync) {
-        gameSync.onGamePaused  = (name) => { reconnectionManager?._showPauseOverlay(name); };
-        gameSync.onGameResumed = (reason)   => {
+        onGamePaused:  (name)   => { reconnectionManager?._showPauseOverlay(name); },
+        onGameResumed: (reason) => {
             reconnectionManager?._hidePauseOverlay();
             if (reason === 'timeout') afficherToast('⏱ Partie reprise (joueur exclu).');
             else afficherToast('✅ Partie reprise !');
-        };
-        gameSync.onFullStateSync = (data) => { reconnectionManager.applyFullStateSync(data); };
-
-        // Hôte : traitement d'une demande d'annulation d'un invité
-        if (isHost) {
-            gameSync.onUndoRequest = (playerId) => {
-                console.log('⏪ [HÔTE] Traitement undo-request de:', playerId);
-                if (!undoManager || !undoManager.canUndo()) {
-                    console.log('⏪ [HÔTE] Rien à annuler');
-                    return;
-                }
-                const undoneAction = undoManager.undo(placedMeeples);
-                if (!undoneAction) return;
-
-                // Si l'undo annule un meeple portail, restaurer _pendingPortalTile dans gameState
-                // AVANT de construire postUndoState (sinon il serait null dans le payload invité)
-                if (undoneAction.type === 'meeple' && undoManager.afterTilePlacedSnapshot?.pendingPortalTile !== undefined) {
-                    gameState._pendingPortalTile = undoManager.afterTilePlacedSnapshot.pendingPortalTile;
-                }
-
-                // Enrichir undoneAction avec l'état post-undo pour que les invités puissent reconstruire
-                undoneAction.postUndoState = {
-                    placedTileKeys: Object.keys(plateau.placedTiles),
-                    zones:          zoneMerger.registry.serialize(),
-                    tileToZone:     Array.from(zoneMerger.tileToZone.entries()),
-                    placedMeeples:  JSON.parse(JSON.stringify(placedMeeples)),
-                    playerMeeples:  gameState.players.map(p => ({
-                        id: p.id, meeples: p.meeples,
-                        hasAbbot: p.hasAbbot, hasLargeMeeple: p.hasLargeMeeple,
-                        hasBuilder: p.hasBuilder, hasPig: p.hasPig
-                    })),
-                    fairyState:  JSON.parse(JSON.stringify(gameState.fairyState ?? { ownerId: null, meepleKey: null })),
-                    dragonPos:   JSON.parse(JSON.stringify(gameState.dragonPos ?? null)),
-                    dragonPhase: JSON.parse(JSON.stringify(gameState.dragonPhase ?? {})),
-                    pendingPortalTile: gameState._pendingPortalTile
-                        ? JSON.parse(JSON.stringify(gameState._pendingPortalTile))
-                        : null
-                };
-
-                // Appliquer visuellement côté hôte
-                undoManager.applyLocally(undoneAction);
-
-                // Broadcaster à tous
-                if (gameSync) gameSync.syncUndo(undoneAction);
-                gameState.players.forEach(p => eventBus.emit('meeple-count-updated', { playerId: p.id }));
-                eventBus.emit('score-updated');
-                updateTurnDisplay();
-                updateMobileTilePreview();
-                scorePanelUI?.updateMobile();
-                updateMobileButtons();
-            };
-        }
-
-        // Hôte : traitement d'une demande de placement meeple d'un invité
-        if (isHost) {
-            gameSync.onMeeplePlacedRequest = (x, y, position, meepleType, fromPlayerId) => {
-                console.log('🎭 [HÔTE] meeple-placed-request de:', fromPlayerId, x, y, position, meepleType);
-                const player = gameState.players.find(p => p.id === fromPlayerId);
-                if (!player) return;
-                const playerColor = player.color.charAt(0).toUpperCase() + player.color.slice(1);
-                const key = `${x},${y},${position}`;
-
-                placedMeeples[key] = { type: meepleType, color: playerColor, playerId: fromPlayerId };
-
-                if (!['Abbot','Large','Large-Farmer','Builder','Pig'].includes(meepleType)) {
-                    if (player.meeples > 0) player.meeples--;
-                } else if (meepleType === 'Abbot')        { player.hasAbbot = false; }
-                else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { player.hasLargeMeeple = false; }
-                else if (meepleType === 'Builder')         { player.hasBuilder = false; }
-                else if (meepleType === 'Pig')             { player.hasPig = false; }
-
-                if (undoManager) undoManager.markMeeplePlaced(x, y, position, key);
-
-                // Mettre à jour l'affichage du score côté hôte
-                eventBus.emit('meeple-count-updated', { playerId: fromPlayerId });
-
-                // Appliquer visuellement côté hôte (broadcast ne revient pas à l'expéditeur)
-                if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, playerColor);
-
-                gameSync.multiplayer.broadcast({
-                    type: 'meeple-placed',
-                    x, y, position, meepleType,
-                    color: playerColor,
-                    playerId: fromPlayerId
-                });
-                gameSync.multiplayer.broadcast({
-                    type: 'meeple-count-update',
-                    playerId: fromPlayerId,
-                    meeples: player.meeples,
-                    hasAbbot: player.hasAbbot,
-                    hasLargeMeeple: player.hasLargeMeeple,
-                    hasBuilder: player.hasBuilder,
-                    hasPig: player.hasPig
-                });
-            };
-        }
-
-        // Hôte : traitement d'une demande de fin de tour d'un invité
-        if (isHost) {
-            gameSync.onTurnEndRequest = (playerId, nextPlayerIndex, gameStateData, isBonusTurnRequest, pendingAbbeData = null) => {
-                console.log('⏭️ [HÔTE] Traitement turn-end-request de:', playerId);
-
-                // Nettoyage défensif : un invité qui termine son tour ne doit pas
-                // laisser waitingToRedraw=true côté hôte
-                waitingToRedraw = false;
-                gameSync._pendingUnplaceableRedraw = null;
-
-                // ⭐ Vérification défensive : rejeter si ce n'est pas le tour de ce joueur
-                const currentPlayer = gameState.getCurrentPlayer();
-                if (!currentPlayer || currentPlayer.id !== playerId) {
-                    console.warn('⚠️ [HÔTE] turn-end-request rejeté : pas le tour de', playerId, '(joueur courant:', currentPlayer?.id, ')');
-                    return;
-                }
-                // Rejeter si la tuile n'a pas été posée côté hôte
-                if (!gameState.currentTilePlaced) {
-                    console.warn('⚠️ [HÔTE] turn-end-request rejeté : tuile non posée pour', playerId);
-                    return;
-                }
-
-                // Appliquer les points Abbé en attente transmis par l'invité
-                if (pendingAbbeData) {
-                    const p = gameState.players.find(pl => pl.id === pendingAbbeData.playerId);
-                    if (p) {
-                        p.score += pendingAbbeData.points;
-                        p.scoreDetail = p.scoreDetail || {};
-                        p.scoreDetail.monasteries = (p.scoreDetail.monasteries || 0) + pendingAbbeData.points;
-                    }
-                }
-
-                // ⭐ Vérifier bonus bâtisseur AVANT le scoring
-                // (après scoring le bâtisseur peut être retiré de placedMeeples si sa zone se ferme)
-                // Un tour bonus ne peut pas en générer un autre
-                let isBonusTurn = false;
-                if (gameConfig.extensions?.tradersBuilders && !isBonusTurnRequest) {
-                    const builderRulesInst = ruleRegistry.rules?.get('builders');
-                    if (builderRulesInst) {
-                        const bonus = builderRulesInst.checkBonusTrigger(playerId);
-                        if (bonus) isBonusTurn = true;
-                    }
-                }
-
-                // Scoring des zones fermées (l'invité ne le fait plus lui-même)
-                if (scoring && zoneMerger) {
-                    const newlyClosed = tilePlacement?.newlyClosedZones ?? null;
-                    const { scoringResults, meeplesToReturn, goodsResults } = scoring.scoreClosedZones(placedMeeples, playerId, gameState, newlyClosed);
-                    // Snapshot de la clé fée AVANT que _releaseFairyIfDetached la vide
-                    const fairyMeepleKeySnapshot = gameState.fairyState?.meepleKey ?? null;
-                    const fairyOwnerIdSnapshot   = gameState.fairyState?.ownerId   ?? null;
-                    if (scoringResults.length > 0 || goodsResults.length > 0) {
-                        scoringResults.forEach(({ playerId: pid, points, zoneType }) => {
-                            const p = gameState.players.find(pl => pl.id === pid);
-                            if (p) {
-                                p.score += points;
-                                if (zoneType === 'city')   p.scoreDetail.cities      += points;
-                                else if (zoneType === 'road') p.scoreDetail.roads    += points;
-                                else if (zoneType === 'abbey' || zoneType === 'garden') p.scoreDetail.monasteries += points;
-                            }
-                        });
-                        meeplesToReturn.forEach(key => {
-                            const meeple = placedMeeples[key];
-                            if (!meeple) return;
-                            const p = gameState.players.find(pl => pl.id === meeple.playerId);
-                            if (!p) return;
-                            if (meeple.type === 'Abbot')        { p.hasAbbot = true; }
-                            else if (meeple.type === 'Large' || meeple.type === 'Large-Farmer') { p.hasLargeMeeple = true; }
-                            else if (meeple.type === 'Builder') { p.hasBuilder = true; }
-                            else if (meeple.type === 'Pig')     { p.hasPig = true; }
-                            else                                { if (p.meeples < 7) p.meeples++; }
-                            document.querySelectorAll(`.meeple[data-key="${key}"]`).forEach(el => el.remove());
-                            delete placedMeeples[key];
-                            releaseFairyIfDetached(key);
-                            eventBus.emit('meeple-count-updated', { playerId: meeple.playerId });
-                        });
-                        if (gameSync) gameSync.syncScoreUpdate(scoringResults, meeplesToReturn, goodsResults, zoneMerger);
-
-                        // Si la fée s'est retrouvée seule après la fermeture, réafficher les curseurs
-                        if (gameConfig.extensions?.fairyProtection
-                            && fairyMeepleKeySnapshot && !gameState.fairyState?.meepleKey) {
-                            eventBus.emit('fairy-detached-show-targets');
-                        }
-
-                        // Fix 2 — Fée : +3 points si le meeple porteur de la fée est dans une zone fermée
-                        if (gameConfig.extensions?.fairyScoreZone && fairyMeepleKeySnapshot
-                            && meeplesToReturn.includes(fairyMeepleKeySnapshot)) {
-                            const fp = gameState.players.find(p => p.id === fairyOwnerIdSnapshot);
-                            if (fp) {
-                                fp.score += 3;
-                                fp.scoreDetail = fp.scoreDetail || {};
-                                fp.scoreDetail.fairy = (fp.scoreDetail.fairy || 0) + 3;
-                                console.log(`🧚 [Fée] +3 points fermeture de zone pour ${fp.name} (score: ${fp.score})`);
-                                if (gameSync) gameSync.syncScoreUpdate(
-                                    [{ playerId: fairyOwnerIdSnapshot, points: 3, zoneType: 'fairy' }],
-                                    [], [], zoneMerger
-                                );
-                                eventBus.emit('score-updated');
-                            }
-                        }
-                    }
-                }
-
-                // Reset undo + avance le tour côté hôte
-                gameState.currentTilePlaced = false; // ← remettre à zéro AVANT endTurnRemote (sinon sendFullStateTo envoie tuileEnMain: null)
-
-                // ── Extension Dragon : migration volcano en fin de tour ──
-                if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingVolcanoPos) {
-                    const { x: vx, y: vy } = gameState._pendingVolcanoPos;
-                    dragonRules.onVolcanoPlaced(vx, vy);
-                    gameState._pendingVolcanoPos = null;
-                    broadcastDragonState();
-                }
-
-                // ── Extension Dragon : démarrer phase dragon si tuile dragon posée ──
-                if (gameConfig.tileGroups?.dragon && gameConfig.extensions?.dragon && dragonRules && gameState._pendingDragonTile) {
-                    const { playerIndex } = gameState._pendingDragonTile;
-                    gameState._pendingDragonTile = null;
-                    gameState._pendingPrincessTile = null;
-                    gameState._pendingPortalTile = null;
-                    if (undoManager) undoManager.reset();
-                    const started = dragonRules.onDragonTilePlaced(playerIndex);
-                    if (started) {
-                        broadcastDragonState();
-                        gameSync.syncDragonPhaseStarted(gameState.dragonPhase);
-                        startDragonTurnUI(); // ← hôte aussi
-                        return; // phase dragon prend le relais — pas de pioche maintenant
-                    }
-                }
-
-                gameState._pendingPrincessTile = null;
-                gameState._pendingPortalTile = null;
-                if (undoManager) undoManager.reset();
-                if (turnManager) turnManager.endTurnRemote(isBonusTurn);
-
-                if (isBonusTurn) {
-                    ruleRegistry.rules?.get('builders')?.resetLastPlacedTile?.();
-                }
-
-                // Fin de partie ?
-                if (deck.remaining() <= 0) {
-                    gameSync.syncTurnEnd(false, null);
-                    finalScoresManager.computeAndApply(placedMeeples);
-                    return;
-                }
-
-                // Piocher la prochaine tuile
-                const _nextTile = _hostDrawAndSend();
-                if (_nextTile) turnManager.receiveYourTurn(_nextTile.id);
-                gameSync.syncTurnEnd(isBonusTurn, _nextTile?.id ?? null);
-            };
-
-            // Hôte : traitement d'une tuile implaçable d'un invité
-            gameSync.onUnplaceableConfirm = (playerId, tileId) => {
-                console.log('🚫 [HÔTE] Tuile implaçable de:', playerId, '— tileId:', tileId);
-                if (!unplaceableManager) return;
-
-                const guestTile = deck.tiles.find(t => t.id === tileId) ?? { id: tileId };
-                const result = unplaceableManager.handleConfirm(guestTile, gameSync, playerId);
-                if (tilePreviewUI) tilePreviewUI.showBackside();
-                if (!result) {
-                    gameSync._pendingUnplaceableRedraw = playerId;
-                    return;
-                }
-
-                gameSync.syncUnplaceableHandled(result.tileId, result.playerName, result.action, result.isRiver, playerId);
-
-                if (!result.special) {
-                    unplaceableManager.showTileDestroyedModal(result.tileId, result.playerName, false, result.action, result.isRiver);
-                }
-
-                gameSync._pendingUnplaceableRedraw = playerId;
-            };
-
-            // Hôte : l'invité demande à repiocher après tuile implaçable
-            gameSync.onUnplaceableRedraw = (playerId) => {
-                console.log('🔄 [HÔTE] Repiocher après implaçable pour:', playerId);
-                const _nextTile = _hostDrawAndSend();
-                if (_nextTile) {
-                    const isHostPlayer = playerId === multiplayer.playerId || playerId === multiplayer.peerId;
-                    if (isHostPlayer) {
-                        turnManager.receiveYourTurn(_nextTile.id);
-                    } else {
-                        // Invité — envoyer la tuile + afficher côté hôte
-                        const conn = gameSync.multiplayer.connections.find(c => c.peer === playerId);
-                        if (conn && conn.open) {
-                            conn.send({ type: 'your-turn', tileId: _nextTile.id });
-                        }
-                        if (tilePreviewUI) tilePreviewUI.showTile(_nextTile);
-                    }
-                }
-                gameSync._pendingUnplaceableRedraw = null;
-            };
-
-            // Hôte : déplacement dragon demandé par un invité
-            gameSync.multiplayer.onDataReceived = ((originalHandler) => (data, from) => {
-                if (data.type === 'dragon-move-request') {
-                    const mover = gameState.players[gameState.dragonPhase.moverIndex];
-                    if (!gameState.dragonPhase.active || mover?.id !== from) {
-                        console.warn('⚠️ [Dragon] dragon-move-request rejeté de', from);
-                        return;
-                    }
-                    executeDragonMoveHost(data.x, data.y);
-                    return;
-                }
-                if (data.type === 'dragon-end-turn-request') {
-                    const mover = gameState.players[gameState.dragonPhase.moverIndex];
-                    if (!gameState.dragonPhase.active || mover?.id !== from) {
-                        console.warn('⚠️ [Dragon] dragon-end-turn-request rejeté de', from);
-                        return;
-                    }
-                    advanceDragonTurnHost();
-                    return;
-                }
-                if (data.type === 'princess-eject-request') {
-                    // L'invité demande à éjecter un meeple via la princesse
-                    // L'hôte applique localement puis broadcast à tous
-                    handlePrincessEject(data.meepleKey);
-                    return;
-                }
-                if (data.type === 'portal-meeple-request') {
-                    // L'invité demande à placer un meeple via le portail
-                    // L'hôte valide, applique visuellement et broadcast
-                    const { x, y, position, meepleType, playerId: fromId } = data;
-                    const pPlayer = gameState.players.find(p => p.id === fromId);
-                    if (!pPlayer) return;
-                    const pColor = pPlayer.color.charAt(0).toUpperCase() + pPlayer.color.slice(1);
-                    const pKey = `${x},${y},${position}`;
-                    placedMeeples[pKey] = { type: meepleType, color: pColor, playerId: fromId };
-                    if (meepleType === 'Abbot')       { pPlayer.hasAbbot = false; }
-                    else if (meepleType === 'Large' || meepleType === 'Large-Farmer') { pPlayer.hasLargeMeeple = false; }
-                    else                              { if (pPlayer.meeples > 0) pPlayer.meeples--; }
-                    if (undoManager) undoManager.markMeeplePlaced(x, y, position, pKey);
-                    // Le portail a été utilisé — remettre à null dans le state hôte
-                    gameState._pendingPortalTile = null;
-                    // Rendu visuel côté hôte (le broadcast ne revient pas à l'expéditeur)
-                    if (meepleDisplayUI) meepleDisplayUI.showMeeple(x, y, position, meepleType, pColor);
-                    gameSync.multiplayer.broadcast({
-                        type: 'portal-meeple-placed',
-                        x, y, position, meepleType,
-                        playerId: fromId,
-                        color: pColor
-                    });
-                    eventBus.emit('meeple-count-updated', { playerId: fromId });
-                    return;
-                }
-                if (originalHandler) originalHandler(data, from);
-            })(gameSync.multiplayer.onDataReceived);
-        }
-    }
+        },
+        onFullStateSync: (data) => { reconnectionManager.applyFullStateSync(data); },
+        updateTurnDisplay,
+        poserTuileSync:            (x, y, tile, opts) => tilePlacement.handlePlaceSync(x, y, tile, opts),
+        afficherMessage:            (msg) => { afficherToast(msg); },
+        onUpdateMobileTilePreview: updateMobileTilePreview,
+        updateMobileButtons,
+        releaseFairyIfDetached,
+        broadcastDragonState,
+        startDragonTurnUI,
+        hostDrawAndSend:       _hostDrawAndSend,
+        executeDragonMoveHost,
+        advanceDragonTurnHost,
+        handlePrincessEject,
+        isHost,
+    }).attach(isHost);
 }
 
 // Invités : écouter dragon-state-update et dragon-phase-started
