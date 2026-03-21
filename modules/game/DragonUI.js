@@ -201,9 +201,6 @@ export function startDragonTurnUI() {
     updateDragonOverlay();
     _deps.onUpdateTurnDisplay();
 
-    // Afficher les tuiles déjà visitées (overlay rouge + 🐾)
-    showDragonVisitedTiles(phase.visitedTiles, gs().dragonPos);
-
     const dragonRules = _deps.getDragonRules();
     if (isMyDragonTurn && dragonRules) {
         const validMoves = dragonRules.getValidDragonMoves();
@@ -217,6 +214,9 @@ export function startDragonTurnUI() {
             showDragonMoveCursors(validMoves);
         }
     }
+
+    // Toujours afficher APRÈS showDragonMoveCursors (qui appelle clearDragonCursors en interne)
+    showDragonVisitedTiles(phase.visitedTiles, gs().dragonPos);
 }
 
 // ── Déplacement dragon ─────────────────────────────────────────────────────
