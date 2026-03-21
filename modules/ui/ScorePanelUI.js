@@ -1,4 +1,4 @@
-import { getMeepleSize, getGoodsSize } from './MeepleConfig.js';
+import { getMeepleSize, getGoodsSize } from '../MeepleConfig.js';
 
 /**
  * ScorePanelUI - Affichage des joueurs : panel PC + barre mobile

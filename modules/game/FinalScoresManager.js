@@ -124,7 +124,7 @@ export class FinalScoresManager {
             <th>Abbayes</th>
             <th>Champs</th>
             ${hasMerchants ? '<th>March.</th>' : ''}
-            ${hasFairy     ? '<th>🧚 Fée</th>' : ''}
+            ${hasFairy     ? '<th>Fée</th>' : ''}
             <th>Total</th>
         `;
 
@@ -202,7 +202,7 @@ export class FinalScoresManager {
         const labels = ['Villes', 'Routes', 'Abbayes', 'Champs'];
         const keys   = ['cities', 'roads', 'monasteries', 'fields'];
         if (hasMerchantsMobile) { labels.push('Marchandises'); keys.push('goods'); }
-        if (hasFairyMobile)     { labels.push('🧚 Fée');        keys.push('fairy'); }
+        if (hasFairyMobile)     { labels.push('Fée');        keys.push('fairy'); }
 
         detailedScores.forEach((player, index) => {
             if (player.color === 'spectator') return;

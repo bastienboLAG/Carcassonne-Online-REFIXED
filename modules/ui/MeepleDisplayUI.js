@@ -1,4 +1,4 @@
-import { getMeepleSize } from './MeepleConfig.js';
+import { getMeepleSize } from '../MeepleConfig.js';
 
 /**
  * MeepleDisplayUI - Gère l'affichage des meeples sur le plateau

@@ -1,5 +1,5 @@
-import { MeepleUtils } from './MeepleUtils.js';
-import { InnsRules }   from './rules/InnsRules.js';
+import { MeepleUtils } from '../MeepleUtils.js';
+import { InnsRules }   from '../rules/InnsRules.js';
 
 /**
  * Gère le calcul des scores

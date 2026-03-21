@@ -1,4 +1,4 @@
-import { getMeepleSize } from './MeepleConfig.js';
+import { getMeepleSize } from '../MeepleConfig.js';
 
 /**
  * MeepleSelectorUI - Gère le sélecteur de type de meeple

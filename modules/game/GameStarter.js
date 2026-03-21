@@ -1,5 +1,5 @@
 import { GameState } from '../GameState.js';
-import { GameSync  } from '../GameSync.js';
+import { GameSync  } from '../core/GameSync.js';
 import { TurnManager } from './TurnManager.js';
 import { ReconnectionManager } from './ReconnectionManager.js';
 import { initTurnUI } from '../ui/TurnUI.js';
