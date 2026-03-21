@@ -59,6 +59,8 @@ import { MeeplePlacement }        from './modules/game/MeeplePlacement.js';
 import { GameSyncCallbacks }      from './modules/game/GameSyncCallbacks.js';
 import { GameStarter }            from './modules/game/GameStarter.js';
 import { initGameMenu }           from './modules/ui/GameMenuUI.js';
+import { LobbyNavigator }         from './modules/ui/LobbyNavigator.js';
+import { GameModuleInitializer }  from './modules/game/GameModuleInitializer.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
 import { HeartbeatManager }       from './modules/HeartbeatManager.js';
 import { FinalScoresManager }     from './modules/game/FinalScoresManager.js';
@@ -936,43 +938,55 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
 // ═══════════════════════════════════════════════════════
 // INITIALISATION COMMUNE DES MODULES
 // ═══════════════════════════════════════════════════════
+// INITIALISATION COMMUNE DES MODULES
+// ═══════════════════════════════════════════════════════
 function initializeGameModules() {
-    console.log('🔧 Initialisation des modules de jeu...');
-
-    scorePanelUI   = new ScorePanelUI(eventBus, gameState, gameConfig);
-    slotsUI        = new SlotsUI(plateau, gameSync, eventBus, () => tuileEnMain);
-    slotsUI.init();
-    slotsUI.setSlotClickHandler((x, y, tile, isFirst) => tilePlacement.handlePlace(x, y, tile, isFirst));
-    slotsUI.isMyTurn        = isMyTurn;
-    slotsUI.firstTilePlaced = firstTilePlaced;
-
-    tilePreviewUI = new TilePreviewUI(eventBus);
-    tilePreviewUI.init();
-
-    zoneMerger = new ZoneMerger(plateau);
-    scoring    = new Scoring(zoneMerger, gameConfig);
-
-    tilePlacement  = new TilePlacement(eventBus, plateau, zoneMerger);
-    tilePlacement.initHandlers({
-        getGameState:          () => gameState,
-        getGameConfig:         () => gameConfig,
-        getMultiplayer:        () => multiplayer,
-        getGameSync:           () => gameSync,
-        getZoneMerger:         () => zoneMerger,
-        getDragonRules:        () => dragonRules,
-        getUndoManager:        () => undoManager,
-        getMeepleCursorsUI:    () => meepleCursorsUI,
-        getPlacedMeeples:      () => placedMeeples,
-        getTilePreviewUI:      () => tilePreviewUI,
-        getUnplaceableManager: () => unplaceableManager,
-        getIsHost:             () => isHost,
-        getIsMyTurn:           () => isMyTurn,
-        getFirstTilePlaced:    () => firstTilePlaced,
-        setTuileEnMain:        (v) => { tuileEnMain = v; },
-        setTuilePosee:         (v) => { tuilePosee = v; },
-        setFirstTilePlaced:    (v) => { firstTilePlaced = v; if (slotsUI) slotsUI.firstTilePlaced = v; if (tilePlacement) tilePlacement.firstTilePlaced = v; },
-        setLastPlacedTile:     (v) => { lastPlacedTile = v; },
+    new GameModuleInitializer({
+        getEventBus:          () => eventBus,
+        getGameState:         () => gameState,
+        getGameConfig:        () => gameConfig,
+        getPlateau:           () => plateau,
+        getGameSync:          () => gameSync,
+        getDeck:              () => deck,
+        getMultiplayer:       () => multiplayer,
+        getPlacedMeeples:     () => placedMeeples,
+        getRuleRegistry:      () => ruleRegistry,
+        getIsHost:            () => isHost,
+        getIsMyTurn:          () => isMyTurn,
+        getFirstTilePlaced:   () => firstTilePlaced,
+        getTuileEnMain:       () => tuileEnMain,
+        getTilePlacement:     () => tilePlacement,
+        getZoneMerger:        () => zoneMerger,
+        getUndoManager:       () => undoManager,
+        getMeepleCursorsUI:   () => meepleCursorsUI,
+        getTilePreviewUI:     () => tilePreviewUI,
+        getUnplaceableManager:() => unplaceableManager,
+        getDragonRules:       () => dragonRules,
+        getSlotsUI:           () => slotsUI,
+        getLastPlacedTile:    () => lastPlacedTile,
+        getScoring:           () => scoring,
+        getFinalScoresManager:() => finalScoresManager,
+        setScorePanelUI:      (v) => { scorePanelUI     = v; },
+        setSlotsUI:           (v) => { slotsUI          = v; },
+        setTilePreviewUI:     (v) => { tilePreviewUI    = v; },
+        setZoneMerger:        (v) => { zoneMerger       = v; },
+        setScoring:           (v) => { scoring          = v; },
+        setTilePlacement:     (v) => { tilePlacement    = v; },
+        setMeeplePlacement:   (v) => { meeplePlacement  = v; },
+        setMeepleCursorsUI:   (v) => { meepleCursorsUI  = v; },
+        setMeepleSelectorUI:  (v) => { meepleSelectorUI = v; },
+        setMeepleDisplayUI:   (v) => { meepleDisplayUI  = v; },
+        setUndoManager:       (v) => { undoManager      = v; },
+        setDragonRules:       (v) => { dragonRules      = v; },
+        setUnplaceableManager:(v) => { unplaceableManager = v; },
+        setFinalScoresManager:(v) => { finalScoresManager = v; },
+        setTuileEnMain:       (v) => { tuileEnMain = v; },
+        setTuilePosee:        (v) => { tuilePosee = v; },
+        setFirstTilePlaced:   (v) => { firstTilePlaced = v; if (slotsUI) slotsUI.firstTilePlaced = v; if (tilePlacement) tilePlacement.firstTilePlaced = v; },
+        setLastPlacedTile:    (v) => { lastPlacedTile = v; },
         setCurrentTileForPlayer: (v) => { currentTileForPlayer = v; },
+        setWaitingToRedraw:   (v) => { waitingToRedraw = v; },
+        setPendingAbbePoints: (v) => { pendingAbbePoints = v; },
         tileHasVolcanoZone,
         tileHasDragonZone,
         tileHasPortalZone,
@@ -981,88 +995,15 @@ function initializeGameModules() {
         updateTurnDisplay,
         updateMobileButtons,
         updateMobileTilePreview,
-    });
-    meeplePlacement = new MeeplePlacement(eventBus, gameState, zoneMerger);
-    meeplePlacement.setPlacedMeeples(placedMeeples);
-
-    meepleCursorsUI  = new MeepleCursorsUI(multiplayer, zoneMerger, plateau, gameConfig);
-    meepleCursorsUI.init();
-    meepleSelectorUI = new MeepleSelectorUI(multiplayer, gameState, gameConfig);
-    meepleSelectorUI.zoneMerger    = zoneMerger;
-    meepleSelectorUI.placedMeeples = placedMeeples;
-    meepleDisplayUI  = new MeepleDisplayUI();
-    meepleDisplayUI.init();
-
-    undoManager = new UndoManager(eventBus, gameState, plateau, zoneMerger);
-    undoManager.initVisualHandlers({
-        getGameConfig:        () => gameConfig,
-        getMultiplayer:       () => multiplayer,
-        getPlacedMeeples:     () => placedMeeples,
-        getDragonRules:       () => dragonRules,
-        getGameSync:          () => gameSync,
-        getMeepleCursorsUI:   () => meepleCursorsUI,
-        getTilePreviewUI:     () => tilePreviewUI,
-        getSlotsUI:           () => slotsUI,
-        getTilePlacement:     () => tilePlacement,
-        getIsMyTurn:          () => isMyTurn,
-        getLastPlacedTile:    () => lastPlacedTile,
-        getFirstTilePlaced:   () => firstTilePlaced,
-        setLastPlacedTile:    (v) => { lastPlacedTile = v; },
-        setTuileEnMain:       (v) => { tuileEnMain = v; },
-        setTuilePosee:        (v) => { tuilePosee = v; },
-        setFirstTilePlaced:   (v) => { firstTilePlaced = v; if (slotsUI) slotsUI.firstTilePlaced = v; if (tilePlacement) tilePlacement.firstTilePlaced = v; },
-        setPendingAbbePoints: (v) => { pendingAbbePoints = v; },
         renderDragonPiece,
         renderFairyPiece,
         removeFairyPiece,
         updateDragonOverlay,
         showDragonMoveCursors,
-        tileHasVolcanoZone,
-        afficherSelecteurMeeple,
-        showMeepleActionCursors,
         hideAllCursors,
-        updateTurnDisplay,
-    });
-
-    // Extension Princesse & Dragon
-    if (gameConfig.extensions?.dragon || gameConfig.tileGroups?.dragon) {
-        dragonRules = new DragonRules({
-            gameState,
-            plateau:      plateau.placedTiles,
-            placedMeeples,
-            eventBus,
-            ruleRegistry
-        });
-        console.log('🐉 [Dragon] DragonRules initialisé');
-    } else {
-        dragonRules = null;
-    }
-
-    // ✅ Modules extraits de home.js
-    unplaceableManager = new UnplaceableTileManager({
-        deck, gameState, tilePreviewUI, gameSync, gameConfig, plateau,
-        setRedrawMode: (active) => { waitingToRedraw = active; updateTurnDisplay(); },
-        triggerEndGame: () => {
-            if (deck.remaining() <= 0) {
-                if (gameSync) gameSync.syncTurnEnd();
-                finalScoresManager.computeAndApply(placedMeeples);
-            }
-        }
-    });
-    unplaceableManager.initNetworkListeners(eventBus, () => isHost, () => multiplayer);
-
-    finalScoresManager = new FinalScoresManager({
-        gameState, scoring, zoneMerger, gameSync, eventBus, updateTurnDisplay, gameConfig
-    });
-    // Afficher la colonne Marchands si l'extension est active
-    const thMerchants = document.getElementById('th-merchants');
-    if (thMerchants) thMerchants.style.display = gameConfig?.extensions?.merchants ? '' : 'none';
-
-    console.log('✅ Tous les modules initialisés');
+    }).init();
 }
 
-// ═══════════════════════════════════════════════════════
-// ATTACHER LES CALLBACKS GAMESYNC (factorisé)
 // ═══════════════════════════════════════════════════════
 function attachGameSyncCallbacks() {
     new GameSyncCallbacks({
@@ -2130,206 +2071,56 @@ function setupEventListeners() {
 // ═══════════════════════════════════════════════════════
 // RETOUR AU LOBBY
 // ═══════════════════════════════════════════════════════
-function returnToInitialLobby(message = null) {
-    console.log('🔙 Retour au lobby initial...');
-
-    // Si une partie est en cours, faire d'abord le cleanup complet
-    if (turnManager) {
-        returnToLobby();
-    }
-
-    _stopAutoReconnect();
-    window._isAutoReconnecting = false; // forcer le reset même si reconnectionManager est déjà null
-    stopGameTimer();
-
-    // Réinitialiser l'état
-    players      = [];
-    inLobby      = false;
-    isHost       = false;
-    gameCode     = '';
-
-    // Cacher le code de partie
-    const gameCodeContainer = document.getElementById('game-code-container');
-    if (gameCodeContainer) gameCodeContainer.style.display = 'none';
-
-    // Couper immédiatement tout message entrant
-    multiplayer.onDataReceived = null;
-
-    // Réinitialiser et afficher le lobby
-    lobbyUI.setIsHost(false);
-    lobbyUI.setPlayers([]);
-    lobbyUI.reset();
-    lobbyUI.show();
-    updateLobbyUI();
-
-    // Fermer la connexion PeerJS après la mise à jour UI
-    if (multiplayer?.peer) {
-        setTimeout(() => multiplayer.peer.destroy(), 100);
-    }
-
-    if (message) {
-        setTimeout(() => alert(message), 200);
-    }
-
-    console.log('✅ Retour au lobby initial terminé');
+function _makeLobbyNavigator() {
+    return new LobbyNavigator({
+        getMultiplayer:           () => multiplayer,
+        getIsHost:                () => isHost,
+        getPlayers:               () => players,
+        setPlayers:               (v) => { players = v; },
+        getPlacedMeeples:         () => placedMeeples,
+        getLobbyUI:               () => lobbyUI,
+        getOriginalLobbyHandler:  () => originalLobbyHandler,
+        getUnplaceableManager:    () => unplaceableManager,
+        getHeartbeatManager:      () => heartbeatManager,
+        getTurnManager:           () => turnManager,
+        getPlayerColor:           () => playerColor,
+        setInLobby:               (v) => { inLobby = v; },
+        setIsHost:                (v) => { isHost = v; },
+        setGameCode:              (v) => { gameCode = v; },
+        clearDragonCursors,
+        stopGameTimer,
+        stopAutoReconnect:        () => _stopAutoReconnect(),
+        startHeartbeat:           (cb) => _startHeartbeat(cb),
+        stopHeartbeat:            () => { if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; } },
+        resetZoom:                () => { zoomLevel = 1; },
+        destroyNavigationManager: () => { if (navigationManager) { navigationManager.destroy(); navigationManager = null; } },
+        destroyReconnectionManager: () => { if (reconnectionManager) { reconnectionManager.destroy(); reconnectionManager = null; } },
+        destroyGameModules: () => {
+            [tilePreviewUI, slotsUI, meepleCursorsUI, meepleSelectorUI, meepleDisplayUI, scorePanelUI, undoManager]
+                .forEach(m => { if (m?.destroy) m.destroy(); });
+            tilePreviewUI = null; slotsUI = null; meepleCursorsUI = null;
+            meepleSelectorUI = null; meepleDisplayUI = null; scorePanelUI = null;
+            undoManager = null; gameSync = null; zoneMerger = null; scoring = null;
+            tilePlacement = null; meeplePlacement = null; turnManager = null;
+            unplaceableManager = null; finalScoresManager = null;
+            waitingToRedraw = false; pendingAbbePoints = null;
+            ruleRegistry.disable('base'); ruleRegistry.disable('abbot');
+            ruleRegistry.disable('inns'); ruleRegistry.disable('builders');
+        },
+        resetGameState: () => {
+            deck.tiles = []; deck.currentIndex = 0; deck.totalTiles = 0;
+            plateau.reset();
+            gameState = null; tuileEnMain = null; tuilePosee = false;
+            firstTilePlaced = false; placedMeeples = {}; lastPlacedTile = null;
+            isMyTurn = false;
+        },
+        updateLobbyUI,
+    });
 }
 
-function returnToLobby() {
-    console.log('🔙 Retour au lobby...');
-    _stopAutoReconnect();
-    stopGameTimer();
-    ['game-timer', 'mobile-game-timer'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.textContent = '⏱ 00:00'; el.style.display = 'none'; }
-    });
+function returnToLobby()                   { _makeLobbyNavigator().returnToLobby(); }
+function returnToInitialLobby(message = null) { _makeLobbyNavigator().returnToInitialLobby(message); }
 
-    // Nettoyer les overlays dragon/princesse
-    clearDragonCursors();
-    document.querySelectorAll('.princess-cursor').forEach(el => el.remove());
-    const dragonOverlay = document.getElementById('dragon-phase-overlay');
-    if (dragonOverlay) dragonOverlay.style.display = 'none';
-    document.getElementById('dragon-piece')?.remove();
-
-    if (isHost && multiplayer.peer?.open) {
-        // ✅ Inclure la liste propre pour que les invités ne voient pas les déconnectés
-        multiplayer.broadcast({ type: 'return-to-lobby', players });
-    }
-
-    document.getElementById('back-to-lobby-btn').style.display = 'none';
-
-    // Reset pause/reconnexion
-    if (reconnectionManager) { reconnectionManager.destroy(); reconnectionManager = null; }
-
-    // Restaurer tous les boutons masqués pour le mode spectateur
-    ['end-turn-btn', 'undo-btn', 'mobile-end-turn-btn', 'mobile-undo-btn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = '';
-    });
-    const tileTitle = document.querySelector('#current-tile-container h3');
-    if (tileTitle) tileTitle.style.display = '';
-
-    if (unplaceableManager) unplaceableManager.hideUnplaceableBadge();
-    document.getElementById('tile-destroyed-modal').style.display = 'none';
-
-    // Détruire les modules UI
-    [tilePreviewUI, slotsUI, meepleCursorsUI, meepleSelectorUI, meepleDisplayUI, scorePanelUI, undoManager]
-        .forEach(m => { if (m?.destroy) m.destroy(); });
-
-    tilePreviewUI  = null; slotsUI        = null; meepleCursorsUI  = null;
-    meepleSelectorUI = null; meepleDisplayUI = null; scorePanelUI     = null;
-    undoManager    = null;
-
-    gameSync         = null;
-    zoneMerger       = null;
-    scoring          = null;
-    tilePlacement    = null;
-    meeplePlacement  = null;
-    turnManager      = null;
-    unplaceableManager = null;
-    finalScoresManager = null;
-    waitingToRedraw  = false;
-    pendingAbbePoints = null;
-
-    ruleRegistry.disable('base');
-    ruleRegistry.disable('abbot');   // no-op si non enregistré
-    ruleRegistry.disable('inns');     // no-op si non enregistré
-    ruleRegistry.disable('builders'); // no-op si non enregistré
-
-    deck.tiles = []; deck.currentIndex = 0; deck.totalTiles = 0;
-    plateau.reset();
-
-    gameState      = null;
-    tuileEnMain    = null;
-    tuilePosee     = false;
-    firstTilePlaced = false;
-    placedMeeples  = {};
-    lastPlacedTile = null;
-    isMyTurn       = false;
-
-    document.getElementById('final-scores-modal').style.display = 'none';
-    document.getElementById('board').innerHTML = '';
-
-    // ✅ Remettre le zoom et le scroll à zéro pour la prochaine partie
-    const boardEl = document.getElementById('board');
-    const containerEl = document.getElementById('board-container');
-    if (boardEl) boardEl.style.transform = '';
-    if (containerEl) { containerEl.scrollLeft = 0; containerEl.scrollTop = 0; }
-    zoomLevel = 1;
-    if (navigationManager) { navigationManager.destroy(); navigationManager = null; }
-
-    // Relancer le heartbeat lobby avec le bon handler de timeout
-    // On initialise _lastPong avec les peers déjà connus pour éviter un faux timeout
-    const _existingPeers = new Set(multiplayer._connectedPeers);
-    if (heartbeatManager) { heartbeatManager.stop(); heartbeatManager = null; }
-
-    _startHeartbeat((peerId) => {
-        players = players.filter(p => p.id !== peerId);
-        lobbyUI.setPlayers(players);
-        multiplayer.broadcast({ type: 'players-update', players });
-    });
-    // Initialiser tous les peers existants à now pour éviter timeout immédiat
-    _existingPeers.forEach(peerId => {
-        if (heartbeatManager) heartbeatManager._lastPong[peerId] = Date.now();
-    });
-
-    multiplayer.onPlayerJoined = (playerId) => {
-        console.log('👤 Nouveau joueur connecté (lobby post-retour):', playerId);
-        if (heartbeatManager) heartbeatManager._lastPong[playerId] = Date.now();
-    };
-
-    // ✅ Retrait immédiat si un invité déconnecte dans le lobby post-retour
-    multiplayer.onPlayerLeft = (peerId) => {
-        console.log('👋 [LOBBY post-retour] Joueur déconnecté:', peerId);
-        players = players.filter(p => p.id !== peerId);
-        lobbyUI.setPlayers(players);
-        multiplayer.broadcast({ type: 'players-update', players });
-    };
-
-    // Restaurer onDataReceived au lobbyHandler hôte
-    if (isHost) {
-        multiplayer.onDataReceived = multiplayer._lobbyHostHandler ?? null;
-    } else if (originalLobbyHandler) {
-        multiplayer.onDataReceived = originalLobbyHandler;
-    }
-
-    lobbyUI.show();
-    lobbyUI.reset();
-
-    // ✅ Restaurer isHost et les callbacks après reset()
-    if (isHost) {
-        lobbyUI.setIsHost(true);
-        lobbyUI.onKickPlayer = (playerId) => {
-            multiplayer.sendTo(playerId, { type: 'you-are-kicked' });
-            players = players.filter(p => p.id !== playerId);
-            lobbyUI.setPlayers(players);
-            multiplayer.broadcast({ type: 'players-update', players });
-        };
-        lobbyUI.onHostLeave = () => {
-            const invites = players.filter(p => !p.isHost);
-            if (invites.length > 0) multiplayer.broadcast({ type: 'you-are-kicked' });
-            returnToInitialLobby();
-        };
-    } else {
-        lobbyUI.setIsHost(false);
-        lobbyUI.onLeaveGame = () => {
-            multiplayer.broadcast({ type: 'player-left' });
-            returnToInitialLobby();
-        };
-    }
-
-    lobbyUI.setPlayers(players);
-    updateLobbyUI();
-
-    // Synchroniser le sélecteur de couleur avec playerColor actuel
-    // (peut être 'spectator' si le joueur revenait en spec depuis la partie)
-    if (!isHost) lobbyUI.selectColor(playerColor);
-
-    console.log('✅ Retour au lobby terminé');
-}
-
-// ═══════════════════════════════════════════════════════
-// NAVIGATION (zoom + drag)
-// ═══════════════════════════════════════════════════════
 function setupNavigation(container, board) {
     if (navigationManager) return; // déjà initialisé
     navigationManager = new NavigationManager(container, board, { isMobile });
