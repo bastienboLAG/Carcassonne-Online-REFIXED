@@ -58,6 +58,7 @@ import { TilePlacement }          from './modules/game/TilePlacement.js';
 import { MeeplePlacement }        from './modules/game/MeeplePlacement.js';
 import { GameSyncCallbacks }      from './modules/game/GameSyncCallbacks.js';
 import { GameStarter }            from './modules/game/GameStarter.js';
+import { initGameMenu }           from './modules/ui/GameMenuUI.js';
 import { UnplaceableTileManager } from './modules/game/UnplaceableTileManager.js';
 import { HeartbeatManager }       from './modules/HeartbeatManager.js';
 import { FinalScoresManager }     from './modules/game/FinalScoresManager.js';
@@ -1361,18 +1362,169 @@ function _makeStarter() {
         getLobbyUI:              () => lobbyUI,
         getReconnectionManager:  () => reconnectionManager,
         getOriginalLobbyHandler: () => originalLobbyHandler,
+        getZoneMerger:           () => zoneMerger,
+        getPlacedMeeples:        () => placedMeeples,
+        getScoring:              () => scoring,
+        getRuleRegistry:         () => ruleRegistry,
+        getGameState:            () => gameState,
+        getIsHost:               () => isHost,
+        getIsSpectator:          () => _isSpectator(),
+        getGameCode:             () => gameCode,
+        getBaseRules:            () => BaseRules,
+        getAbbeRules:            () => AbbeRules,
+        getInnsRules:            () => InnsRules,
+        getBuilderRulesClass:    () => BuilderRules,
         setGameState:            (v) => { gameState = v; },
         setGameSync:             (v) => { gameSync  = v; },
         setTurnManager:          (v) => { turnManager = v; },
+        setReconnectionManager:  (v) => { reconnectionManager = v; },
         startGameTimer,
         hostDrawAndSend:         _hostDrawAndSend,
         initializeGameModules,
         attachGameSyncCallbacks,
-        postStartSetup:          _postStartSetup,
         setupEventListeners,
         setupNavigation:         () => setupNavigation(document.getElementById('board-container'), document.getElementById('board')),
         updateTurnDisplay,
         afficherMessage:         (msg) => afficherToast(msg),
+        // deps pour initTurnUI
+        getTurnUIDeps: () => ({
+            getGameState:          () => gameState,
+            getGameConfig:         () => gameConfig,
+            getMultiplayer:        () => multiplayer,
+            getTurnManager:        () => turnManager,
+            getUndoManager:        () => undoManager,
+            getFinalScoresManager: () => finalScoresManager,
+            getScorePanelUI:       () => scorePanelUI,
+            getDeck:               () => deck,
+            getIsHost:             () => isHost,
+            getIsMyTurn:           () => isMyTurn,
+            setIsMyTurn:           (v) => { isMyTurn = v; },
+            getIsSpectator:        () => _isSpectator(),
+            getWaitingToRedraw:    () => waitingToRedraw,
+            getTuilePosee:         () => tuilePosee,
+            getTuileEnMain:        () => tuileEnMain,
+            getTilePreviewUI:      () => tilePreviewUI,
+            getEventBus:           () => eventBus,
+            isMobile,
+        }),
+        // deps pour initDragonUI
+        getDragonUIDeps: () => ({
+            getGameState:         () => gameState,
+            getGameConfig:        () => gameConfig,
+            getMultiplayer:       () => multiplayer,
+            getGameSync:          () => gameSync,
+            getDragonRules:       () => dragonRules,
+            getUndoManager:       () => undoManager,
+            getZoneMerger:        () => zoneMerger,
+            getPlacedMeeples:     () => placedMeeples,
+            getMeepleSelectorUI:  () => meepleSelectorUI,
+            getDeck:              () => deck,
+            getTurnManager:       () => turnManager,
+            getFinalScoresManager:() => finalScoresManager,
+            getIsHost:            () => isHost,
+            getMeepleSize,
+            onUpdateTurnDisplay:  () => updateTurnDisplay(),
+            onHostDrawAndSend:    () => _hostDrawAndSend(),
+        }),
+        // deps pour initMeepleActionsUI
+        getMeepleActionsUIDeps: () => ({
+            getGameState:           () => gameState,
+            getMultiplayer:         () => multiplayer,
+            getPlacedMeeples:       () => placedMeeples,
+            getPlateau:             () => plateau,
+            getGameConfig:          () => gameConfig,
+            getEventBus:            () => eventBus,
+            getUndoManager:         () => undoManager,
+            getGameSync:            () => gameSync,
+            getDragonRules:         () => dragonRules,
+            getMeepleCursorsUI:     () => meepleCursorsUI,
+            getMeepleSelectorUI:    () => meepleSelectorUI,
+            getMeepleDisplayUI:     () => meepleDisplayUI,
+            getScorePanelUI:        () => scorePanelUI,
+            getMeeplePlacement:     () => meeplePlacement,
+            getZoneMerger:          () => zoneMerger,
+            getLastPlacedTile:      () => lastPlacedTile,
+            getIsHost:              () => isHost,
+            getIsMyTurn:            () => isMyTurn,
+            releaseFairyIfDetached,
+            renderFairyPiece,
+            hideAllCursors:         () => hideAllCursors(),
+            setPendingAbbePoints:   (v) => { pendingAbbePoints = v; },
+            onHandlePortalActivate: () => handlePortalActivate(),
+            onHandlePrincessEject:  (key) => handlePrincessEject(key),
+            updateTurnDisplay,
+            updateMobileButtons,
+        }),
+        // deps pour ReconnectionManager
+        getReconnectionManagerDeps: () => ({
+            multiplayer,
+            gameSync,
+            turnManager,
+            eventBus,
+            getGameState:            () => gameState,
+            getPlayers:              () => players,
+            setPlayers:              (p) => { players = p; },
+            getIsHost:               () => isHost,
+            getGameCode:             () => gameCode,
+            getPlayerName:           () => playerName,
+            hostDrawAndSend:         _hostDrawAndSend,
+            buildPlayersForBroadcast,
+            afficherToast,
+            onGameSyncInit:          () => { if (gameSync) gameSync.init(); },
+        }),
+        // deps pour reconnectionManager.initStateHandlers
+        getStateHandlerDeps: () => ({
+            getTileClass:            () => Tile,
+            getGameConfig:           () => gameConfig,
+            getDeck:                 () => deck,
+            getPlateau:              () => plateau,
+            getZoneMerger:           () => zoneMerger,
+            getPlacedMeeples:        () => placedMeeples,
+            getSlotsUI:              () => slotsUI,
+            getTilePlacement:        () => tilePlacement,
+            getMeepleDisplayUI:      () => meepleDisplayUI,
+            getTilePreviewUI:        () => tilePreviewUI,
+            getTurnManager:          () => turnManager,
+            getEventBus:             () => eventBus,
+            getPlayerName:           () => playerName,
+            getPlayerColor:          () => playerColor,
+            getTuileEnMain:          () => tuileEnMain,
+            getCurrentTileForPlayer: () => currentTileForPlayer,
+            getElapsedSeconds,
+            setTuileEnMain:          (v) => { tuileEnMain = v; },
+            setTuilePosee:           (v) => { tuilePosee = v; },
+            setFirstTilePlaced:      (v) => { firstTilePlaced = v; },
+            setPlayerColor:          (v) => { playerColor = v; },
+            renderDragonPiece,
+            renderFairyPiece,
+            startGameTimerFrom,
+            updateTurnDisplay,
+        }),
+        // deps pour reconnectionManager.initInGameNetworkHandler
+        getInGameNetworkDeps: () => ({
+            getGameState:           () => gameState,
+            getGameSync:            () => gameSync,
+            getGameConfig:          () => gameConfig,
+            getEventBus:            () => eventBus,
+            getPlayers:             () => players,
+            setPlayers:             (v) => { players = v; },
+            getPlacedMeeples:       () => placedMeeples,
+            getScorePanelUI:        () => scorePanelUI,
+            getTurnManager:         () => turnManager,
+            getTuileEnMain:         () => tuileEnMain,
+            getHeartbeatManager:    () => heartbeatManager,
+            getVoluntaryLeaves:     () => _voluntaryLeaves,
+            getPlayerName:          () => playerName,
+            getPlayerColorVar:      () => playerColor,
+            buildPlayersForBroadcast,
+            afficherToast,
+            updateTurnDisplay,
+            pauseGame,
+            resumeGame,
+            startHeartbeat:             (cb) => _startHeartbeat(cb),
+            startAutoReconnect:          () => _startAutoReconnect(),
+            excludeDisconnectedPlayer:   (name) => _excludeDisconnectedPlayer(name),
+        }),
     });
 }
 
@@ -1388,453 +1540,6 @@ async function startGame() {
 // ═══════════════════════════════════════════════════════
 async function startGameForInvite(fullStateData = null) {
     await _makeStarter().startGuest(fullStateData);
-}
-
-
-/**
- * Configuration commune post-démarrage
- */
-function _postStartSetup() {
-    // Initialiser TurnUI
-    initTurnUI({
-        getGameState:          () => gameState,
-        getGameConfig:         () => gameConfig,
-        getMultiplayer:        () => multiplayer,
-        getTurnManager:        () => turnManager,
-        getUndoManager:        () => undoManager,
-        getFinalScoresManager: () => finalScoresManager,
-        getScorePanelUI:       () => scorePanelUI,
-        getDeck:               () => deck,
-        getIsHost:             () => isHost,
-        getIsMyTurn:           () => isMyTurn,
-        setIsMyTurn:           (v) => { isMyTurn = v; },
-        getIsSpectator:        () => _isSpectator(),
-        getWaitingToRedraw:    () => waitingToRedraw,
-        getTuilePosee:         () => tuilePosee,
-        getTuileEnMain:        () => tuileEnMain,
-        getTilePreviewUI:      () => tilePreviewUI,
-        getEventBus:           () => eventBus,
-        isMobile,
-    });
-
-    // Initialiser DragonUI
-    initDragonUI({
-        getGameState:         () => gameState,
-        getGameConfig:        () => gameConfig,
-        getMultiplayer:       () => multiplayer,
-        getGameSync:          () => gameSync,
-        getDragonRules:       () => dragonRules,
-        getUndoManager:       () => undoManager,
-        getZoneMerger:        () => zoneMerger,
-        getPlacedMeeples:     () => placedMeeples,
-        getMeepleSelectorUI:  () => meepleSelectorUI,
-        getDeck:              () => deck,
-        getTurnManager:       () => turnManager,
-        getFinalScoresManager:() => finalScoresManager,
-        getIsHost:            () => isHost,
-        getMeepleSize,
-        onUpdateTurnDisplay:  () => updateTurnDisplay(),
-        onHostDrawAndSend:    () => _hostDrawAndSend(),
-    });
-
-    // Initialiser MeepleActionsUI
-    initMeepleActionsUI({
-        getGameState:           () => gameState,
-        getMultiplayer:         () => multiplayer,
-        getPlacedMeeples:       () => placedMeeples,
-        getPlateau:             () => plateau,
-        getGameConfig:          () => gameConfig,
-        getEventBus:            () => eventBus,
-        getUndoManager:         () => undoManager,
-        getGameSync:            () => gameSync,
-        getDragonRules:         () => dragonRules,
-        getMeepleCursorsUI:     () => meepleCursorsUI,
-        getMeepleSelectorUI:    () => meepleSelectorUI,
-        getMeepleDisplayUI:     () => meepleDisplayUI,
-        getScorePanelUI:        () => scorePanelUI,
-        getMeeplePlacement:     () => meeplePlacement,
-        getZoneMerger:          () => zoneMerger,
-        getLastPlacedTile:      () => lastPlacedTile,
-        getIsHost:              () => isHost,
-        getIsMyTurn:            () => isMyTurn,
-        releaseFairyIfDetached,
-        renderFairyPiece,
-        hideAllCursors:         () => hideAllCursors(),
-        setPendingAbbePoints:   (v) => { pendingAbbePoints = v; },
-        onHandlePortalActivate: () => handlePortalActivate(),
-        onHandlePrincessEject:  (key) => handlePrincessEject(key),
-        updateTurnDisplay,
-        updateMobileButtons,
-    });
-    initNetworkMeepleListeners(eventBus);
-
-    // Instancier le ReconnectionManager avec les dépendances nécessaires
-    reconnectionManager = new ReconnectionManager({
-        multiplayer,
-        gameSync,
-        turnManager,
-        eventBus,
-        getGameState:            () => gameState,
-        getPlayers:              () => players,
-        setPlayers:              (p) => { players = p; },
-        getIsHost:               () => isHost,
-        getGameCode:             () => gameCode,
-        getPlayerName:           () => playerName,
-        hostDrawAndSend:         _hostDrawAndSend,
-        buildPlayersForBroadcast,
-        afficherToast,
-        onGameSyncInit:          () => { if (gameSync) gameSync.init(); },
-    });
-    reconnectionManager.initStateHandlers({
-        getTileClass:            () => Tile,
-        getGameConfig:           () => gameConfig,
-        getDeck:                 () => deck,
-        getPlateau:              () => plateau,
-        getZoneMerger:           () => zoneMerger,
-        getPlacedMeeples:        () => placedMeeples,
-        getSlotsUI:              () => slotsUI,
-        getTilePlacement:        () => tilePlacement,
-        getMeepleDisplayUI:      () => meepleDisplayUI,
-        getTilePreviewUI:        () => tilePreviewUI,
-        getTurnManager:          () => turnManager,
-        getEventBus:             () => eventBus,
-        getPlayerName:           () => playerName,
-        getPlayerColor:          () => playerColor,
-        getTuileEnMain:          () => tuileEnMain,
-        getCurrentTileForPlayer: () => currentTileForPlayer,
-        getElapsedSeconds,
-        setTuileEnMain:          (v) => { tuileEnMain = v; },
-        setTuilePosee:           (v) => { tuilePosee = v; },
-        setFirstTilePlaced:      (v) => { firstTilePlaced = v; },
-        setPlayerColor:          (v) => { playerColor = v; },
-        renderDragonPiece,
-        renderFairyPiece,
-        startGameTimerFrom,
-        updateTurnDisplay,
-    });
-
-    ruleRegistry.register('base', BaseRules, gameConfig);
-    ruleRegistry.enable('base');
-
-    // Extension Abbé
-    if (gameConfig.extensions?.abbot) {
-        ruleRegistry.register('abbot', AbbeRules, gameConfig);
-        ruleRegistry.enable('abbot');
-    }
-    if (gameConfig.extensions?.largeMeeple || gameConfig.extensions?.cathedrals || gameConfig.extensions?.inns) {
-        ruleRegistry.register('inns', InnsRules, gameConfig);
-        ruleRegistry.enable('inns');
-    }
-    if (gameConfig.extensions?.tradersBuilders || gameConfig.extensions?.pig) {
-        // BuilderRules gère à la fois le bâtisseur et le cochon (extension Marchands & Bâtisseurs)
-        const builderRulesInst = new BuilderRules(eventBus, gameState, zoneMerger, gameConfig);
-        builderRulesInst.setPlacedMeeples(placedMeeples);
-        ruleRegistry.registerInstance('builders', builderRulesInst);
-        ruleRegistry.enable('builders');
-        // Tour bonus bâtisseur
-        if (turnManager) turnManager.builderRules = builderRulesInst;
-        // Marchandises et cochon en fin de partie
-        if (scoring) scoring._builderRules = builderRulesInst;
-    }
-
-    document.getElementById('test-modal-btn').style.display =
-        gameConfig.enableDebug ? 'block' : 'none';
-    // Menu : afficher retour lobby + séparateur uniquement pour l'hôte
-    const _backBtn = document.getElementById('back-to-lobby-btn');
-    const _lobbySep = document.querySelector('.menu-lobby-separator');
-    if (_backBtn)  _backBtn.style.display  = isHost ? 'block' : 'none';
-    if (_lobbySep) _lobbySep.style.display = isHost ? 'block' : 'none';
-    // Bouton quitter uniquement pour les invités
-    const _leaveBtn = document.getElementById('menu-leave-btn');
-    const _leaveSep = document.querySelector('.menu-leave-separator');
-    if (_leaveBtn) _leaveBtn.style.display = !isHost ? 'block' : 'none';
-    if (_leaveSep) _leaveSep.style.display = !isHost ? 'block' : 'none';
-    // Afficher/masquer tuiles restantes dans le menu
-    const _remBtn = document.getElementById('menu-remaining-btn');
-    if (_remBtn) _remBtn.style.display = gameConfig.showRemainingTiles ? 'block' : 'none';
-    // Afficher le code dans le menu
-    const _codeDisplay = document.getElementById('menu-code-display');
-    if (_codeDisplay) _codeDisplay.textContent = `Code : ${gameCode || '—'}`;
-
-    // Spectateur : masquer les contrôles d'action mais garder la tile preview
-    if (_isSpectator()) {
-        ['end-turn-btn', 'undo-btn', 'mobile-end-turn-btn', 'mobile-undo-btn']
-            .forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-        // Masquer les slots de placement mais pas le preview
-        const tileTitle = document.querySelector('#current-tile-container h3');
-        if (tileTitle) tileTitle.style.display = 'none';
-    }
-
-    // Redémarrer le heartbeat avec le handler de jeu (gestion déconnexion en cours de partie)
-    if (multiplayer?.peer) {
-        const handleDisconnect = (peerId) => {
-            if (!isHost) return;
-            if (!gameState) return;
-
-            // Départ volontaire déjà traité via leave-game → ignorer
-            if (_voluntaryLeaves.has(peerId)) {
-                _voluntaryLeaves.delete(peerId);
-                return;
-            }
-
-            const disconnectingPlayer = gameState.players.find(p => p.id === peerId);
-            const isSpectator = disconnectingPlayer?.color === 'spectator';
-
-            if (isSpectator) {
-                // Spectateur : suppression silencieuse, pas de pause
-                gameState.players.splice(gameState.players.findIndex(p => p.id === peerId), 1);
-                players = players.filter(p => p.id !== peerId);
-                if (gameSync) multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
-                if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
-                afficherToast(`👁 ${disconnectingPlayer.name} a quitté.`);
-                eventBus.emit('score-updated');
-                return;
-            }
-
-            const result = gameState.markDisconnected(peerId);
-            if (!result) return;
-
-            const { player } = result;
-            afficherToast(`💔 ${player.name} s'est déconnecté.`);
-
-            // Broadcaster aux invités (marquage + index)
-            if (gameSync) gameSync.syncPlayerDisconnected(peerId, player.name, gameState.currentPlayerIndex);
-
-            // Si c'était son tour, avancer
-            const wasCurrent = gameState.players.findIndex(p => p.id === peerId) === gameState.currentPlayerIndex
-                            || gameState.players.find(p=>p.id===peerId)?.disconnected;
-            if (wasCurrent && tuileEnMain && turnManager) {
-                turnManager.updateTurnState();
-                eventBus.emit('turn-changed', { isMyTurn: turnManager.isMyTurn, currentPlayer: turnManager.getCurrentPlayer() });
-            }
-
-            // Mettre en pause
-            pauseGame(player.name);
-
-            if (heartbeatManager) heartbeatManager._timedOut.add(peerId);
-        };
-        multiplayer.onPlayerLeft = handleDisconnect;
-        _startHeartbeat(handleDisconnect);
-
-        // ── Auto-reconnexion invité ───────────────────────────────────────────
-        if (!isHost) {
-            multiplayer.onHostDisconnected = () => {
-                if (!gameState) return; // pas en partie, ignorer
-                console.log('🔌 Connexion hôte perdue — tentative de reconnexion automatique...');
-                _startAutoReconnect();
-            };
-        }
-
-        // ── Reconnexion / nouvelle connexion en cours de partie ──────────────
-        multiplayer.onPlayerJoined = (playerId) => {
-            console.log('👤 Nouveau joueur en cours de partie:', playerId);
-            // Signaler que la partie est déjà commencée
-            multiplayer.sendTo(playerId, { type: 'game-in-progress' });
-        };
-
-        // Intercept les messages réseau non-sync pour gérer reconnexion
-        const _prevOnData = multiplayer.onDataReceived;
-        multiplayer.onDataReceived = (data, from) => {
-            // Tentative de reconnexion ou nouvelle connexion en cours de partie
-            if (data.type === 'player-info' && isHost && gameState) {
-                const name = data.name;
-                const allPlayerColors = ['black','red','pink','green','blue','yellow'];
-
-                // Chercher un joueur déconnecté OU actif OU kicked avec le même pseudo
-                // (l'auto-reconnexion peut arriver avant le timeout heartbeat)
-                const disconnectedEntry = gameState.findDisconnectedByName(name);
-                const kickedEntry = !disconnectedEntry
-                    ? gameState.players.find(p => p.name === name && p.kicked && p.color !== 'spectator')
-                    : null;
-                const activeEntry = !disconnectedEntry && !kickedEntry
-                    ? gameState.players.find(p => p.name === name && p.id !== from)
-                    : null;
-                const reconnectOldPeerId = disconnectedEntry
-                    ? disconnectedEntry[0]
-                    : (kickedEntry?.id ?? activeEntry?.id ?? null);
-
-                const isKnown = !!reconnectOldPeerId;
-
-                if (!isKnown && !data.isSpectator) {
-                    // ── CAS 1 : Nouveau joueur inconnu ───────────────────────
-                    const takenNow    = gameState.players.map(p => p.color);
-                    const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
-                    if (freePlaying.length === 0) {
-                        multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' });
-                        return;
-                    }
-                    const assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
-                    gameState.addPlayer(from, name, assigned);
-                    const newP = gameState.players.find(p => p.id === from);
-                    if (newP) {
-                        if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
-                        if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
-                        if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
-                        if (gameConfig.extensions?.pig)             newP.hasPig         = true;
-                    }
-                    players.push({ id: from, name, color: assigned, isHost: false });
-                    reconnectionManager.sendFullStateTo(from);
-                    multiplayer.broadcast({ type: 'players-update', players });
-                    eventBus.emit('score-updated');
-                    if (scorePanelUI) scorePanelUI.updateMobile();
-                    updateTurnDisplay();
-                    afficherToast(`👋 ${name} a rejoint la partie !`);
-                    console.log(`👤 Nouveau joueur: ${name}`);
-
-                } else if (!isKnown && data.isSpectator) {
-                    // ── CAS 2 : Nouveau spectateur inconnu ───────────────────
-                    gameState.addPlayer(from, name, 'spectator');
-                    players.push({ id: from, name, color: 'spectator', isHost: false });
-                    if (heartbeatManager) {
-                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
-                        heartbeatManager._lastPong[from] = Date.now();
-                    }
-                    reconnectionManager.sendFullStateTo(from);
-                    multiplayer.broadcast({ type: 'players-update', players });
-                    eventBus.emit('score-updated');
-                    if (scorePanelUI) scorePanelUI.updateMobile();
-                    updateTurnDisplay();
-                    afficherToast(`👁 ${name} observe la partie.`);
-                    console.log(`👁 Nouveau spectateur: ${name}`);
-
-                } else if (isKnown && !data.isSpectator) {
-                    // ── CAS 3 : Joueur connu qui revient jouer ────────────────
-                    const oldPeerId = reconnectOldPeerId;
-                    // Supprimer l'éventuelle entrée spec de ce joueur
-                    const specIdx = gameState.players.findIndex(p => p.name === name && p.color === 'spectator');
-                    if (specIdx !== -1) gameState.players.splice(specIdx, 1);
-                    players = players.filter(p => !(p.name === name && p.color === 'spectator'));
-                    // Restaurer le fantôme
-                    if (!gameState.reconnectPlayer(oldPeerId, from)) {
-                        const gsp = gameState.players.find(p => p.id === oldPeerId)
-                                 || gameState.players.find(p => p.name === name && p.color !== 'spectator');
-                        if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
-                    }
-                    players = players.map(p => p.id === oldPeerId ? { ...p, id: from, disconnected: false, kicked: false } : p);
-                    // Si oldPeerId avait déjà disparu de players (ex: spec intermédiaire déco),
-                    // reconstruire l'entrée depuis gameState
-                    if (!players.find(p => p.id === from)) {
-                        const gsp2 = gameState.players.find(p => p.id === from);
-                        if (gsp2) players.push({ id: from, name: gsp2.name, color: gsp2.color, isHost: false });
-                    }
-                    Object.values(placedMeeples).forEach(m => {
-                        if (m.playerId === oldPeerId) m.playerId = from;
-                    });
-                    if (heartbeatManager) {
-                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
-                        heartbeatManager._lastPong[from] = Date.now();
-                        heartbeatManager._timedOut.delete(oldPeerId);
-                        delete heartbeatManager._lastPong[oldPeerId];
-                    }
-                    reconnectionManager.sendFullStateTo(from);
-                    if (reconnectionManager?.gamePaused) resumeGame('reconnected');
-                    afficherToast(`✅ ${name} s'est reconnecté !`);
-                    multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
-                    eventBus.emit('score-updated');
-                    if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
-                    updateTurnDisplay();
-                    console.log(`🔄 Reconnexion joueur: ${name} (${oldPeerId} → ${from})`);
-
-                } else {
-                    // ── CAS 4 : Joueur connu qui revient en spectateur ────────
-                    // Le fantôme reste intact — on crée uniquement une entrée spec
-                    gameState.addPlayer(from, name, 'spectator');
-                    players.push({ id: from, name, color: 'spectator', isHost: false });
-                    if (heartbeatManager) {
-                        heartbeatManager._connectedPeers = multiplayer._connectedPeers;
-                        heartbeatManager._lastPong[from] = Date.now();
-                    }
-                    // Marquer le fantôme comme kicked (sans syncGameResumed qui ferait
-                    // returnToLobby côté invités) — l'exclusion est silencieuse
-                    const ghostIdx = gameState.players.findIndex(p => p.name === name && p.disconnected && p.color !== 'spectator');
-                    if (ghostIdx !== -1) {
-                        gameState.players[ghostIdx].kicked = true;
-                    }
-                    reconnectionManager.sendFullStateTo(from);
-                    multiplayer.broadcast({ type: 'players-update', players: buildPlayersForBroadcast() });
-                    eventBus.emit('score-updated');
-                    if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
-                    updateTurnDisplay();
-                    afficherToast(`👁 ${name} observe la partie.`);
-                    console.log(`👁 Retour spectateur (fantôme conservé + kick silencieux): ${name}`);
-                }
-                return;
-            }
-
-            // Mise à jour liste joueurs en cours de partie (nouveau joueur ou reconnexion)
-            if (data.type === 'players-update' && gameState) {
-                players = data.players;
-                const incomingIds = new Set(data.players.map(p => p.id));
-
-                // Supprimer les joueurs absents de la liste (ex: spectateur parti)
-                // mais uniquement les spectateurs — les joueurs disconnected sont conservés
-                gameState.players = gameState.players.filter(gp =>
-                    incomingIds.has(gp.id) || ((gp.disconnected || gp.kicked) && gp.color !== 'spectator')
-                );
-
-                // Ajouter les nouveaux joueurs manquants, ou mettre à jour l'id si reconnexion
-                data.players.forEach(p => {
-                    const existingById = gameState.players.find(gp => gp.id === p.id);
-                    if (!existingById) {
-                        // Pas trouvé par id — chercher par nom+couleur (cas reconnexion : nouveau peerId)
-                        const existingByIdentity = gameState.players.find(gp =>
-                            gp.name === p.name && gp.color === p.color
-                        );
-                        if (existingByIdentity) {
-                            // Reconnexion : mettre à jour l'id uniquement
-                            existingByIdentity.id = p.id;
-                            existingByIdentity.disconnected = false;
-                            existingByIdentity.kicked = false;
-                            // Si c'est nous, corriger multiplayer.playerId immédiatement
-                            if (!isHost && p.name === playerName && p.color === playerColor
-                                    && p.id !== multiplayer.playerId && !p.kicked) {
-                                console.log('🔧 [players-update] Correction playerId:', multiplayer.playerId, '→', p.id);
-                                multiplayer.playerId = p.id;
-                                if (turnManager) turnManager.updateTurnState();
-                            }
-                        } else {
-                            // Vraiment nouveau joueur
-                            gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
-                            const newP = gameState.players.find(gp => gp.id === p.id);
-                            if (newP && gameConfig) {
-                                if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
-                                if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
-                                if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
-                                if (gameConfig.extensions?.pig)             newP.hasPig         = true;
-                            }
-                        }
-                    } else if (p.kicked) {
-                        // L'hôte signale explicitement ce joueur comme kicked → propager le flag
-                        existingById.kicked = true;
-                    }
-                });
-
-                // Rafraîchir le score panel et l'UI mobile
-                eventBus.emit('score-updated');
-                if (scorePanelUI) scorePanelUI.updateMobile();
-                updateTurnDisplay();
-                return;
-            }
-
-            // Départ volontaire d'un invité en cours de partie
-            if (data.type === 'leave-game' && isHost && gameState) {
-                const leavingPlayer = gameState.players.find(p => p.id === from);
-                if (leavingPlayer) {
-                    // Marquer départ volontaire pour que onPlayerLeft ne déclenche pas pauseGame
-                    _voluntaryLeaves.add(from);
-                    leavingPlayer.disconnected = true;
-                    _excludeDisconnectedPlayer(leavingPlayer.name);
-                }
-                return;
-            }
-
-            // Tous les autres messages → handler normal
-            if (_prevOnData) _prevOnData(data, from);
-        };
-    }
 }
 
 // ═══════════════════════════════════════════════════════

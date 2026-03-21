@@ -440,4 +440,227 @@ export class ReconnectionManager {
         }
         d.updateTurnDisplay();
     }
+    /**
+     * Installer les handlers réseau en cours de partie :
+     * déconnexion, reconnexion, player-info (CAS 1-4), players-update, leave-game.
+     * Appelé une fois au démarrage depuis GameStarter.postStartSetup().
+     */
+    initInGameNetworkHandler(deps) {
+        const d           = deps;
+        const multiplayer = this.multiplayer;
+        const isHost      = this._isHost;
+
+        if (!multiplayer?.peer) return;
+
+        const handleDisconnect = (peerId) => {
+            if (!isHost) return;
+            const gameState = this._getGameState();
+            if (!gameState) return;
+
+            if (d.getVoluntaryLeaves().has(peerId)) {
+                d.getVoluntaryLeaves().delete(peerId);
+                return;
+            }
+
+            const disconnectingPlayer = gameState.players.find(p => p.id === peerId);
+            const isSpectator = disconnectingPlayer?.color === 'spectator';
+
+            if (isSpectator) {
+                gameState.players.splice(gameState.players.findIndex(p => p.id === peerId), 1);
+                d.setPlayers(d.getPlayers().filter(p => p.id !== peerId));
+                const gs = d.getGameSync();
+                if (gs) multiplayer.broadcast({ type: 'players-update', players: d.buildPlayersForBroadcast() });
+                const hm = d.getHeartbeatManager();
+                if (hm) hm._timedOut.add(peerId);
+                d.afficherToast(`👁 ${disconnectingPlayer.name} a quitté.`);
+                d.getEventBus().emit('score-updated');
+                return;
+            }
+
+            const result = gameState.markDisconnected(peerId);
+            if (!result) return;
+            const { player } = result;
+            d.afficherToast(`💔 ${player.name} s'est déconnecté.`);
+            const gs = d.getGameSync();
+            if (gs) gs.syncPlayerDisconnected(peerId, player.name, gameState.currentPlayerIndex);
+            const wasCurrent = gameState.players.findIndex(p => p.id === peerId) === gameState.currentPlayerIndex
+                            || gameState.players.find(p => p.id === peerId)?.disconnected;
+            const tm = d.getTurnManager();
+            if (wasCurrent && d.getTuileEnMain() && tm) {
+                tm.updateTurnState();
+                d.getEventBus().emit('turn-changed', { isMyTurn: tm.isMyTurn, currentPlayer: tm.getCurrentPlayer() });
+            }
+            d.pauseGame(player.name);
+            const hm = d.getHeartbeatManager();
+            if (hm) hm._timedOut.add(peerId);
+        };
+
+        multiplayer.onPlayerLeft = handleDisconnect;
+        d.startHeartbeat(handleDisconnect);
+
+        if (!isHost) {
+            multiplayer.onHostDisconnected = () => {
+                if (!this._getGameState()) return;
+                console.log('🔌 Connexion hôte perdue — reconnexion automatique...');
+                d.startAutoReconnect();
+            };
+        }
+
+        multiplayer.onPlayerJoined = (playerId) => {
+            console.log('👤 Nouveau joueur en cours de partie:', playerId);
+            multiplayer.sendTo(playerId, { type: 'game-in-progress' });
+        };
+
+        const _prevOnData = multiplayer.onDataReceived;
+        multiplayer.onDataReceived = (data, from) => {
+            if (data.type === 'player-info' && isHost) {
+                const gameState = this._getGameState(); if (!gameState) return;
+                const name = data.name;
+                const allPlayerColors = ['black','red','pink','green','blue','yellow'];
+                const disconnectedEntry = gameState.findDisconnectedByName(name);
+                const kickedEntry = !disconnectedEntry ? gameState.players.find(p => p.name === name && p.kicked && p.color !== 'spectator') : null;
+                const activeEntry = !disconnectedEntry && !kickedEntry ? gameState.players.find(p => p.name === name && p.id !== from) : null;
+                const reconnectOldPeerId = disconnectedEntry ? disconnectedEntry[0] : (kickedEntry?.id ?? activeEntry?.id ?? null);
+                const isKnown = !!reconnectOldPeerId;
+                const gameConfig = d.getGameConfig();
+                const eventBus   = d.getEventBus();
+                const scorePanelUI = d.getScorePanelUI();
+
+                if (!isKnown && !data.isSpectator) {
+                    // CAS 1 : nouveau joueur inconnu
+                    const takenNow    = gameState.players.map(p => p.color);
+                    const freePlaying = allPlayerColors.filter(c => !takenNow.includes(c));
+                    if (freePlaying.length === 0) { multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: 'Partie complète (6 joueurs).' }); return; }
+                    const assigned = freePlaying.includes(data.color) ? data.color : freePlaying[0];
+                    gameState.addPlayer(from, name, assigned);
+                    const newP = gameState.players.find(p => p.id === from);
+                    if (newP) {
+                        if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
+                        if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
+                        if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
+                        if (gameConfig.extensions?.pig)             newP.hasPig         = true;
+                    }
+                    d.getPlayers().push({ id: from, name, color: assigned, isHost: false });
+                    this.sendFullStateTo(from);
+                    multiplayer.broadcast({ type: 'players-update', players: d.getPlayers() });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) scorePanelUI.updateMobile();
+                    d.updateTurnDisplay();
+                    d.afficherToast(`👋 ${name} a rejoint la partie !`);
+                    console.log(`👤 Nouveau joueur: ${name}`);
+
+                } else if (!isKnown && data.isSpectator) {
+                    // CAS 2 : nouveau spectateur inconnu
+                    gameState.addPlayer(from, name, 'spectator');
+                    d.getPlayers().push({ id: from, name, color: 'spectator', isHost: false });
+                    const hm = d.getHeartbeatManager();
+                    if (hm) { hm._connectedPeers = multiplayer._connectedPeers; hm._lastPong[from] = Date.now(); }
+                    this.sendFullStateTo(from);
+                    multiplayer.broadcast({ type: 'players-update', players: d.getPlayers() });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) scorePanelUI.updateMobile();
+                    d.updateTurnDisplay();
+                    d.afficherToast(`👁 ${name} observe la partie.`);
+                    console.log(`👁 Nouveau spectateur: ${name}`);
+
+                } else if (isKnown && !data.isSpectator) {
+                    // CAS 3 : joueur connu qui revient jouer
+                    const oldPeerId = reconnectOldPeerId;
+                    const specIdx   = gameState.players.findIndex(p => p.name === name && p.color === 'spectator');
+                    if (specIdx !== -1) gameState.players.splice(specIdx, 1);
+                    d.setPlayers(d.getPlayers().filter(p => !(p.name === name && p.color === 'spectator')));
+                    if (!gameState.reconnectPlayer(oldPeerId, from)) {
+                        const gsp = gameState.players.find(p => p.id === oldPeerId) || gameState.players.find(p => p.name === name && p.color !== 'spectator');
+                        if (gsp) { gsp.id = from; gsp.disconnected = false; gsp.kicked = false; }
+                    }
+                    d.setPlayers(d.getPlayers().map(p => p.id === oldPeerId ? { ...p, id: from, disconnected: false, kicked: false } : p));
+                    if (!d.getPlayers().find(p => p.id === from)) {
+                        const gsp2 = gameState.players.find(p => p.id === from);
+                        if (gsp2) d.getPlayers().push({ id: from, name: gsp2.name, color: gsp2.color, isHost: false });
+                    }
+                    Object.values(d.getPlacedMeeples()).forEach(m => { if (m.playerId === oldPeerId) m.playerId = from; });
+                    const hm = d.getHeartbeatManager();
+                    if (hm) { hm._connectedPeers = multiplayer._connectedPeers; hm._lastPong[from] = Date.now(); hm._timedOut.delete(oldPeerId); delete hm._lastPong[oldPeerId]; }
+                    this.sendFullStateTo(from);
+                    if (this.gamePaused) d.resumeGame('reconnected');
+                    d.afficherToast(`✅ ${name} s'est reconnecté !`);
+                    multiplayer.broadcast({ type: 'players-update', players: d.buildPlayersForBroadcast() });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
+                    d.updateTurnDisplay();
+                    console.log(`🔄 Reconnexion joueur: ${name} (${oldPeerId} → ${from})`);
+
+                } else {
+                    // CAS 4 : joueur connu qui revient en spectateur
+                    gameState.addPlayer(from, name, 'spectator');
+                    d.getPlayers().push({ id: from, name, color: 'spectator', isHost: false });
+                    const hm = d.getHeartbeatManager();
+                    if (hm) { hm._connectedPeers = multiplayer._connectedPeers; hm._lastPong[from] = Date.now(); }
+                    const ghostIdx = gameState.players.findIndex(p => p.name === name && p.disconnected && p.color !== 'spectator');
+                    if (ghostIdx !== -1) gameState.players[ghostIdx].kicked = true;
+                    this.sendFullStateTo(from);
+                    multiplayer.broadcast({ type: 'players-update', players: d.buildPlayersForBroadcast() });
+                    eventBus.emit('score-updated');
+                    if (scorePanelUI) { scorePanelUI.update(); scorePanelUI.updateMobile(); }
+                    d.updateTurnDisplay();
+                    d.afficherToast(`👁 ${name} observe la partie.`);
+                    console.log(`👁 Retour spectateur: ${name}`);
+                }
+                return;
+            }
+
+            if (data.type === 'players-update') {
+                const gameState = this._getGameState(); if (!gameState) return;
+                d.setPlayers(data.players);
+                const incomingIds = new Set(data.players.map(p => p.id));
+                gameState.players = gameState.players.filter(gp =>
+                    incomingIds.has(gp.id) || ((gp.disconnected || gp.kicked) && gp.color !== 'spectator')
+                );
+                const gameConfig = d.getGameConfig();
+                data.players.forEach(p => {
+                    const existingById = gameState.players.find(gp => gp.id === p.id);
+                    if (!existingById) {
+                        const existingByIdentity = gameState.players.find(gp => gp.name === p.name && gp.color === p.color);
+                        if (existingByIdentity) {
+                            existingByIdentity.id = p.id; existingByIdentity.disconnected = false; existingByIdentity.kicked = false;
+                            const mp = multiplayer; const isHost = this._isHost;
+                            const playerName = d.getPlayerName(); const playerColor = d.getPlayerColorVar();
+                            if (!isHost && p.name === playerName && p.color === playerColor && p.id !== mp.playerId && !p.kicked) {
+                                console.log('🔧 [players-update] Correction playerId:', mp.playerId, '→', p.id);
+                                mp.playerId = p.id;
+                                const tm = d.getTurnManager(); if (tm) tm.updateTurnState();
+                            }
+                        } else {
+                            gameState.addPlayer(p.id, p.name, p.color, p.isHost ?? false);
+                            const newP = gameState.players.find(gp => gp.id === p.id);
+                            if (newP && gameConfig) {
+                                if (gameConfig.extensions?.abbot)           newP.hasAbbot       = true;
+                                if (gameConfig.extensions?.largeMeeple)     newP.hasLargeMeeple = true;
+                                if (gameConfig.extensions?.tradersBuilders) newP.hasBuilder     = true;
+                                if (gameConfig.extensions?.pig)             newP.hasPig         = true;
+                            }
+                        }
+                    } else if (p.kicked) { existingById.kicked = true; }
+                });
+                d.getEventBus().emit('score-updated');
+                const sp = d.getScorePanelUI(); if (sp) sp.updateMobile();
+                d.updateTurnDisplay();
+                return;
+            }
+
+            if (data.type === 'leave-game' && isHost) {
+                const gameState = this._getGameState(); if (!gameState) return;
+                const leavingPlayer = gameState.players.find(p => p.id === from);
+                if (leavingPlayer) {
+                    d.getVoluntaryLeaves().add(from);
+                    leavingPlayer.disconnected = true;
+                    d.excludeDisconnectedPlayer(leavingPlayer.name);
+                }
+                return;
+            }
+
+            if (_prevOnData) _prevOnData(data, from);
+        };
+    }
+
 }

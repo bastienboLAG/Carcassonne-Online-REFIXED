@@ -1,6 +1,11 @@
 import { GameState } from '../GameState.js';
 import { GameSync  } from '../GameSync.js';
 import { TurnManager } from './TurnManager.js';
+import { ReconnectionManager } from './ReconnectionManager.js';
+import { initTurnUI } from '../ui/TurnUI.js';
+import { initDragonUI } from './DragonUI.js';
+import { initMeepleActionsUI, initNetworkMeepleListeners } from '../ui/MeepleActionsUI.js';
+import { initGameMenu } from '../ui/GameMenuUI.js';
 
 /**
  * GameStarter — Encapsule le bootstrap de partie (hôte et invité).
@@ -65,6 +70,65 @@ export class GameStarter {
         if (meepleSelectorUI) meepleSelectorUI.config = cfg;
         if (meepleCursorsUI)  meepleCursorsUI.config  = cfg;
         if (scorePanelUI)     scorePanelUI.config      = cfg;
+    }
+
+    // ── Setup post-démarrage (UI modules + ReconnectionManager + règles) ──────
+
+    postStartSetup() {
+        const d = this._d;
+
+        // ── Bloc A : init UI modules ─────────────────────────────────────────
+        initTurnUI(d.getTurnUIDeps());
+        initDragonUI(d.getDragonUIDeps());
+        initMeepleActionsUI(d.getMeepleActionsUIDeps());
+        initNetworkMeepleListeners(d.getEventBus());
+
+        // ── Bloc B : ReconnectionManager ─────────────────────────────────────
+        const rm = new ReconnectionManager(d.getReconnectionManagerDeps());
+        rm.initStateHandlers(d.getStateHandlerDeps());
+        d.setReconnectionManager(rm);
+
+        // Règles
+        const ruleRegistry = d.getRuleRegistry();
+        const gameConfig   = d.getGameConfig();
+        const gameState    = d.getGameState();
+        const eventBus     = d.getEventBus();
+        const zoneMerger   = d.getZoneMerger();
+        const placedMeeples = d.getPlacedMeeples();
+        const scoring       = d.getScoring();
+        const turnManager   = d.getTurnManager();
+
+        ruleRegistry.register('base', d.getBaseRules(), gameConfig);
+        ruleRegistry.enable('base');
+
+        if (gameConfig.extensions?.abbot) {
+            ruleRegistry.register('abbot', d.getAbbeRules(), gameConfig);
+            ruleRegistry.enable('abbot');
+        }
+        if (gameConfig.extensions?.largeMeeple || gameConfig.extensions?.cathedrals || gameConfig.extensions?.inns) {
+            ruleRegistry.register('inns', d.getInnsRules(), gameConfig);
+            ruleRegistry.enable('inns');
+        }
+        if (gameConfig.extensions?.tradersBuilders || gameConfig.extensions?.pig) {
+            const BuilderRules = d.getBuilderRulesClass();
+            const builderRulesInst = new BuilderRules(eventBus, gameState, zoneMerger, gameConfig);
+            builderRulesInst.setPlacedMeeples(placedMeeples);
+            ruleRegistry.registerInstance('builders', builderRulesInst);
+            ruleRegistry.enable('builders');
+            if (turnManager) turnManager.builderRules = builderRulesInst;
+            if (scoring)     scoring._builderRules    = builderRulesInst;
+        }
+
+        // ── Bloc C : menu UI ─────────────────────────────────────────────────
+        initGameMenu({
+            getGameConfig:   () => d.getGameConfig(),
+            getIsHost:       () => d.getIsHost(),
+            getGameCode:     () => d.getGameCode(),
+            getIsSpectator:  () => d.getIsSpectator(),
+        });
+
+        // ── Bloc D : handlers réseau en cours de partie ───────────────────────
+        rm.initInGameNetworkHandler(d.getInGameNetworkDeps());
     }
 
     // ── Point d'entrée hôte ───────────────────────────────────────────────────
