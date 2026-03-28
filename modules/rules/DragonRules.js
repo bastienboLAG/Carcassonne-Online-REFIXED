@@ -323,7 +323,6 @@ export class DragonRules {
     getPortalTargets(zoneMerger, board) {
         const EXCLUDED_TYPES = new Set(['dragon', 'volcano', 'portal']);
         const targets = [];
-        const targets = [];
 
         if (!zoneMerger) return targets;
 
@@ -352,13 +351,13 @@ export class DragonRules {
             // Exclure la tuile sur laquelle se trouve le dragon
             if (dragonKey && `${tx},${ty}` === dragonKey) continue;
 
-            // Vérifier qu'aucun meeple n'est dans cette zone
-            const hasMeeple = Object.entries(this.placedMeeples).some(([mKey]) => {
+            // Vérifier qu'aucun meeple n'est déjà dans cette zone
+            const zoneOccupied = Object.entries(this.placedMeeples).some(([mKey]) => {
                 const [mx, my, mp] = mKey.split(',').map(Number);
                 const mZoneId = zoneMerger.findMergedZoneForPosition(mx, my, mp)?.id;
                 return mZoneId === zoneId;
             });
-            if (hasMeeple) continue;
+            if (zoneOccupied) continue;
 
             const tile = board[`${tx},${ty}`];
             if (!tile) continue;
@@ -373,10 +372,12 @@ export class DragonRules {
 
             // Filtrer selon le type de zone et les meeples disponibles :
             // - jardin → abbé uniquement
-            // - abbaye → meeple normal uniquement
-            // - ville/route/champs → meeple normal
+            // - abbaye → meeple normal OU abbé
+            // - ville/route/champs → meeple normal uniquement
             if (zone.type === 'garden') {
                 if (!hasAbbot) continue;
+            } else if (zone.type === 'abbey') {
+                if (!hasMeeple && !hasAbbot) continue;
             } else {
                 if (!hasMeeple) continue;
             }
