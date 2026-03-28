@@ -210,8 +210,8 @@ export function updateTurnDisplay() {
     updateMobileButtons();
     _deps.getEventBus().emit('score-updated');
 
-    // Fermer le toast du tour bonus dès qu'il se termine
-    if (!isBonusTurn) {
+    // Fermer le toast du tour bonus dès qu'il se termine ou qu'une phase dragon démarre
+    if (!isBonusTurn || isDragonTurn) {
         const toast = document.getElementById('disconnect-toast');
         if (toast && toast.dataset.isBonusToast === 'true') {
             toast.style.opacity = '0';

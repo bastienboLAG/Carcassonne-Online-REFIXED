@@ -323,8 +323,15 @@ export class DragonRules {
     getPortalTargets(zoneMerger, board) {
         const EXCLUDED_TYPES = new Set(['dragon', 'volcano', 'portal']);
         const targets = [];
+        const targets = [];
 
         if (!zoneMerger) return targets;
+
+        // Vérifier les meeples disponibles du joueur actuel
+        const currentPlayer = this.gameState.getCurrentPlayer();
+        if (!currentPlayer) return targets;
+        const hasMeeple = currentPlayer.meeples > 0;
+        const hasAbbot  = currentPlayer.hasAbbot === true;
 
         // Position actuelle du dragon (tuile interdite au portail)
         const dragonKey = this.gameState.dragonPos
@@ -363,6 +370,16 @@ export class DragonRules {
                 ? tileZone.meeplePosition[0]
                 : tileZone.meeplePosition;
             const rotatedPos = zoneMerger._rotatePosition(rawPos, tile.rotation);
+
+            // Filtrer selon le type de zone et les meeples disponibles :
+            // - jardin → abbé uniquement
+            // - abbaye → meeple normal uniquement
+            // - ville/route/champs → meeple normal
+            if (zone.type === 'garden') {
+                if (!hasAbbot) continue;
+            } else {
+                if (!hasMeeple) continue;
+            }
 
             targets.push({ x: tx, y: ty, zoneIndex: ti, position: rotatedPos, zoneType: zone.type, zoneId });
         }

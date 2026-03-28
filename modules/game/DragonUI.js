@@ -194,6 +194,9 @@ export function startDragonTurnUI() {
     console.log('🐉 [startDragonTurnUI] phase.active:', phase.active, '| moverIndex:', phase.moverIndex, '| movesRemaining:', phase.movesRemaining);
     if (!phase.active) return;
 
+    // Effacer tout toast actif (ex: toast du tour bonus bâtisseur)
+    if (_deps.hideToast) _deps.hideToast();
+
     const mover = gs().players[phase.moverIndex];
     const isMyDragonTurn = mover?.id === mp().playerId;
     console.log('🐉 [startDragonTurnUI] mover:', mover?.name, '| isMyDragonTurn:', isMyDragonTurn, '| dragonPos:', JSON.stringify(gs().dragonPos));

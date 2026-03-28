@@ -1130,6 +1130,7 @@ function _makeStarter() {
             getMeepleSize,
             onUpdateTurnDisplay:  () => updateTurnDisplay(),
             onHostDrawAndSend:    () => _hostDrawAndSend(),
+            hideToast,
         }),
         // deps pour initMeepleActionsUI
         getMeepleActionsUIDeps: () => ({
