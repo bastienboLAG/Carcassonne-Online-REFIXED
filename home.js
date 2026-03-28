@@ -209,7 +209,7 @@ eventBus.on('tile-drawn', (data) => {
     const _guestWaiting    = waitingToRedraw && !isHost && !data.fromYourTurn;
     const _hostWaiting     = waitingToRedraw && isHost && !data.fromYourTurn;
     const _otherPlayerTile = data.fromNetwork && !data.fromYourTurn && !data.fromUndo
-        && !isMyTurn && gameState?.currentTilePlaced && !_isSpectator();
+        && !isMyTurn && _isSpectator();
     const _skipPreview = _guestWaiting || _hostWaiting || _otherPlayerTile;
 
     console.log(`🃏 [tile-drawn] tileId=${data.tileData?.id} | fromNetwork=${data.fromNetwork} | fromYourTurn=${data.fromYourTurn} | isMyTurn=${isMyTurn} | currentTilePlaced=${gameState?.currentTilePlaced} | isSpectator=${_isSpectator()} | waitingToRedraw=${waitingToRedraw} | isHost=${isHost}`);
