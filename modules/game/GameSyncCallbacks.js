@@ -97,8 +97,8 @@ export class GameSyncCallbacks {
             // Si tile-drawn était arrivé avant turn-ended (currentTilePlaced=true → preview skippée),
             // maintenant que currentTilePlaced=false on peut afficher la tuile en main
             const tuileEnMain = this.getTuileEnMain?.();
-            if (tuileEnMain && !this.isHost) {
-                if (this.tilePreviewUI) this.tilePreviewUI.showTile(tuileEnMain);
+            if (tuileEnMain && !this.isHost && this.tilePreviewUI?.isShowingBackside) {
+                this.tilePreviewUI.showTile(tuileEnMain);
                 if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
             }
         };
