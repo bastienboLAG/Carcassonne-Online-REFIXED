@@ -1204,6 +1204,7 @@ function _makeStarter() {
             renderFairyPiece,
             startGameTimerFrom,
             updateTurnDisplay,
+            updateMobileTilePreview,
         }),
         // deps pour reconnectionManager.initInGameNetworkHandler
         getInGameNetworkDeps: () => ({

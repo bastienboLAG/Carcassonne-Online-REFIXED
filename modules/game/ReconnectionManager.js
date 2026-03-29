@@ -428,6 +428,7 @@ export class ReconnectionManager {
             if (_tuilePosee)       tilePreviewUI.showBackside();
             else if (_tuileEnMain) tilePreviewUI.showTile(_tuileEnMain);
             else                   tilePreviewUI.showMessage('En attente...');
+            if (d.updateMobileTilePreview) d.updateMobileTilePreview();
         });
 
         if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!d.getTuileEnMain();
