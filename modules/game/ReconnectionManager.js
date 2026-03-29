@@ -417,6 +417,7 @@ export class ReconnectionManager {
             }
         } else if (tuilePosee) {
             // La tuile de l'autre joueur a été posée pendant notre déco — effacer la tuile en main
+            console.log('🔄 [applyFullStateSync] tuilePosee=true → setTuileEnMain(null)');
             d.setTuileEnMain(null);
         }
 
