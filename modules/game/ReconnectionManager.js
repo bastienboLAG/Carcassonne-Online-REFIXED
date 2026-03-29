@@ -415,6 +415,9 @@ export class ReconnectionManager {
                 d.setTuileEnMain(tuileEnMain);
                 d.getEventBus().emit('tile-drawn', { tileData: tuileEnMain, fromNetwork: true });
             }
+        } else if (tuilePosee) {
+            // La tuile de l'autre joueur a été posée pendant notre déco — effacer la tuile en main
+            d.setTuileEnMain(null);
         }
 
         const _tuilePosee  = tuilePosee;
