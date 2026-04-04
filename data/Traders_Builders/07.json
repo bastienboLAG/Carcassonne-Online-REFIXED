@@ -9,7 +9,7 @@
       "type": "city",
       "edges": ["west", "north"],
       "features": ["wheat"],
-      "meeplePosition": "12"
+      "meeplePosition": "3"
     },
     {
       "id": 2,
