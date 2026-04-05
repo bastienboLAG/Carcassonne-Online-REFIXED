@@ -14,9 +14,11 @@
   "ext_builder": true,
   "ext_merchants": true,
   "ext_pig": true,
+  "all-dragon": true,
 
 
   "abbot_tiles": true,
   "inns_cathedrals_tiles": true,
-  "traders_builders_tiles": true
+  "traders_builders_tiles": true,
+  "dragon_tiles": true
 }
