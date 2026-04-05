@@ -14,7 +14,12 @@
   "ext_builder": true,
   "ext_merchants": true,
   "ext_pig": true,
-  "all-dragon": true,
+  "ext-dragon": true,
+  "ext-princess": true,
+  "ext-portal": true,
+  "ext-fairy-protection-label": true,
+  "ext-fairy-score-turn-label": true,
+  "ext-fairy-score-zone-label": true,
 
 
   "abbot_tiles": true,
