@@ -210,6 +210,8 @@ export class GameEventSetup {
                 gameState._pendingDragonTile = null;
                 const started = d.getDragonRules().onDragonTilePlaced(playerIndex);
                 if (started) {
+                    // Sauvegarder le bonus bâtisseur — sera consommé dans onDragonPhaseEnded
+                    if (builderBonusTriggered) gameState._pendingBuilderBonus = true;
                     d.broadcastDragonState();
                     d.startDragonTurnUI();
                     return;

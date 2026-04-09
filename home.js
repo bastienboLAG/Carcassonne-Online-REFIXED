@@ -202,17 +202,19 @@ eventBus.on('tile-drawn', (data) => {
     tuileEnMain          = new Tile(data.tileData);
     tuileEnMain.rotation = data.tileData.rotation || 0;
     tuilePosee           = false;
-    updateTurnDisplay();
+    updateTurnDisplay(); // corriger l'état du bouton dès la réception de la tuile
 
+    // Mettre à jour isRiverPhase : true si la tuile courante est une tuile river
     if (slotsUI) slotsUI.isRiverPhase = tuileEnMain.id.startsWith('river-');
 
-    const _guestWaiting    = waitingToRedraw && !isHost && !data.fromYourTurn;
-    const _hostWaiting     = waitingToRedraw && isHost && !data.fromYourTurn;
+    // Ne pas afficher la tuile dans le preview si :
+    // - bug 1 : invité attend sa tuile de remplacement (waitingToRedraw) et ce tile-drawn n'est pas la sienne
+    // - bug 2 : tile-drawn réseau d'un autre joueur alors que la tuile est déjà posée (déco passive)
+    const _guestWaiting = waitingToRedraw && !isHost && !data.fromYourTurn;
+    const _hostWaiting  = waitingToRedraw && isHost && !data.fromYourTurn;
     const _otherPlayerTile = data.fromNetwork && !data.fromYourTurn && !data.fromUndo
         && !isMyTurn && gameState?.currentTilePlaced && !_isSpectator();
     const _skipPreview = _guestWaiting || _hostWaiting || _otherPlayerTile;
-
-    console.log(`🃏 [tile-drawn] tileId=${data.tileData?.id} | fromNetwork=${data.fromNetwork} | fromYourTurn=${data.fromYourTurn} | isMyTurn=${isMyTurn} | currentTilePlaced=${gameState?.currentTilePlaced} | isSpectator=${_isSpectator()} | waitingToRedraw=${waitingToRedraw} | isHost=${isHost}`);
     if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
     if (!_skipPreview) updateMobileTilePreview();
 
@@ -911,7 +913,6 @@ function attachGameSyncCallbacks() {
         tileHasVolcanoZone,
         setTuileEnMain:          (v) => { tuileEnMain = v; },
         setCurrentTileForPlayer: (v) => { currentTileForPlayer = v; },
-        getTuileEnMain:          () => tuileEnMain,
         isHost,
     });
     gameSyncCallbacks.attach(isHost);
@@ -1130,6 +1131,8 @@ function _makeStarter() {
             onUpdateTurnDisplay:  () => updateTurnDisplay(),
             onHostDrawAndSend:    () => _hostDrawAndSend(),
             hideToast,
+            getRuleRegistry:      () => ruleRegistry,
+            afficherToast,
         }),
         // deps pour initMeepleActionsUI
         getMeepleActionsUIDeps: () => ({
@@ -1204,7 +1207,6 @@ function _makeStarter() {
             renderFairyPiece,
             startGameTimerFrom,
             updateTurnDisplay,
-            updateMobileTilePreview,
         }),
         // deps pour reconnectionManager.initInGameNetworkHandler
         getInGameNetworkDeps: () => ({

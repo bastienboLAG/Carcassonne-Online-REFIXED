@@ -314,10 +314,23 @@ export function onDragonPhaseEnded() {
         return;
     }
     const turnManager = _deps.getTurnManager();
-    if (turnManager) turnManager.endTurnRemote(false);
-    const _nextTile = _deps.onHostDrawAndSend();
-    if (_nextTile && turnManager) turnManager.receiveYourTurn(_nextTile.id);
-    if (sync()) sync().syncTurnEnd(false, _nextTile?.id ?? null);
+    const builderBonus = !!gs()._pendingBuilderBonus;
+    gs()._pendingBuilderBonus = false;
+
+    if (builderBonus) {
+        // Tour bonus bâtisseur acquis avant la phase dragon — le déclencher maintenant
+        if (turnManager) turnManager.endTurnRemote(true);
+        const _bonusTile = _deps.onHostDrawAndSend();
+        if (_bonusTile && turnManager) turnManager.receiveYourTurn(_bonusTile.id);
+        if (sync()) sync().syncTurnEnd(true, _bonusTile?.id ?? null);
+        _deps.getRuleRegistry?.()?.rules?.get('builders')?.resetLastPlacedTile?.();
+        _deps.afficherToast?.('⭐ Tour bonus ! Votre bâtisseur vous offre un tour supplémentaire.', 'bonus');
+    } else {
+        if (turnManager) turnManager.endTurnRemote(false);
+        const _nextTile = _deps.onHostDrawAndSend();
+        if (_nextTile && turnManager) turnManager.receiveYourTurn(_nextTile.id);
+        if (sync()) sync().syncTurnEnd(false, _nextTile?.id ?? null);
+    }
     _deps.onUpdateTurnDisplay();
 }
 
