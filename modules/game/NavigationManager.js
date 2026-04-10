@@ -51,6 +51,12 @@ export class NavigationManager {
         });
         this.zoomManager.init();
 
+        // Bloquer la sélection native (texte, éléments) lors du drag — certains navigateurs
+        // (Opera, Firefox) sélectionnent le contenu du plateau pendant le glissement
+        this.container.style.userSelect = 'none';
+        this.container.style.webkitUserSelect = 'none';
+        this.container.addEventListener('selectstart', (e) => e.preventDefault());
+
         this._setupMouseDrag();
         this._setupTouchDrag();
 
