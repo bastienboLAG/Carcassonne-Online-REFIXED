@@ -109,6 +109,21 @@ function _updateDragonAvailability() {
 
 // ── Coches maîtres ─────────────────────────────────────────────────────────
 
+function _updateAllExtensionsMaster() {
+    const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
+    const master = _id('all-extensions');
+    if (!master) return;
+    const checked   = subMasters.filter(id => { const el = _id(id); return el && el.checked && !el.indeterminate; }).length;
+    const unchecked = subMasters.filter(id => { const el = _id(id); return el && !el.checked && !el.indeterminate; }).length;
+    if (checked === subMasters.length) {
+        master.checked = true; master.indeterminate = false;
+    } else if (unchecked === subMasters.length) {
+        master.checked = false; master.indeterminate = false;
+    } else {
+        master.checked = false; master.indeterminate = true;
+    }
+}
+
 function _updateMasterCheckboxSafe(masterId) {
     const master   = _id(masterId);
     if (!master) return;
@@ -129,6 +144,20 @@ function _onMasterChange(masterId) {
     const master = _id(masterId);
     if (!master) return;
     const checked = master.checked;
+
+    if (masterId === 'all-extensions') {
+        const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
+        subMasters.forEach(id => {
+            const sub = _id(id);
+            if (!sub) return;
+            sub.checked = checked;
+            sub.indeterminate = false;
+            _onMasterChange(id);
+        });
+        _updateAllExtensionsMaster();
+        saveLobbyOptions();
+        return;
+    }
 
     if (masterId === 'all-dragon') {
         if (checked) {
@@ -171,6 +200,7 @@ function _onMasterChange(masterId) {
     const allChildren = [...document.querySelectorAll(`input[data-group="${masterId}"]`)];
     allChildren.forEach(c => c.dispatchEvent(new Event('change', { bubbles: true })));
 
+    _updateAllExtensionsMaster();
     saveLobbyOptions();
 }
 
@@ -381,6 +411,7 @@ function loadLobbyOptions() {
 export function updateMasterCheckboxes() {
     const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
     MASTER_IDS.forEach(_updateMasterCheckboxSafe);
+    _updateAllExtensionsMaster();
 }
 
 function _updateTileCount() {
@@ -408,7 +439,7 @@ export function updateAllAvailability() {
 
 // ── Initialisation ─────────────────────────────────────────────────────────
 
-const MASTER_IDS = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
+const MASTER_IDS = ['all-extensions', 'all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
 
 /**
  * @param {object} deps
