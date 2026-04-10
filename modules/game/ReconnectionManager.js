@@ -244,7 +244,7 @@ export class ReconnectionManager {
             : '';
         overlay.innerHTML = `
             <div style="position:relative;background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-                <button id="reconnect-close-btn" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#e74c3c;font-size:22px;cursor:pointer;line-height:1;padding:0;" title="Arrêter la reconnexion">✕</button>
+                <button id="reconnect-close-btn" style="position:absolute;top:10px;right:12px;background:#e74c3c;color:white;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Arrêter la reconnexion">✕</button>
                 <div style="font-size:48px;margin-bottom:12px;">🔌</div>
                 <h2 style="margin:0 0 8px;font-size:22px;">Connexion perdue</h2>
                 <p style="margin:0 0 16px;color:#aaa;font-size:15px;">Reconnexion en cours…</p>
@@ -267,7 +267,6 @@ export class ReconnectionManager {
             closeBtn.onclick = () => {
                 this.stopAutoReconnect();
                 this.hideReconnectOverlay();
-                if (this._onReturnToInitialLobby) this._onReturnToInitialLobby();
             };
         }
         this._hidePauseOverlay();
