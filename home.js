@@ -1179,6 +1179,7 @@ function _makeStarter() {
             buildPlayersForBroadcast,
             afficherToast,
             onGameSyncInit:          () => { if (gameSync) gameSync.init(); },
+            onReturnToInitialLobby:  () => returnToInitialLobby(),
         }),
         // deps pour reconnectionManager.initStateHandlers
         getStateHandlerDeps: () => ({

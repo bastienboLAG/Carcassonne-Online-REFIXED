@@ -40,6 +40,7 @@ export class ReconnectionManager {
         this._buildPlayersForBroadcast = deps.buildPlayersForBroadcast;
         this._afficherToast          = deps.afficherToast;
         this._onGameSyncInit         = deps.onGameSyncInit;
+        this._onReturnToInitialLobby = deps.onReturnToInitialLobby ?? null;
 
         this.gamePaused         = false;
         this.pauseTimerInterval = null;
@@ -242,7 +243,8 @@ export class ReconnectionManager {
             ? `<p style="margin:20px 0 0;font-size:13px;color:#aaa;">Code : <strong style="color:#fff;letter-spacing:2px;">${this._gameCode}</strong></p>`
             : '';
         overlay.innerHTML = `
-            <div style="background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="position:relative;background:rgba(30,40,55,0.97);border-radius:16px;padding:32px 40px;text-align:center;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                <button id="reconnect-close-btn" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#e74c3c;font-size:22px;cursor:pointer;line-height:1;padding:0;" title="Arrêter la reconnexion">✕</button>
                 <div style="font-size:48px;margin-bottom:12px;">🔌</div>
                 <h2 style="margin:0 0 8px;font-size:22px;">Connexion perdue</h2>
                 <p style="margin:0 0 16px;color:#aaa;font-size:15px;">Reconnexion en cours…</p>
@@ -260,6 +262,14 @@ export class ReconnectionManager {
                 }
             </style>
         `;
+        const closeBtn = document.getElementById('reconnect-close-btn');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                this.stopAutoReconnect();
+                this.hideReconnectOverlay();
+                if (this._onReturnToInitialLobby) this._onReturnToInitialLobby();
+            };
+        }
         this._hidePauseOverlay();
         overlay.style.display = 'flex';
     }
@@ -415,10 +425,6 @@ export class ReconnectionManager {
                 d.setTuileEnMain(tuileEnMain);
                 d.getEventBus().emit('tile-drawn', { tileData: tuileEnMain, fromNetwork: true });
             }
-        } else if (tuilePosee) {
-            // La tuile de l'autre joueur a été posée pendant notre déco — effacer la tuile en main
-            console.log('🔄 [applyFullStateSync] tuilePosee=true → setTuileEnMain(null)');
-            d.setTuileEnMain(null);
         }
 
         const _tuilePosee  = tuilePosee;
@@ -428,7 +434,6 @@ export class ReconnectionManager {
             if (_tuilePosee)       tilePreviewUI.showBackside();
             else if (_tuileEnMain) tilePreviewUI.showTile(_tuileEnMain);
             else                   tilePreviewUI.showMessage('En attente...');
-            if (d.updateMobileTilePreview) d.updateMobileTilePreview();
         });
 
         if (slotsUI) slotsUI.tileAvailable = !tuilePosee && !!d.getTuileEnMain();
