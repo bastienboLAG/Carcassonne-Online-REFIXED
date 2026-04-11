@@ -110,7 +110,7 @@ function _updateDragonAvailability() {
 // ── Coches maîtres ─────────────────────────────────────────────────────────
 
 function _updateAllExtensionsMaster() {
-    const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
+    const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon'];
     const master = _id('all-extensions');
     if (!master) return;
     const checked   = subMasters.filter(id => { const el = _id(id); return el && el.checked && !el.indeterminate; }).length;
@@ -146,7 +146,7 @@ function _onMasterChange(masterId) {
     const checked = master.checked;
 
     if (masterId === 'all-extensions') {
-        const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon', 'all-tiles'];
+        const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon'];
         subMasters.forEach(id => {
             const sub = _id(id);
             if (!sub) return;
@@ -482,7 +482,10 @@ export function initLobbyOptions({ getIsHost, getInLobby, multiplayer }) {
     });
 
     document.querySelectorAll('input[data-group]').forEach(child => {
-        child.addEventListener('change', () => _updateMasterCheckboxSafe(child.dataset.group));
+        child.addEventListener('change', () => {
+            _updateMasterCheckboxSafe(child.dataset.group);
+            _updateAllExtensionsMaster();
+        });
     });
 
     MASTER_IDS.forEach(_updateMasterCheckboxSafe);
