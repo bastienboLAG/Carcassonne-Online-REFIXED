@@ -150,9 +150,10 @@ function _onMasterChange(masterId) {
         subMasters.forEach(id => {
             const sub = _id(id);
             if (!sub) return;
+            // Ne forcer que si le sous-master n'est pas entièrement désactivé
             sub.checked = checked;
             sub.indeterminate = false;
-            _onMasterChange(id);
+            _onMasterChange(id); // _onMasterChange respecte les disabled
         });
         _updateAllExtensionsMaster();
         saveLobbyOptions();
@@ -165,7 +166,7 @@ function _onMasterChange(masterId) {
             if (tilesDragon && !tilesDragon.disabled) tilesDragon.checked = true;
 
             const extDragon = _id('ext-dragon');
-            if (extDragon) extDragon.checked = true;
+            if (extDragon && !extDragon.disabled) extDragon.checked = true;
 
             _updateDragonAvailability();
 
