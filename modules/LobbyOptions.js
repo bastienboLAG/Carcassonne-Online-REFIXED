@@ -146,14 +146,22 @@ function _onMasterChange(masterId) {
     const checked = master.checked;
 
     if (masterId === 'all-extensions') {
-        const subMasters = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon'];
-        subMasters.forEach(id => {
-            const sub = _id(id);
-            if (!sub) return;
-            // Ne forcer que si le sous-master n'est pas entièrement désactivé
-            sub.checked = checked;
-            sub.indeterminate = false;
-            _onMasterChange(id); // _onMasterChange respecte les disabled
+        // Appliquer directement sur les enfants non-disabled de chaque sous-groupe,
+        // sans passer par _onMasterChange qui a une logique spéciale pour all-dragon
+        // (activerait tiles-dragon). On imite le comportement des autres groupes.
+        const subGroups = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon'];
+        subGroups.forEach(groupId => {
+            document.querySelectorAll(`input[data-group="${groupId}"]`)
+                .forEach(el => { if (!el.disabled) el.checked = checked; });
+        });
+        _updatePigAvailability();
+        _updateMerchantsAvailability();
+        _updateInnsCthdAvailability();
+        _updateDragonAvailability();
+        subGroups.forEach(id => {
+            _updateMasterCheckboxSafe(id);
+            document.querySelectorAll(`input[data-group="${id}"]`)
+                .forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
         });
         _updateAllExtensionsMaster();
         saveLobbyOptions();
