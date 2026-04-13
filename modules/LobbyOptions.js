@@ -146,23 +146,36 @@ function _onMasterChange(masterId) {
     const checked = master.checked;
 
     if (masterId === 'all-extensions') {
-        // Appliquer directement sur les enfants non-disabled de chaque sous-groupe,
-        // sans passer par _onMasterChange qui a une logique spéciale pour all-dragon
-        // (activerait tiles-dragon). On imite le comportement des autres groupes.
-        const subGroups = ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon'];
-        subGroups.forEach(groupId => {
+        const applyGroup = (groupId) => {
             document.querySelectorAll(`input[data-group="${groupId}"]`)
                 .forEach(el => { if (!el.disabled) el.checked = checked; });
-        });
-        _updatePigAvailability();
-        _updateMerchantsAvailability();
-        _updateInnsCthdAvailability();
-        _updateDragonAvailability();
-        subGroups.forEach(id => {
-            _updateMasterCheckboxSafe(id);
-            document.querySelectorAll(`input[data-group="${id}"]`)
-                .forEach(el => el.dispatchEvent(new Event('change', { bubbles: true })));
-        });
+        };
+
+        if (checked) {
+            // Ordre important : chaque mise à jour de disponibilité débloque
+            // les options dépendantes avant qu'on les coche
+            applyGroup('all-base');         // coche "Les champs"
+            _updatePigAvailability();       // débloque Cochon si champs actif
+            applyGroup('all-traders-builders'); // coche Bâtisseur + Cochon (si dispo)
+            _updateMerchantsAvailability(); // débloque Marchands si tuiles TB actives
+            applyGroup('all-abbot');
+            applyGroup('all-inns-cathedrals'); // Cathédrales/Auberges si tuiles actives
+            _updateInnsCthdAvailability();
+            applyGroup('all-dragon');       // Dragon/Princesse/Portail si tuiles actives
+            _updateDragonAvailability();    // débloque Protection Fée si Dragon actif
+            applyGroup('all-dragon');       // re-coche Protection Fée si maintenant dispo
+        } else {
+            // Décocher : pas de dépendances à respecter, on décoche tout directement
+            ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon']
+                .forEach(applyGroup);
+            _updatePigAvailability();
+            _updateMerchantsAvailability();
+            _updateInnsCthdAvailability();
+            _updateDragonAvailability();
+        }
+
+        ['all-base', 'all-abbot', 'all-inns-cathedrals', 'all-traders-builders', 'all-dragon']
+            .forEach(id => _updateMasterCheckboxSafe(id));
         _updateAllExtensionsMaster();
         saveLobbyOptions();
         return;
