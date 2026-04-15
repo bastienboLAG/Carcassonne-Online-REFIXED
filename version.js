@@ -11,6 +11,5 @@ export const APP_VERSION = '1.03.01.003';
 
 // Domaines GitHub Pages autorisés — ajoute ici tous tes sites officiels
 export const ALLOWED_ORIGINS = [
-    'https://bastienbolag.github.io/Carcassonne-Online/',
-    'https://bastienbolag.github.io/Carcassonne-Online-REFIXED/',
+    'bastienbolag.github.io',
 ];
