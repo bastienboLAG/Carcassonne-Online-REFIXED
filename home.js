@@ -1,4 +1,5 @@
 import { Multiplayer }            from './modules/core/Multiplayer.js';
+import { APP_VERSION, ALLOWED_ORIGINS } from './version.js';
 import { Tile }                   from './modules/Tile.js';
 import { Board }                  from './modules/Board.js';
 import { Deck }                   from './modules/Deck.js';
@@ -87,6 +88,8 @@ const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 // VARIABLES LOBBY
 // ═══════════════════════════════════════════════════════
 const multiplayer = new Multiplayer();
+multiplayer.appVersion = APP_VERSION;
+multiplayer.appOrigin  = window.location.hostname;
 // Callbacks heartbeat assignés dès le départ — heartbeatManager peut être null avant le démarrage
 multiplayer.onHeartbeatPing = () => heartbeatManager?.receivePing();
 multiplayer.onHeartbeatPong = (peerId) => heartbeatManager?.receivePong(peerId);
@@ -658,6 +661,14 @@ document.getElementById('join-game-btn').addEventListener('click', () => {
     document.getElementById('join-code-input').focus();
 });
 
+function _checkCompatibility(hostVersion, hostOrigin) {
+    const originOk = ALLOWED_ORIGINS.some(o => hostOrigin === o || hostOrigin.endsWith('.' + o));
+    const versionOk = hostVersion === APP_VERSION;
+    if (!originOk) return { ok: false, reason: `Domaine non autorisé : ${hostOrigin}. Utilisez une version officielle du jeu.` };
+    if (!versionOk) return { ok: false, reason: `Version incompatible : hôte v${hostVersion}, vous v${APP_VERSION}. Mettez à jour votre jeu.` };
+    return { ok: true };
+}
+
 function _makeJoiner() {
     return new LobbyJoin({
         getMultiplayer:          () => multiplayer,
@@ -677,6 +688,7 @@ function _makeJoiner() {
         startHeartbeat:          (cb) => _startHeartbeat(cb),
         showJoinError,
         showRoleChoiceModal:     _showRoleChoiceModal,
+        checkCompatibility:      _checkCompatibility,
         returnToLobby,
         returnToInitialLobby,
         startGameForInvite,
@@ -1414,3 +1426,7 @@ initLobbyOptions({
 });
 lobbyUI.init();
 console.log('Page chargée');
+
+// Afficher la version
+const _versionEl = document.getElementById('app-version-display');
+if (_versionEl) _versionEl.textContent = `v${APP_VERSION}`;

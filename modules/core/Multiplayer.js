@@ -148,7 +148,9 @@ export class Multiplayer {
             conn.send({
                 type: 'welcome',
                 from: this.playerId,
-                message: 'Bienvenue dans la partie !'
+                message: 'Bienvenue dans la partie !',
+                version: this.appVersion ?? null,
+                origin:  this.appOrigin  ?? null,
             });
         };
 

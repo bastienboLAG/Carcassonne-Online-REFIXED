@@ -18,6 +18,16 @@ export class LobbyJoin {
 
                 if (data.type === 'welcome') {
                     console.log('🎉', data.message);
+                    // Vérifier compatibilité version + domaine
+                    if (d.checkCompatibility) {
+                        const result = d.checkCompatibility(data.version, data.origin);
+                        if (!result.ok) {
+                            d.getMultiplayer().peer?.destroy();
+                            document.getElementById('join-modal').style.display = 'flex';
+                            d.showJoinError(result.reason);
+                            return;
+                        }
+                    }
                     d.setGameCode(code);
                     document.getElementById('game-code-container').style.display = 'block';
                     document.getElementById('game-code-text').textContent = `Code: ${code}`;
