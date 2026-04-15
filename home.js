@@ -89,7 +89,7 @@ const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 // ═══════════════════════════════════════════════════════
 const multiplayer = new Multiplayer();
 multiplayer.appVersion = APP_VERSION;
-multiplayer.appOrigin  = window.location.hostname;
+multiplayer.appOrigin  = window.location.hostname + window.location.pathname.replace(/\/+$/, '');
 // Callbacks heartbeat assignés dès le départ — heartbeatManager peut être null avant le démarrage
 multiplayer.onHeartbeatPing = () => heartbeatManager?.receivePing();
 multiplayer.onHeartbeatPong = (peerId) => heartbeatManager?.receivePong(peerId);
@@ -662,9 +662,14 @@ document.getElementById('join-game-btn').addEventListener('click', () => {
 });
 
 function _checkCompatibility(hostVersion, hostOrigin) {
-    const originOk = ALLOWED_ORIGINS.some(o => hostOrigin === o || hostOrigin.endsWith('.' + o));
+    // Version absente = ancienne version sans système de compatibilité → bloquer
+    if (!hostVersion || !hostOrigin) {
+        return { ok: false, reason: `Votre jeu ou celui de l'hôte est trop ancien. Mettez à jour votre jeu.` };
+    }
+    const myOrigin = window.location.hostname + window.location.pathname.replace(/\/+$/, '');
+    const originOk = hostOrigin === myOrigin;
     const versionOk = hostVersion === APP_VERSION;
-    if (!originOk) return { ok: false, reason: `Domaine non autorisé : ${hostOrigin}. Utilisez une version officielle du jeu.` };
+    if (!originOk) return { ok: false, reason: `Source incompatible. Utilisez la même version officielle du jeu.` };
     if (!versionOk) return { ok: false, reason: `Version incompatible : hôte v${hostVersion}, vous v${APP_VERSION}. Mettez à jour votre jeu.` };
     return { ok: true };
 }

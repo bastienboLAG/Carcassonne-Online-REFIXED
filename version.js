@@ -1,6 +1,11 @@
 /**
- * version.js — Version et domaines autorisés
+ * version.js — Version de l'application
  * À mettre à jour à chaque déploiement.
+ *
+ * La compatibilité est vérifiée à la connexion :
+ * - Même version requise (hôte et invité)
+ * - Même origine requise (hostname + pathname) pour éviter les forks
+ *
  * V.1.xx.yy.zzz
  * xx=numéro d'extension en cours (03 pour dragon, 04 pour tour, etc.)
  * yy=ajout majeur
@@ -8,8 +13,3 @@
  */
 
 export const APP_VERSION = '1.03.01.002';
-
-// Domaines GitHub Pages autorisés — ajoute ici tous tes sites officiels
-export const ALLOWED_ORIGINS = [
-    'bastienbolag.github.io',
-];

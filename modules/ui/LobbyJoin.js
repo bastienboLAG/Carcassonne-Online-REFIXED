@@ -22,9 +22,14 @@ export class LobbyJoin {
                     if (d.checkCompatibility) {
                         const result = d.checkCompatibility(data.version, data.origin);
                         if (!result.ok) {
-                            d.getMultiplayer().peer?.destroy();
-                            document.getElementById('join-modal').style.display = 'flex';
-                            d.showJoinError(result.reason);
+                            // Détruire le peer et revenir proprement au lobby initial
+                            try { d.getMultiplayer().peer?.destroy(); } catch(e) {}
+                            d.returnToInitialLobby();
+                            // Afficher l'erreur après le retour (timeout pour laisser le DOM se réinitialiser)
+                            setTimeout(() => {
+                                document.getElementById('join-modal').style.display = 'flex';
+                                d.showJoinError(result.reason);
+                            }, 150);
                             return;
                         }
                     }
