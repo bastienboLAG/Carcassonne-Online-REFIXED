@@ -7,7 +7,7 @@
  * zzz=ajout mineur
  */
 
-export const APP_VERSION = '1.03.01.002';
+export const APP_VERSION = '1.03.01.003';
 
 // Domaines GitHub Pages autorisés — ajoute ici tous tes sites officiels
 export const ALLOWED_ORIGINS = [

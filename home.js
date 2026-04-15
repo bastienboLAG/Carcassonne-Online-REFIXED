@@ -1429,4 +1429,4 @@ console.log('Page chargée');
 
 // Afficher la version
 const _versionEl = document.getElementById('app-version-display');
-if (_versionEl) _versionEl.textContent = `v${APP_VERSION}`;
+if (_versionEl) _versionEl.textContent = `v.${APP_VERSION}`;
