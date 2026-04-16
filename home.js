@@ -1,5 +1,5 @@
 import { Multiplayer }            from './modules/core/Multiplayer.js';
-import { APP_VERSION, ALLOWED_ORIGINS } from './version.js';
+import { APP_VERSION } from './version.js';
 import { Tile }                   from './modules/Tile.js';
 import { Board }                  from './modules/Board.js';
 import { Deck }                   from './modules/Deck.js';
