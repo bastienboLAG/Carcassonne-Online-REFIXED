@@ -554,6 +554,12 @@ document.getElementById('create-game-btn').addEventListener('click', async () =>
             console.log('📨 [HÔTE] Reçu:', data);
 
             if (data.type === 'player-info') {
+                // Vérifier compatibilité version + origine
+                const _compat = _checkCompatibility(data.version, data.origin);
+                if (!_compat.ok) {
+                    multiplayer.sendTo(from, { type: 'rejoin-rejected', reason: _compat.reason });
+                    return;
+                }
                 if (!players.find(p => p.id === from)) {
                     const taken    = players.map(p => p.color);
                     const assigned = taken.includes(data.color)
@@ -694,6 +700,8 @@ function _makeJoiner() {
         showJoinError,
         showRoleChoiceModal:     _showRoleChoiceModal,
         checkCompatibility:      _checkCompatibility,
+        getAppVersion:           () => APP_VERSION,
+        getAppOrigin:            () => window.location.hostname + window.location.pathname.replace(/\/+$/, ''),
         returnToLobby,
         returnToInitialLobby,
         startGameForInvite,

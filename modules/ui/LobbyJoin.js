@@ -43,12 +43,12 @@ export class LobbyJoin {
                     clearTimeout(window._pendingPlayerInfoTimer);
                     if (window._isAutoReconnecting) {
                         window._isAutoReconnecting = false;
-                        d.getMultiplayer().broadcast({ type: 'player-info', name: d.getPlayerName(), color: d.getPlayerColor(), isSpectator: false });
+                        d.getMultiplayer().broadcast({ type: 'player-info', name: d.getPlayerName(), color: d.getPlayerColor(), isSpectator: false, version: d.getAppVersion?.(), origin: d.getAppOrigin?.() });
                     } else {
                         window._waitingForRoleChoice = true;
                         d.showRoleChoiceModal((chosenIsSpectator) => {
                             window._waitingForRoleChoice = false;
-                            d.getMultiplayer().broadcast({ type: 'player-info', name: d.getPlayerName(), color: d.getPlayerColor(), isSpectator: chosenIsSpectator });
+                            d.getMultiplayer().broadcast({ type: 'player-info', name: d.getPlayerName(), color: d.getPlayerColor(), isSpectator: chosenIsSpectator, version: d.getAppVersion?.(), origin: d.getAppOrigin?.() });
                         });
                     }
                 }
@@ -155,7 +155,7 @@ export class LobbyJoin {
 
             window._pendingPlayerInfoTimer = setTimeout(() => {
                 if (!window._waitingForRoleChoice) {
-                    d.getMultiplayer().broadcast({ type: 'player-info', name: d.getPlayerName(), color: d.getPlayerColor(), isSpectator });
+                    d.getMultiplayer().broadcast({ type: 'player-info', name: d.getPlayerName(), color: d.getPlayerColor(), isSpectator, version: d.getAppVersion?.(), origin: d.getAppOrigin?.() });
                 }
             }, 500);
 
