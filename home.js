@@ -219,7 +219,9 @@ eventBus.on('tile-drawn', (data) => {
         && !isMyTurn && gameState?.currentTilePlaced && !_isSpectator();
     const _skipPreview = _guestWaiting || _hostWaiting || _otherPlayerTile;
     if (tilePreviewUI && !_skipPreview) tilePreviewUI.showTile(tuileEnMain);
+    else if (tilePreviewUI && _otherPlayerTile) tilePreviewUI.showBackside(); // marque isShowingBackside=true pour onTurnEnded
     if (!_skipPreview) updateMobileTilePreview();
+    else if (_otherPlayerTile) updateMobileTilePreview(); // affiche le verso sur mobile aussi
 
     // Invité : quand sa tuile de remplacement arrive (fromYourTurn), remettre waitingToRedraw à false
     if (waitingToRedraw && !isHost && data.fromYourTurn) {
