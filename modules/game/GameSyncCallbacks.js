@@ -17,8 +17,7 @@ export class GameSyncCallbacks {
         releaseFairyIfDetached, broadcastDragonState, startDragonTurnUI,
         executeDragonMoveHost, advanceDragonTurnHost, handlePrincessEject,
         tileHasDragonZone, tileHasVolcanoZone,
-        setTuileEnMain, setCurrentTileForPlayer,
-        getTuileEnMain = null,
+        setTuileEnMain, setCurrentTileForPlayer, getTuileEnMain = null,
         isHost = false,
     }) {
         Object.assign(this, {
@@ -95,7 +94,7 @@ export class GameSyncCallbacks {
             this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn, nextTileId);
             if (isBonusTurn && this.onBonusTurnStarted) this.onBonusTurnStarted(this.gameState.getCurrentPlayer()?.id);
             // Si tile-drawn était arrivé avant turn-ended (currentTilePlaced=true → preview skippée),
-            // maintenant que currentTilePlaced=false on peut afficher la tuile en main
+            // afficher la tuile maintenant que currentTilePlaced=false
             const tuileEnMain = this.getTuileEnMain?.();
             if (tuileEnMain && !this.isHost && this.tilePreviewUI?.isShowingBackside) {
                 this.tilePreviewUI.showTile(tuileEnMain);
