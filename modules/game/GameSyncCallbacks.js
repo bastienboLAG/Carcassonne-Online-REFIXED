@@ -94,10 +94,13 @@ export class GameSyncCallbacks {
             this.turnManager.receiveTurnEnded(nextPlayerIndex, gameStateData, isBonusTurn, nextTileId);
             if (isBonusTurn && this.onBonusTurnStarted) this.onBonusTurnStarted(this.gameState.getCurrentPlayer()?.id);
             // Si tile-drawn était arrivé avant turn-ended (currentTilePlaced=true → preview skippée),
-            // afficher la tuile maintenant que currentTilePlaced=false
+            // afficher la tuile maintenant que currentTilePlaced=false.
+            // On ne conditionne PAS sur isShowingBackside car si home.js n'a pas appelé
+            // showBackside() lors du skip, isShowingBackside reste false à tort.
             const tuileEnMain = this.getTuileEnMain?.();
-            if (tuileEnMain && !this.isHost && this.tilePreviewUI?.isShowingBackside) {
-                this.tilePreviewUI.showTile(tuileEnMain);
+            const _isActivePlayer = this.gameState.getCurrentPlayer()?.id === this.gameSync?.multiplayer?.playerId;
+            if (tuileEnMain && !this.isHost && !_isActivePlayer) {
+                if (this.tilePreviewUI) this.tilePreviewUI.showTile(tuileEnMain);
                 if (this.onUpdateMobileTilePreview) this.onUpdateMobileTilePreview();
             }
         };
